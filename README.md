@@ -53,7 +53,7 @@ For the full structure see `docs/PROJECT_STRUCTURE.md`.
 
 ## Requirements
 - Windows 10/11
-- Python 3.13+
+- Python 3.12+
 - Git (optional)
 - Make (via GnuWin32 or similar)
 

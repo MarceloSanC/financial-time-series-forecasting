@@ -7,7 +7,7 @@ name = "tcc-sentiment-analysis"
 version = "0.1.0"
 description = "Análise de sentimento em notícias financeiras para previsão de tendências de mercado"
 authors = [{ name = "Marcelo", email = "marcelo.santos.c@grad.ufsc.br" }]
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = [
     "requests",
     "transformers",
@@ -45,11 +45,11 @@ filterwarnings = [
 
 [tool.black]
 line-length = 88
-target-version = ["py313"]
+target-version = ["py312"]
 include = '\.pyi?$'
 
 [tool.ruff]
-target-version = "py313"
+target-version = "py312"
 line-length = 88
 # Note: 'fix = true' is deprecated in config; use 'ruff check --fix' in terminal instead
 

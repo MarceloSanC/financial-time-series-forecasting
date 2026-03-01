@@ -10,7 +10,7 @@ make test
 
 Saída esperada:
 ```
------------ coverage: platform win32, python 3.13.3 -----------
+----------- coverage: platform win32, python 3.12.0 -----------
 Name                              Stmts   Miss  Cover
 -------------------------------------------------------
 src/entities/news.py                 12      0   100%

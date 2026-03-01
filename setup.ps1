@@ -66,17 +66,17 @@ if (Test-MakeUsable) {
 }
 
 # ---------------------------------
-# 2. Python 3.13+ check (cross-platform)
+# 2. Python 3.12+ check (cross-platform)
 # ---------------------------------
 try {
     $pyVersion = python --version 2>&1
-    if ($pyVersion -match "Python 3\.1[3-9]") {
-        Write-Host "Python 3.13+ detected: $pyVersion" -ForegroundColor Green
+    if ($pyVersion -match "Python 3\.(1[2-9]|[2-9][0-9])") {
+        Write-Host "Python 3.12+ detected: $pyVersion" -ForegroundColor Green
     } else {
         throw "Incompatible Python version"
     }
 } catch {
-    Write-Error "Python 3.13+ not found. Install it from: https://www.python.org"
+    Write-Error "Python 3.12+ not found. Install it from: https://www.python.org"
     exit 1
 }
 

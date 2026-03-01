@@ -5,7 +5,7 @@ Este guia explica como configurar e executar o projeto localmente (Windows).
 ## Pr?-requisitos
 
 - Windows 10/11
-- Python 3.13+
+- Python 3.12+
 - Git (opcional)
 
 ## Configura??o
@@ -29,7 +29,7 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 
 > O script `setup.ps1`:
 > - Adiciona `make` ao PATH
-> - Verifica Python 3.13+
+> - Verifica Python 3.12+
 > - Ativa o ambiente virtual (se `.venv` existir)
 
 4. Crie o ambiente virtual (se ainda n?o existir):

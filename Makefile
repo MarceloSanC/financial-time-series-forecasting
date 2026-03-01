@@ -1,7 +1,7 @@
 .PHONY: help install test lint format type-check clean check-python-version
 
 check-python-version:
-	@python -c "import sys; v = sys.version_info; assert v.major == 3 and v.minor >= 13, f'Python 3.13+ required, got {v.major}.{v.minor}'; print('Python 3.13+ OK')"
+	@python -c "import sys; v = sys.version_info; assert v.major == 3 and v.minor >= 12, f'Python 3.12+ required, got {v.major}.{v.minor}'; print('Python 3.12+ OK')"
 
 help:
 	@echo "Comandos disponíveis:"
