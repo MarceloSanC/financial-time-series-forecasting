@@ -24,6 +24,7 @@ Exemplo:
 
 ```json
 {
+  "test_type": "ofat",
   "output_subdir": "0_0_sweep_all_params_robust_vs_baseline",
   "features": "BASELINE_FEATURES",
   "replica_seeds": [7, 11, 13, 42, 123],
@@ -69,6 +70,10 @@ Exemplo:
 }
 ```
 
+Regra de validacao por tipo:
+- `main_tft_param_sweep` exige `test_type: "ofat"`
+- `main_tft_optuna_sweep` exige `test_type: "optuna"`
+
 ## 3) Execucao basica
 
 ```bash
@@ -80,14 +85,14 @@ Comportamento:
 1. Treina as variacoes OFAT por fold e seed.
 2. Salva `sweep_runs.csv/json`.
 3. Gera relatorios agregados (`config_ranking`, `param_impact`, `summary`).
-4. Gera plots automaticamente (via `main_generate_sweep_plots`).
+4. Gera artefatos automaticamente (relatorios + plots) via `main_generate_sweep_artifacts`.
 
 ## 4) Regerar apenas artefatos (sem treinar)
 
 Use quando os modelos/runs ja existem e voce quer recomputar relatorios/plots:
 
 ```bash
-python -m src.main_generate_sweep_plots --sweep-dir data/models/AAPL/sweeps/SEU_SWEEP
+python -m src.main_generate_sweep_artifacts --sweep-dir data/models/AAPL/sweeps/SEU_SWEEP
 ```
 
 ## 5) Merge incremental de testes (`--merge-tests`)
@@ -160,7 +165,7 @@ Estrutura por fold:
 
 2. Se um sweep falhar parcialmente:
 - use `--continue-on-error` para seguir
-- depois regenere artefatos com `main_generate_sweep_plots`
+- depois regenere artefatos com `main_generate_sweep_artifacts`
 
 3. Para comparacao justa entre sweeps:
 - compare apenas intersecao de folds/seeds/params iguais
@@ -191,4 +196,18 @@ Arquivos principais:
 Fluxo recomendado:
 1. Executar Optuna para obter top-k configuracoes (`optuna_top_k_configs.json`).
 2. Levar as configuracoes para um sweep dedicado e gerar relatorios/plots finais.
+
+## 10) Runner unificado por `test_type`
+
+Novo entrypoint:
+
+```bash
+python -m src.main_tft_test_pipeline --asset AAPL --config-json config/test_pipeline.default.json
+```
+
+Campos obrigatorios:
+- comuns: `schema_version`, `test_type`, `training_config`, `split_config`
+- `test_type: "ofat"`: exige `param_ranges`
+- `test_type: "optuna"`: exige `search_space`, `n_trials`, `top_k`, `study_name`
+- `test_type: "explicit_configs"`: exige `explicit_configs` com `training_config` por item
 
