@@ -7,6 +7,7 @@ Este guia explica como configurar e executar o projeto localmente (Windows).
 - Windows 10/11
 - Python 3.12+
 - Git (opcional)
+- pyenv (opcional, recomendado para padronizar versao local)
 
 ## Configura??o
 
@@ -44,6 +45,18 @@ make install
 ```
 
 Pronto! O projeto est? configurado.
+
+## Padronizacao com pyenv (recomendado)
+
+Este repositorio versiona `.python-version` com a versao alvo do projeto.
+
+Se voce usa pyenv:
+```
+pyenv install 3.12.10
+pyenv local 3.12.10
+```
+
+Isso reduz divergencias de ambiente antes da migracao completa para Docker.
 
 ## Checklist do MVP
 
