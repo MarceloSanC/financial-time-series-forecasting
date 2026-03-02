@@ -25,6 +25,10 @@ from src.infrastructure.schemas.tft_dataset_parquet_schema import (
     SENTIMENT_FEATURES,
     TECHNICAL_FEATURES,
 )
+from src.use_cases.test_pipeline_common import (
+    validate_split_metrics_payload,
+    validate_train_runner_contract,
+)
 from src.utils.path_resolver import load_data_paths
 
 logger = logging.getLogger(__name__)
@@ -85,6 +89,7 @@ class RunTFTModelAnalysisUseCase:
         walk_forward_config: dict[str, Any] | None = None,
         generate_comparison_plots: bool = True,
     ) -> None:
+        validate_train_runner_contract(train_runner)
         self.train_runner = train_runner
         self.base_training_config = dict(base_training_config)
         self.param_ranges = (
@@ -449,19 +454,9 @@ class RunTFTModelAnalysisUseCase:
             return False, f"invalid metadata.json: {exc}", None
         if not isinstance(metadata, dict):
             return False, "metadata.json root must be an object", None
-        split_metrics = metadata.get("split_metrics")
-        if not isinstance(split_metrics, dict):
-            return False, "metadata missing split_metrics", None
-        for split_name in ["val", "test"]:
-            metrics = split_metrics.get(split_name)
-            if not isinstance(metrics, dict):
-                return False, f"metadata missing split_metrics.{split_name}", None
-            for metric_name in ["rmse", "mae"]:
-                value = metrics.get(metric_name)
-                try:
-                    float(value)
-                except Exception:
-                    return False, f"invalid split_metrics.{split_name}.{metric_name}", None
+        is_valid_metrics, reason = validate_split_metrics_payload(metadata=metadata)
+        if not is_valid_metrics:
+            return False, reason, None
 
         # Validate model_state.pt is loadable to avoid silently skipping a corrupt model.
         model_state_path = version_dir / "model_state.pt"
@@ -1531,6 +1526,7 @@ class RunTFTModelAnalysisUseCase:
         max_runs: int | None = None,
         output_subdir: str | None = None,
         analysis_config: dict[str, Any] | None = None,
+        explicit_experiments: list[SweepExperiment] | None = None,
     ) -> RunTFTModelAnalysisResult:
         asset = asset.strip().upper()
         models_asset_dir.mkdir(parents=True, exist_ok=True)
@@ -1576,10 +1572,13 @@ class RunTFTModelAnalysisUseCase:
                 encoding="utf-8",
             )
 
-        experiments = build_one_at_a_time_experiments(
-            base_config=self.base_training_config,
-            param_ranges=self.param_ranges,
-        )
+        if explicit_experiments is not None:
+            experiments = list(explicit_experiments)
+        else:
+            experiments = build_one_at_a_time_experiments(
+                base_config=self.base_training_config,
+                param_ranges=self.param_ranges,
+            )
         if max_runs is not None:
             experiments = experiments[: max(1, max_runs)]
 
@@ -1739,6 +1738,24 @@ class RunTFTModelAnalysisUseCase:
                                     version=version,
                                     status="failed",
                                     error="Missing generated model version or metadata.json",
+                                )
+                            )
+                            if not continue_on_error:
+                                break
+                            continue
+
+                        is_valid_metrics, reason = validate_split_metrics_payload(metadata=metadata)
+                        if not is_valid_metrics:
+                            run_records.append(
+                                AnalysisRunRecord(
+                                    fold_name=fold_name,
+                                    run_label=run_label,
+                                    varied_param=exp.varied_param,
+                                    varied_value=exp.varied_value,
+                                    config_signature=config_signature,
+                                    version=version,
+                                    status="failed",
+                                    error=f"Invalid trainer output: {reason}",
                                 )
                             )
                             if not continue_on_error:
