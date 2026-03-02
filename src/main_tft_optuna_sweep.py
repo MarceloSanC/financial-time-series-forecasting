@@ -23,7 +23,7 @@ from src.utils.logging_config import setup_logging
 from src.utils.path_resolver import load_data_paths
 
 logger = logging.getLogger(__name__)
-DEFAULT_OPTUNA_CONFIG_PATH = Path("config/optuna/default_tft_optuna_sweep.json")
+DEFAULT_OPTUNA_CONFIG_PATH = Path("config/sweeps/optuna/default_tft_optuna_sweep.json")
 
 
 def _parse_csv_str(value: str | None) -> list[str]:
@@ -91,7 +91,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help=(
             "Optional path to Optuna config JSON. "
-            "If omitted, uses config/optuna/default_tft_optuna_sweep.json."
+            "If omitted, uses config/sweeps/optuna/default_tft_optuna_sweep.json."
         ),
     )
     parser.add_argument("--features", type=str, default=None, help="Feature token string.")

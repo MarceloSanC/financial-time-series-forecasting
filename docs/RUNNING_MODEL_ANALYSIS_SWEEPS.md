@@ -15,8 +15,8 @@ Ele executa treinos OFAT (one-factor-at-a-time), consolida resultados e gera rel
 - `pytorch_forecasting`, `lightning`, `matplotlib`, etc.
 
 3. Arquivo de configuracao JSON para o sweep:
-- por padrao: `config/model_analysis.default.json`
-- recomendado: criar arquivos em `config/sweeps/*.json`
+- por padrao: `config/sweeps/ofat/model_analysis.default.json`
+- recomendado: criar arquivos em `config/sweeps/ofat/*.json`
 
 ## 2) Estrutura minima do JSON
 
@@ -77,7 +77,7 @@ Regra de validacao por tipo:
 ## 3) Execucao basica
 
 ```bash
-python -m src.main_tft_param_sweep --asset AAPL --config-json config/sweeps/SEU_SWEEP.json
+python -m src.main_tft_param_sweep --asset AAPL --config-json config/sweeps/ofat/SEU_SWEEP.json
 ```
 
 Comportamento:
@@ -100,7 +100,7 @@ python -m src.main_generate_sweep_artifacts --sweep-dir data/models/AAPL/sweeps/
 Use para adicionar novos runs ao mesmo sweep sem perder historico:
 
 ```bash
-python -m src.main_tft_param_sweep --asset AAPL --config-json config/sweeps/SEU_SWEEP.json --output-subdir SEU_SWEEP --merge-tests
+python -m src.main_tft_param_sweep --asset AAPL --config-json config/sweeps/ofat/SEU_SWEEP.json --output-subdir SEU_SWEEP --merge-tests
 ```
 
 ### Regras de seguranca do merge
@@ -179,7 +179,7 @@ rodar somente os melhores na pipeline de sweep tradicional.
 Comando:
 
 ```bash
-python -m src.main_tft_optuna_sweep --asset AAPL --config-json config/optuna/default_tft_optuna_sweep.json
+python -m src.main_tft_optuna_sweep --asset AAPL --config-json config/sweeps/optuna/default_tft_optuna_sweep.json
 ```
 
 Artefatos gerados em:

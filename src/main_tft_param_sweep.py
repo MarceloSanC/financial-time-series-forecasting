@@ -28,7 +28,7 @@ from src.utils.logging_config import setup_logging
 from src.utils.path_resolver import load_data_paths
 
 logger = logging.getLogger(__name__)
-DEFAULT_ANALYSIS_CONFIG_PATH = Path("config/model_analysis.default.json")
+DEFAULT_ANALYSIS_CONFIG_PATH = Path("config/sweeps/ofat/model_analysis.default.json")
 
 
 def _parse_csv_str(value: str | None) -> list[str]:
@@ -87,7 +87,7 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help=(
             "Optional path to analysis config JSON. "
-            "If omitted, uses config/model_analysis.default.json."
+            "If omitted, uses config/sweeps/ofat/model_analysis.default.json."
         ),
     )
     parser.add_argument(
