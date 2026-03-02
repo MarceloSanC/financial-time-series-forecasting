@@ -1,4 +1,5 @@
 {
+  "test_type": "optuna",
   "output_subdir": "optuna_0_1_baseline_hpo",
   "study_name": "tft_optuna_baseline",
   "features": "BASELINE_FEATURES",
