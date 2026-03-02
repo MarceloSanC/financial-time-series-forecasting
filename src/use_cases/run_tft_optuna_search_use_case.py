@@ -1,7 +1,8 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import logging
+import math
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -10,6 +11,7 @@ from typing import Any
 import pandas as pd
 
 from src.use_cases.run_tft_model_analysis_use_case import RunTFTModelAnalysisUseCase
+from src.use_cases.test_pipeline_common import validate_train_runner_contract
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,7 @@ class RunTFTOptunaSearchUseCase:
         objective_metric: str = "robust_score",
         objective_lambda: float = 1.0,
     ) -> None:
+        validate_train_runner_contract(train_runner)
         self.train_runner = train_runner
         self.base_training_config = dict(base_training_config)
         self.split_config = dict(split_config or {})
@@ -128,6 +131,109 @@ class RunTFTOptunaSearchUseCase:
             "Use one of: robust_score, mean_val_rmse, mean_test_rmse, joint_val_test_rmse"
         )
 
+    @staticmethod
+    def _save_top_k_val_test_metrics_plot(
+        *,
+        run_output_dir: Path,
+        top_entries: list[dict[str, Any]],
+    ) -> str | None:
+        try:
+            import matplotlib.pyplot as plt
+        except Exception:
+            return None
+
+        if not top_entries:
+            return None
+
+        x = list(range(len(top_entries)))
+        labels = [
+            f"R{int(entry.get('rank', idx + 1))} | T{int(entry.get('trial_number', idx))}"
+            for idx, entry in enumerate(top_entries)
+        ]
+
+        metric_specs = [
+            ("RMSE", "mean_val_rmse", "std_val_rmse", "mean_test_rmse", "std_test_rmse"),
+            ("MAE", "mean_val_mae", "std_val_mae", "mean_test_mae", "std_test_mae"),
+            ("DA", "mean_val_da", "std_val_da", "mean_test_da", "std_test_da"),
+        ]
+
+        fig, axes = plt.subplots(3, 1, figsize=(14, 14), sharex=True)
+        if not isinstance(axes, (list, tuple)):
+            axes = list(axes)
+
+        has_any_metric = False
+        for ax, (title, val_mean_key, val_std_key, test_mean_key, test_std_key) in zip(axes, metric_specs):
+            val_mean: list[float] = []
+            val_std: list[float] = []
+            test_mean: list[float] = []
+            test_std: list[float] = []
+
+            for entry in top_entries:
+                top_run = entry.get("top_run", {}) or {}
+                val_m = top_run.get(val_mean_key)
+                val_s = top_run.get(val_std_key)
+                test_m = top_run.get(test_mean_key)
+                test_s = top_run.get(test_std_key)
+
+                val_mean.append(float(val_m) if val_m is not None else math.nan)
+                val_std.append(float(val_s) if val_s is not None else 0.0)
+                test_mean.append(float(test_m) if test_m is not None else math.nan)
+                test_std.append(float(test_s) if test_s is not None else 0.0)
+
+            if any(not math.isnan(v) for v in val_mean):
+                has_any_metric = True
+                val_low = [m - s if not math.isnan(m) else math.nan for m, s in zip(val_mean, val_std)]
+                val_h = [2.0 * s if not math.isnan(m) else math.nan for m, s in zip(val_mean, val_std)]
+                val_x = [xi - 0.12 for xi in x]
+                ax.plot(x, val_mean, marker="o", linewidth=1.8, color="#1f77b4", label="val mean")
+                ax.bar(
+                    val_x,
+                    val_h,
+                    bottom=val_low,
+                    width=0.22,
+                    color="#1f77b4",
+                    edgecolor="#1f77b4",
+                    linewidth=0.8,
+                    alpha=0.16,
+                    label="val +- std (box)",
+                )
+
+            if any(not math.isnan(v) for v in test_mean):
+                has_any_metric = True
+                test_low = [m - s if not math.isnan(m) else math.nan for m, s in zip(test_mean, test_std)]
+                test_h = [2.0 * s if not math.isnan(m) else math.nan for m, s in zip(test_mean, test_std)]
+                test_x = [xi + 0.12 for xi in x]
+                ax.plot(x, test_mean, marker="s", linewidth=1.8, color="#ff7f0e", label="test mean")
+                ax.bar(
+                    test_x,
+                    test_h,
+                    bottom=test_low,
+                    width=0.22,
+                    color="#ff7f0e",
+                    edgecolor="#ff7f0e",
+                    linewidth=0.8,
+                    alpha=0.16,
+                    label="test +- std (box)",
+                )
+
+            ax.set_title(f"{title} - Top-k Optuna Trials")
+            ax.grid(True, linestyle="--", alpha=0.35)
+            ax.legend(loc="best")
+
+        axes[-1].set_xticks(x)
+        axes[-1].set_xticklabels(labels, rotation=40, ha="right")
+        axes[-1].set_xlabel("Top-k ranking by objective value")
+
+        fig.tight_layout()
+        plot_path = run_output_dir / "optuna_top_k_val_test_metrics.png"
+        if has_any_metric:
+            fig.savefig(plot_path, dpi=180, bbox_inches="tight")
+            plt.close(fig)
+            return str(plot_path.resolve())
+
+        plt.close(fig)
+        return None
+
     def execute(
         self,
         *,
@@ -198,6 +304,9 @@ class RunTFTOptunaSearchUseCase:
             trial_index = int(getattr(trial, "number", 0))
             trial_sweep_name = f"trial_{trial_index:04d}"
             analysis_cfg = {
+                "schema_version": "1.0",
+                "test_type": "optuna",
+                "run_origin": "optuna_trial",
                 "runner": "optuna",
                 "features": features,
                 "study_name": effective_study_name,
@@ -283,6 +392,10 @@ class RunTFTOptunaSearchUseCase:
         best_trial = completed_sorted[0] if completed_sorted else None
         best_value = float(best_trial.value) if best_trial is not None else None
         best_params = dict(best_trial.params) if best_trial is not None else {}
+        top_k_metrics_plot_path = self._save_top_k_val_test_metrics_plot(
+            run_output_dir=run_output_dir,
+            top_entries=top_entries,
+        )
 
         generated_at = datetime.now(timezone.utc).isoformat()
         summary_payload = {
@@ -308,6 +421,7 @@ class RunTFTOptunaSearchUseCase:
                 "top_k_json": str((run_output_dir / "optuna_top_k_configs.json").resolve()),
                 "best_json": str((run_output_dir / "optuna_best_trial.json").resolve()),
                 "summary_json": str((run_output_dir / "optuna_summary.json").resolve()),
+                "top_k_val_test_metrics_plot_png": top_k_metrics_plot_path,
             },
         }
 
