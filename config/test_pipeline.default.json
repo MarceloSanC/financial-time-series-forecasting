@@ -1,0 +1,42 @@
+{
+  "schema_version": "1.0",
+  "test_type": "ofat",
+  "features": "BASELINE_FEATURES",
+  "feature_sets": [],
+  "continue_on_error": true,
+  "merge_tests": false,
+  "max_runs": null,
+  "output_subdir": "test_pipeline_default",
+  "compute_confidence_interval": true,
+  "generate_comparison_plots": true,
+  "replica_seeds": [7, 42, 123],
+  "walk_forward": {
+    "enabled": false,
+    "folds": []
+  },
+  "training_config": {
+    "max_encoder_length": 60,
+    "max_prediction_length": 1,
+    "batch_size": 64,
+    "max_epochs": 20,
+    "learning_rate": 0.0005,
+    "hidden_size": 32,
+    "attention_head_size": 2,
+    "dropout": 0.1,
+    "hidden_continuous_size": 8,
+    "seed": 42,
+    "early_stopping_patience": 5,
+    "early_stopping_min_delta": 0.0
+  },
+  "split_config": {
+    "train_start": "20100101",
+    "train_end": "20201231",
+    "val_start": "20210101",
+    "val_end": "20221231",
+    "test_start": "20230101",
+    "test_end": "20241231"
+  },
+  "param_ranges": {
+    "max_encoder_length": [30, 60, 120]
+  }
+}
