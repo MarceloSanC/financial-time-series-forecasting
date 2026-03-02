@@ -164,7 +164,7 @@ class ParquetFundamentalRepository(FundamentalRepository):
         start_date: datetime,
         end_date: datetime,
         report_type: str | None = None,
-        include_latest_before_start: bool = True,
+        include_latest_before_start: bool = False,
     ) -> list[FundamentalReport]:
         require_tz_aware(start_date, "start_date")
         require_tz_aware(end_date, "end_date")
@@ -195,18 +195,15 @@ class ParquetFundamentalRepository(FundamentalRepository):
         else:
             df["reported_date"] = pd.NaT
 
-        effective_date = df["reported_date"].fillna(df["fiscal_date_end"] + pd.Timedelta(days=45))
-        df = df.assign(_effective_date=effective_date)
-
         start_day = pd.Timestamp(start_utc.date(), tz="UTC")
         end_day = pd.Timestamp(end_utc.date(), tz="UTC")
-        mask = (df["_effective_date"] >= start_day) & (df["_effective_date"] <= end_day)
+        mask = (df["fiscal_date_end"] >= start_day) & (df["fiscal_date_end"] <= end_day)
         selected = df.loc[mask]
         if include_latest_before_start:
-            prior = df.loc[df["_effective_date"] < start_day]
+            prior = df.loc[df["fiscal_date_end"] < start_day]
             if not prior.empty:
                 selected = pd.concat(
-                    [selected, prior.nlargest(1, "_effective_date")],
+                    [selected, prior.nlargest(1, "fiscal_date_end")],
                     ignore_index=True,
                 )
         df = selected.drop_duplicates(
