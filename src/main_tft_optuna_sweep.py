@@ -13,6 +13,12 @@ from src.infrastructure.schemas.model_artifact_schema import (
     TFT_TRAINING_DEFAULTS,
 )
 from src.use_cases.run_tft_optuna_search_use_case import RunTFTOptunaSearchUseCase
+from src.use_cases.test_pipeline_common import (
+    TEST_TYPE_OPTUNA,
+    apply_common_test_fields,
+    ensure_expected_test_type,
+    validate_required_type_fields,
+)
 from src.utils.logging_config import setup_logging
 from src.utils.path_resolver import load_data_paths
 
@@ -45,6 +51,8 @@ def _load_json_config(path: str | None) -> dict[str, Any]:
 
 def _default_optuna_config() -> dict[str, Any]:
     return {
+        "schema_version": "1.0",
+        "test_type": TEST_TYPE_OPTUNA,
         "features": None,
         "feature_sets": [],
         "continue_on_error": True,
@@ -129,15 +137,9 @@ def parse_args() -> argparse.Namespace:
 def _resolve_effective_config(args: argparse.Namespace) -> dict[str, Any]:
     effective = _default_optuna_config()
     file_config = _load_json_config(args.config_json)
+    ensure_expected_test_type(file_config=file_config, expected_test_type=TEST_TYPE_OPTUNA)
+    effective = apply_common_test_fields(effective=effective, file_config=file_config)
 
-    if isinstance(file_config.get("features"), str):
-        effective["features"] = file_config["features"].strip() or None
-    if isinstance(file_config.get("feature_sets"), list):
-        effective["feature_sets"] = [str(v).strip() for v in file_config["feature_sets"] if str(v).strip()]
-    if isinstance(file_config.get("continue_on_error"), bool):
-        effective["continue_on_error"] = file_config["continue_on_error"]
-    if isinstance(file_config.get("output_subdir"), str):
-        effective["output_subdir"] = file_config["output_subdir"]
     if isinstance(file_config.get("study_name"), str):
         effective["study_name"] = file_config["study_name"]
     if isinstance(file_config.get("n_trials"), int):
@@ -152,18 +154,6 @@ def _resolve_effective_config(args: argparse.Namespace) -> dict[str, Any]:
         effective["objective_metric"] = file_config["objective_metric"]
     if isinstance(file_config.get("objective_lambda"), (int, float)):
         effective["objective_lambda"] = float(file_config["objective_lambda"])
-    if isinstance(file_config.get("replica_seeds"), list):
-        effective["replica_seeds"] = [int(v) for v in file_config["replica_seeds"]]
-    if isinstance(file_config.get("walk_forward"), dict):
-        effective["walk_forward"] = dict(file_config["walk_forward"])
-    if isinstance(file_config.get("training_config"), dict):
-        merged_training = dict(effective["training_config"])
-        merged_training.update(file_config["training_config"])
-        effective["training_config"] = merged_training
-    if isinstance(file_config.get("split_config"), dict):
-        merged_split = dict(effective["split_config"])
-        merged_split.update(file_config["split_config"])
-        effective["split_config"] = merged_split
     if isinstance(file_config.get("search_space"), dict):
         effective["search_space"] = dict(file_config["search_space"])
 
@@ -192,6 +182,7 @@ def _resolve_effective_config(args: argparse.Namespace) -> dict[str, Any]:
     if args.objective_lambda is not None:
         effective["objective_lambda"] = float(args.objective_lambda)
 
+    validate_required_type_fields(config=effective, test_type=TEST_TYPE_OPTUNA)
     return effective
 
 
