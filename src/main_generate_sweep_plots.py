@@ -558,6 +558,10 @@ def generate_for_sweep(sweep_dir: Path) -> list[str]:
 
 def main() -> None:
     setup_logging(logging.INFO)
+    logger.warning(
+        "main_generate_sweep_plots is a backward-compatible alias. "
+        "Prefer using: python -m src.main_generate_sweep_artifacts"
+    )
     args = parse_args()
     failures: list[str] = []
     for sweep_dir_raw in args.sweep_dir:
