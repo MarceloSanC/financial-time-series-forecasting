@@ -172,7 +172,8 @@ class TrainTFTModelUseCase:
 
             for df_norm in (train_norm, val_norm, test_norm):
                 values = pd.to_numeric(df_norm[col], errors="coerce")
-                arr = values.to_numpy(dtype="float64")
+                # Ensure a writable buffer before in-place scaling.
+                arr = np.array(values.to_numpy(dtype="float64"), copy=True)
                 mask = np.isfinite(arr)
                 if mask.any():
                     arr[mask] = scaler.transform(arr[mask].reshape(-1, 1)).reshape(-1)
