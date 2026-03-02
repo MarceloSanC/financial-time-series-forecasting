@@ -13,10 +13,16 @@ from src.infrastructure.schemas.model_artifact_schema import (
     TFT_SPLIT_DEFAULTS,
     TFT_TRAINING_DEFAULTS,
 )
-from src.main_generate_sweep_plots import generate_for_sweep
+from src.main_generate_sweep_artifacts import generate_for_sweep
 from src.use_cases.run_tft_model_analysis_use_case import (
     DEFAULT_SWEEP_PARAM_RANGES,
     RunTFTModelAnalysisUseCase,
+)
+from src.use_cases.test_pipeline_common import (
+    TEST_TYPE_OFAT,
+    apply_common_test_fields,
+    ensure_expected_test_type,
+    validate_required_type_fields,
 )
 from src.utils.logging_config import setup_logging
 from src.utils.path_resolver import load_data_paths
@@ -50,6 +56,7 @@ def _load_json_config(path: str | None) -> dict[str, Any]:
 
 def _default_analysis_config() -> dict[str, Any]:
     return {
+        "test_type": TEST_TYPE_OFAT,
         "features": None,
         "feature_sets": [],
         "continue_on_error": False,
@@ -149,35 +156,17 @@ def parse_args() -> argparse.Namespace:
 def _resolve_effective_config(args: argparse.Namespace) -> dict[str, Any]:
     effective = _default_analysis_config()
     file_config = _load_json_config(args.config_json)
+    ensure_expected_test_type(file_config=file_config, expected_test_type=TEST_TYPE_OFAT)
+    effective = apply_common_test_fields(effective=effective, file_config=file_config)
 
-    if isinstance(file_config.get("features"), str):
-        effective["features"] = file_config["features"].strip() or None
-    if isinstance(file_config.get("feature_sets"), list):
-        effective["feature_sets"] = [str(v).strip() for v in file_config["feature_sets"] if str(v).strip()]
-    if isinstance(file_config.get("continue_on_error"), bool):
-        effective["continue_on_error"] = file_config["continue_on_error"]
     if isinstance(file_config.get("merge_tests"), bool):
         effective["merge_tests"] = file_config["merge_tests"]
     if isinstance(file_config.get("max_runs"), int):
         effective["max_runs"] = file_config["max_runs"]
-    if isinstance(file_config.get("output_subdir"), str):
-        effective["output_subdir"] = file_config["output_subdir"]
     if isinstance(file_config.get("compute_confidence_interval"), bool):
         effective["compute_confidence_interval"] = file_config["compute_confidence_interval"]
     if isinstance(file_config.get("generate_comparison_plots"), bool):
         effective["generate_comparison_plots"] = file_config["generate_comparison_plots"]
-    if isinstance(file_config.get("replica_seeds"), list):
-        effective["replica_seeds"] = [int(v) for v in file_config["replica_seeds"]]
-    if isinstance(file_config.get("walk_forward"), dict):
-        effective["walk_forward"] = dict(file_config["walk_forward"])
-    if isinstance(file_config.get("training_config"), dict):
-        merged_training = dict(effective["training_config"])
-        merged_training.update(file_config["training_config"])
-        effective["training_config"] = merged_training
-    if isinstance(file_config.get("split_config"), dict):
-        merged_split = dict(effective["split_config"])
-        merged_split.update(file_config["split_config"])
-        effective["split_config"] = merged_split
     if isinstance(file_config.get("param_ranges"), dict):
         sanitized: dict[str, list[Any]] = {}
         for key, values in file_config["param_ranges"].items():
@@ -208,6 +197,7 @@ def _resolve_effective_config(args: argparse.Namespace) -> dict[str, Any]:
         effective["param_ranges"] = {
             k: v for k, v in effective["param_ranges"].items() if k in set(only_params)
         }
+    validate_required_type_fields(config=effective, test_type=TEST_TYPE_OFAT)
     return effective
 
 
@@ -249,6 +239,9 @@ def main() -> None:
     for idx, feature_entry in enumerate(feature_runs, start=1):
         run_cfg = dict(effective_cfg)
         run_cfg["features"] = feature_entry
+        run_cfg.setdefault("schema_version", "1.0")
+        run_cfg.setdefault("test_type", "ofat")
+        run_cfg.setdefault("run_origin", "main_tft_param_sweep")
         if len(feature_runs) > 1:
             label = _sanitize_slug(feature_entry or "default")
             if base_output_subdir:
