@@ -34,6 +34,8 @@ def apply_common_test_fields(
         out["feature_sets"] = [str(v).strip() for v in file_config["feature_sets"] if str(v).strip()]
     if isinstance(file_config.get("continue_on_error"), bool):
         out["continue_on_error"] = file_config["continue_on_error"]
+    if isinstance(file_config.get("merge_tests"), bool):
+        out["merge_tests"] = file_config["merge_tests"]
     if isinstance(file_config.get("output_subdir"), str):
         out["output_subdir"] = file_config["output_subdir"]
     if isinstance(file_config.get("replica_seeds"), list):
