@@ -32,6 +32,11 @@ def parse_args() -> argparse.Namespace:
         default=str(DEFAULT_TEST_CONFIG_PATH),
         help="Path to unified test config JSON with test_type.",
     )
+    parser.add_argument(
+        "--merge-tests",
+        action="store_true",
+        help="Enable merge/resume mode when supported by selected test_type.",
+    )
     return parser.parse_args()
 
 
@@ -74,6 +79,7 @@ def _default_for_test_type(test_type: str) -> dict[str, Any]:
     elif test_type == TEST_TYPE_OPTUNA:
         common.update(
             {
+                "merge_tests": False,
                 "study_name": "tft_optuna",
                 "n_trials": 30,
                 "top_k": 5,
@@ -132,6 +138,8 @@ def main() -> None:
     asset = args.asset.strip().upper()
     file_config = _load_json_config(args.config_json)
     effective_cfg = _resolve_effective_config(file_config)
+    if args.merge_tests:
+        effective_cfg["merge_tests"] = True
 
     paths = load_data_paths()
     models_asset_dir = Path(paths["models"]) / asset
