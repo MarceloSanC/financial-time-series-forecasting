@@ -11,6 +11,7 @@ data:
     sentiment_daily: data/processed/sentiment_daily
     fundamentals: data/processed/fundamentals
     dataset_tft: data/processed/dataset_tft
+    inference_tft: data/processed/inference_tft
 
   models:
     tft: data/models
