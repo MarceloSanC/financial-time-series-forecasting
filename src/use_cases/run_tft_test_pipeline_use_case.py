@@ -130,6 +130,7 @@ class RunTFTTestPipelineUseCase:
                 walk_forward_config=dict(config.get("walk_forward") or {}),
                 replica_seeds=list(config.get("replica_seeds") or [7, 42, 123]),
                 continue_on_error=bool(config.get("continue_on_error", True)),
+                merge_tests=bool(config.get("merge_tests", False)),
                 objective_metric=str(config.get("objective_metric", "robust_score")),
                 objective_lambda=float(config.get("objective_lambda", 1.0)),
             )
