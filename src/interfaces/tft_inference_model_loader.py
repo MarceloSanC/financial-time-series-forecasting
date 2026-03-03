@@ -17,6 +17,7 @@ class LoadedTFTInferenceModel:
     feature_tokens: list[str]
     training_config: dict[str, Any]
     scalers: dict[str, Any] = field(default_factory=dict)
+    dataset_parameters: dict[str, Any] = field(default_factory=dict)
 
 
 class TFTInferenceModelLoader(ABC):
