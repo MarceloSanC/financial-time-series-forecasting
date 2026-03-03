@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import numpy as np
@@ -7,6 +8,8 @@ import pandas as pd
 
 from src.entities.tft_inference_record import TFTInferenceRecord
 from src.interfaces.tft_inference_engine import TFTInferenceEngine
+
+logger = logging.getLogger(__name__)
 
 
 class PytorchForecastingTFTInferenceEngine(TFTInferenceEngine):
@@ -21,6 +24,7 @@ class PytorchForecastingTFTInferenceEngine(TFTInferenceEngine):
         feature_set_name: str,
         features_used_csv: str,
         feature_cols: list[str],
+        dataset_parameters: dict[str, Any] | None,
         max_encoder_length: int,
         max_prediction_length: int,
         batch_size: int,
@@ -40,17 +44,31 @@ class PytorchForecastingTFTInferenceEngine(TFTInferenceEngine):
                 f"rows={len(df)}, required>={max_encoder_length + max_prediction_length}"
             )
 
-        known_real_cols = [c for c in ["time_idx", "day_of_week", "month"] if c in df.columns]
-        inference_ds = TimeSeriesDataSet(
-            df,
-            time_idx="time_idx",
-            target="target_return",
-            group_ids=["asset_id"],
-            max_encoder_length=max_encoder_length,
-            max_prediction_length=max_prediction_length,
-            time_varying_known_reals=known_real_cols,
-            time_varying_unknown_reals=feature_cols,
-        )
+        if not isinstance(dataset_parameters, dict) or not dataset_parameters:
+            raise ValueError(
+                "[INFER_DATASET_SPEC_MISSING] Model artifact is missing required "
+                "dataset_parameters for inference dataset reconstruction via TimeSeriesDataSet.from_parameters. "
+                f"asset={asset_id} model_version={model_version} model_path={model_path}"
+            )
+        try:
+            inference_ds = TimeSeriesDataSet.from_parameters(
+                dataset_parameters,
+                df,
+                predict=True,
+                stop_randomization=True,
+            )
+        except Exception as exc:
+            logger.exception(
+                "Inference dataset reconstruction from parameters failed",
+                extra={"asset_id": asset_id, "model_version": model_version},
+            )
+            raise ValueError(
+                "[INFER_DATASET_SPEC_INCOMPATIBLE] Failed to rebuild TimeSeriesDataSet from "
+                "artifact dataset_parameters. This can indicate invalid/incomplete parameters "
+                "or incompatibility with current pytorch-forecasting version. "
+                f"asset={asset_id} model_version={model_version} model_path={model_path}"
+            ) from exc
+
         loader = inference_ds.to_dataloader(train=False, batch_size=max(1, int(batch_size)), num_workers=0)
 
         decoder_time_idx: list[int] = []
