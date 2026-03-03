@@ -248,21 +248,20 @@
 
 ---
 
-- [ ] **Etapa 10: Inferência do Modelo em Novos Dados**
+- [x] **Etapa 10: Inferência do Modelo em Novos Dados**
 
 **Objetivo**: Executar inferência com o modelo treinado em dados novos e registrar outputs.
 
 **Componentes** (planejados):
 
-- [ ] Pipeline de inferência (candles → features → previsão)
-- [ ] Persistência de previsões e metadados
+- [x] Pipeline de inferência (candles → features → previsão)
+- [x] Persistência de previsões e metadados
 
 **Critério de aceite**:
 
-- [ ] Gera previsões para janelas recentes
-- [ ] Loga confiança/quantis do TFT
+- [x] Gera previsões para janelas recentes
+- [x] Loga confiança/quantis do TFT
 
 **Justificativa (TCC)**:
 
 > A inferência operacional valida o uso do modelo em ambiente próximo ao real e permite avaliação contínua de performance.
-
