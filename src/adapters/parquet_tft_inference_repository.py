@@ -45,6 +45,15 @@ class ParquetTFTInferenceRepository(TFTInferenceRepository):
         symbol = self._normalize_symbol(asset_id)
         return self._asset_dir(symbol) / f"inference_tft_{symbol}.parquet"
 
+    @staticmethod
+    def _canonical_model_path(value: str | None) -> str:
+        if value is None:
+            return ""
+        text = str(value).strip()
+        if not text:
+            return ""
+        return str(Path(text).expanduser().resolve(strict=False))
+
     def _load_df(self, asset_id: str) -> pd.DataFrame:
         path = self._filepath(asset_id)
         if not path.exists():
@@ -143,6 +152,62 @@ class ParquetTFTInferenceRepository(TFTInferenceRepository):
                 df_new[col] = df_new[col].astype(dtype)
 
         df_old = self._load_df(asset_id)
+        incoming_versions = sorted(
+            {
+                str(v).strip()
+                for v in df_new["model_version"].tolist()
+                if isinstance(v, str) and str(v).strip()
+            }
+        )
+        if incoming_versions:
+            df_new["__canonical_model_path"] = df_new["model_path"].map(
+                self._canonical_model_path
+            )
+            for version in incoming_versions:
+                new_paths = {
+                    p
+                    for p in df_new.loc[
+                        df_new["model_version"] == version, "__canonical_model_path"
+                    ].tolist()
+                    if p
+                }
+                if len(new_paths) > 1:
+                    raise ValueError(
+                        "Invariant violation: multiple model_path values for the same "
+                        f"model_version in current batch (model_version={version})."
+                    )
+
+        if incoming_versions and not df_old.empty:
+            old_slice = df_old[df_old["model_version"].isin(incoming_versions)].copy()
+            if not old_slice.empty:
+                old_slice["__canonical_model_path"] = old_slice["model_path"].map(
+                    self._canonical_model_path
+                )
+                for version in incoming_versions:
+                    old_paths = {
+                        p
+                        for p in old_slice.loc[
+                            old_slice["model_version"] == version, "__canonical_model_path"
+                        ].tolist()
+                        if p
+                    }
+                    new_paths = {
+                        p
+                        for p in df_new.loc[
+                            df_new["model_version"] == version, "__canonical_model_path"
+                        ].tolist()
+                        if p
+                    }
+                    if old_paths and new_paths and old_paths != new_paths:
+                        raise ValueError(
+                            "Invariant violation: model_version already exists with a "
+                            "different model_path. "
+                            f"model_version={version}, existing_paths={sorted(old_paths)}, "
+                            f"incoming_paths={sorted(new_paths)}."
+                        )
+        if "__canonical_model_path" in df_new.columns:
+            df_new = df_new.drop(columns=["__canonical_model_path"])
+
         df = pd.concat([df_old, df_new], ignore_index=True)
         df = df.drop_duplicates(
             subset=["asset_id", "timestamp", "model_version"],
@@ -154,13 +219,15 @@ class ParquetTFTInferenceRepository(TFTInferenceRepository):
         path.parent.mkdir(parents=True, exist_ok=True)
         df.to_parquet(path, index=False)
 
+        attempted_upserts = len(df_new)
+
         logger.info(
             "TFT inference rows persisted",
             extra={
                 "asset_id": symbol,
-                "saved_rows": len(df_new),
+                "attempted_upserts": attempted_upserts,
                 "total_rows": len(df),
                 "path": str(path.resolve()),
             },
         )
-        return len(df_new)
+        return attempted_upserts
