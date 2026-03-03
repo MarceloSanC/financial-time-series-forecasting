@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import shutil
+import time
 from copy import deepcopy
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
@@ -14,6 +16,7 @@ import pandas as pd
 
 from src.adapters.parquet_tft_dataset_repository import ParquetTFTDatasetRepository
 from src.domain.services.data_drift_analyzer import DataDriftAnalyzer
+from src.domain.services.training_progress_estimator import TrainingProgressEstimator
 from src.domain.services.tft_sweep_experiment_builder import (
     SweepExperiment,
     build_one_at_a_time_experiments,
@@ -64,6 +67,8 @@ class AnalysisRunRecord:
     test_rmse: float | None = None
     test_mae: float | None = None
     test_da: float | None = None
+    trained: bool = False
+    duration_seconds: float | None = None
 
 
 @dataclass(frozen=True)
@@ -1582,6 +1587,10 @@ class RunTFTModelAnalysisUseCase:
         if max_runs is not None:
             experiments = experiments[: max(1, max_runs)]
 
+        total_planned_runs = len(experiments) * len(self.replica_seeds)
+        folds = self._resolve_walk_forward_folds()
+        total_planned_runs *= len(folds)
+
         logger.info(
             "Starting TFT model analysis",
             extra={
@@ -1593,7 +1602,70 @@ class RunTFTModelAnalysisUseCase:
         )
 
         run_records: list[AnalysisRunRecord] = []
-        folds = self._resolve_walk_forward_folds()
+
+        def _blue(text: str) -> str:
+            if os.getenv("NO_COLOR"):
+                return text
+            return f"\033[94m{text}\033[0m"
+
+        def _successful_durations() -> list[float]:
+            durations: list[float] = []
+            for r in run_records:
+                if r.status == "ok" and r.trained:
+                    if r.duration_seconds is not None and r.duration_seconds > 0:
+                        durations.append(float(r.duration_seconds))
+            if merge_tests and not existing_df.empty and "duration_seconds" in existing_df.columns:
+                status_col = existing_df["status"] if "status" in existing_df.columns else None
+                trained_col = existing_df["trained"] if "trained" in existing_df.columns else None
+                for _, row in existing_df.iterrows():
+                    try:
+                        status_ok = str(row.get("status", "")) == "ok" if status_col is not None else False
+                        trained_ok = bool(row.get("trained")) if trained_col is not None else False
+                        val = row.get("duration_seconds")
+                    except Exception:
+                        continue
+                    if not status_ok or not trained_ok:
+                        continue
+                    try:
+                        sec = float(val)
+                    except Exception:
+                        continue
+                    if sec > 0:
+                        durations.append(sec)
+            return durations
+
+        def _log_training_progress(*, fold_name: str, run_label: str) -> None:
+            snapshot = TrainingProgressEstimator.build_snapshot(
+                total_runs=total_planned_runs,
+                completed_runs=len(run_records),
+                successful_train_durations_seconds=_successful_durations(),
+            )
+            logger.info(
+                _blue("Training progress"),
+                extra={
+                    "fold_name": fold_name,
+                    "run_label": run_label,
+                    "completed_runs": snapshot.completed_runs,
+                    "total_runs": snapshot.total_runs,
+                    "remaining_runs": snapshot.remaining_runs,
+                    "avg_train_seconds": (
+                        round(snapshot.avg_train_seconds, 2)
+                        if snapshot.avg_train_seconds is not None
+                        else None
+                    ),
+                    "eta": TrainingProgressEstimator.format_eta(snapshot.eta_seconds),
+                },
+            )
+
+        def _persist_progress() -> None:
+            partial_df = pd.DataFrame([asdict(r) for r in run_records])
+            if merge_tests:
+                partial_df = self._merge_run_records(existing_df, partial_df)
+            partial_df.to_csv(sweep_dir / "sweep_runs.csv", index=False)
+            (sweep_dir / "sweep_runs.json").write_text(
+                json.dumps(partial_df.to_dict(orient="records"), indent=2, ensure_ascii=False),
+                encoding="utf-8",
+            )
         fold_split_map: dict[str, dict[str, str]] = {
             name: dict(split or self.split_config) for name, split in folds
         }
@@ -1626,6 +1698,10 @@ class RunTFTModelAnalysisUseCase:
 
             for idx, exp in enumerate(experiments, start=1):
                 for seed in self.replica_seeds:
+                    _log_training_progress(
+                        fold_name=fold_name,
+                        run_label=f"{exp.run_label}|seed={seed}|fold={fold_name}",
+                    )
                     logger.info(
                         "Analysis run started",
                         extra={
@@ -1690,8 +1766,11 @@ class RunTFTModelAnalysisUseCase:
                                         test_rmse=test_rmse,
                                         test_mae=test_mae,
                                         test_da=test_da,
+                                        trained=False,
+                                        duration_seconds=0.0,
                                     )
                                 )
+                                _persist_progress()
                                 logger.info(
                                     "Skipping training for existing valid run",
                                     extra={
@@ -1720,6 +1799,7 @@ class RunTFTModelAnalysisUseCase:
                                 },
                             )
                     try:
+                        started_at = time.perf_counter()
                         version, metadata = self.train_runner.run(
                             asset=asset,
                             features=features,
@@ -1727,6 +1807,7 @@ class RunTFTModelAnalysisUseCase:
                             split_config=fold_split_config,
                             models_asset_dir=fold_staging_dir,
                         )
+                        duration_seconds = time.perf_counter() - started_at
                         if version is None or metadata is None:
                             run_records.append(
                                 AnalysisRunRecord(
@@ -1738,8 +1819,11 @@ class RunTFTModelAnalysisUseCase:
                                     version=version,
                                     status="failed",
                                     error="Missing generated model version or metadata.json",
+                                    trained=True,
+                                    duration_seconds=duration_seconds,
                                 )
                             )
+                            _persist_progress()
                             if not continue_on_error:
                                 break
                             continue
@@ -1756,8 +1840,11 @@ class RunTFTModelAnalysisUseCase:
                                     version=version,
                                     status="failed",
                                     error=f"Invalid trainer output: {reason}",
+                                    trained=True,
+                                    duration_seconds=duration_seconds,
                                 )
                             )
+                            _persist_progress()
                             if not continue_on_error:
                                 break
                             continue
@@ -1779,8 +1866,11 @@ class RunTFTModelAnalysisUseCase:
                                 test_rmse=float(test_metrics.get("rmse")),
                                 test_mae=float(test_metrics.get("mae")),
                                 test_da=self._to_float_or_none(test_metrics.get("directional_accuracy")),
+                                trained=True,
+                                duration_seconds=duration_seconds,
                             )
                         )
+                        _persist_progress()
                         staged_version_dir = fold_staging_dir / version
                         flat_version_dir = fold_models_dir / version
                         if staged_version_dir.exists():
@@ -1788,6 +1878,11 @@ class RunTFTModelAnalysisUseCase:
                                 shutil.rmtree(flat_version_dir)
                             shutil.move(str(staged_version_dir), str(flat_version_dir))
                     except Exception as exc:
+                        duration_seconds = None
+                        try:
+                            duration_seconds = time.perf_counter() - started_at
+                        except Exception:
+                            duration_seconds = None
                         run_records.append(
                             AnalysisRunRecord(
                                 fold_name=fold_name,
@@ -1798,8 +1893,11 @@ class RunTFTModelAnalysisUseCase:
                                 version=None,
                                 status="failed",
                                 error=str(exc),
+                                trained=True,
+                                duration_seconds=duration_seconds,
                             )
                         )
+                        _persist_progress()
                         logger.exception(
                             "Analysis run failed",
                             extra={"fold_name": fold_name, "run_label": exp.run_label, "seed": seed},
