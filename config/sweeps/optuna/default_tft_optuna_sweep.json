@@ -5,6 +5,7 @@
   "features": "BASELINE_FEATURES",
   "feature_sets": [],
   "continue_on_error": true,
+  "merge_tests": false,
   "n_trials": 30,
   "top_k": 5,
   "timeout_seconds": null,
