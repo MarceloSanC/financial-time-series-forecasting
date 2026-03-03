@@ -60,6 +60,7 @@ Não use TODO para:
 - [ ] ⚠️ Persistir scalers por `asset_id` para evitar vazamento cross-asset
 - [ ] ⚠️ Incluir metadados de normalização no domínio (ex: janela, scaler)
 - [ ] ⚠️ Separar *Feature Calculators* por tipo (technical, sentiment, static)
+- [ ] ⚠️ (TFT) Persistir e reutilizar `dataset_parameters` completos do `TimeSeriesDataSet` na inferência (`from_parameters`) para reproduzir 100% do setup de treino (categoricals, static covariates, encoders/normalizers, lags, `allow_missing_timesteps`)
 
 ---
 
