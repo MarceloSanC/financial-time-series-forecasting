@@ -26,7 +26,7 @@ class RunTFTInferenceResult:
     end: datetime
     inferred: int
     skipped_existing: int
-    saved: int
+    attempted_upserts: int
     refreshed_dataset: bool
 
 
@@ -155,7 +155,9 @@ class RunTFTInferenceUseCase:
         if to_utc(end_utc) > to_utc(ds_max):
             if self.refresh_dataset_fn is None:
                 raise ValueError(
-                    "Requested end_date exceeds dataset_tft coverage and no refresh pipeline is configured."
+                    "Requested end_date exceeds dataset_tft coverage and auto-refresh is disabled. "
+                    "Run fetch/build pipelines manually to extend dataset_tft coverage, or enable "
+                    "auto-refresh and retry."
                 )
             refresh_start = to_utc(ds_max) + timedelta(days=1)
             rebuild_start = to_utc(ds_min)
@@ -222,6 +224,7 @@ class RunTFTInferenceUseCase:
             feature_set_name=model_bundle.feature_set_name,
             features_used_csv=features_used_csv,
             feature_cols=model_bundle.feature_cols,
+            dataset_parameters=model_bundle.dataset_parameters,
             max_encoder_length=max_encoder_length,
             max_prediction_length=max_prediction_length,
             batch_size=batch_size,
@@ -252,7 +255,7 @@ class RunTFTInferenceUseCase:
                 filtered.append(r)
             records = filtered
 
-        saved = self.inference_repository.upsert_records(asset, records)
+        attempted_upserts = self.inference_repository.upsert_records(asset, records)
 
         return RunTFTInferenceResult(
             asset_id=asset,
@@ -261,6 +264,6 @@ class RunTFTInferenceUseCase:
             end=end_utc,
             inferred=len(records) + skipped_existing,
             skipped_existing=skipped_existing,
-            saved=saved,
+            attempted_upserts=attempted_upserts,
             refreshed_dataset=refreshed,
         )
