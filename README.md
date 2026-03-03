@@ -190,6 +190,8 @@ Each step also writes a JSON report under a `reports/` subfolder.
 Recommended starting points:
 - `docs/GETTING_STARTED.md`
 - `docs/RUNNING_PIPELINE.md`
+- `docs/RUNNING_TFT_INFERENCE.md`
+- `docs/INFER_TFT_PARAMS.md`
 - `docs/TROUBLESHOOTING.md`
 
 ---
