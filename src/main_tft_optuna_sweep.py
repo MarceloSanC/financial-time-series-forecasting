@@ -56,6 +56,7 @@ def _default_optuna_config() -> dict[str, Any]:
         "features": None,
         "feature_sets": [],
         "continue_on_error": True,
+        "merge_tests": False,
         "output_subdir": "optuna_tft_search",
         "study_name": "tft_optuna",
         "n_trials": 30,
@@ -116,6 +117,13 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Continue when one run fails inside a trial.",
     )
+    parser.add_argument(
+        "--merge-tests",
+        action="store_true",
+        help=(
+            "Reuse valid runs from previous trial sweep dirs and continue training from where it stopped."
+        ),
+    )
     parser.add_argument("--output-subdir", type=str, default=None, help="Optional optuna output subdir.")
     parser.add_argument("--study-name", type=str, default=None, help="Optional study name.")
     parser.add_argument(
@@ -163,6 +171,8 @@ def _resolve_effective_config(args: argparse.Namespace) -> dict[str, Any]:
         effective["feature_sets"] = _parse_csv_str(args.feature_sets)
     if args.continue_on_error:
         effective["continue_on_error"] = True
+    if args.merge_tests:
+        effective["merge_tests"] = True
     if args.output_subdir is not None:
         effective["output_subdir"] = args.output_subdir
     if args.study_name is not None:
@@ -208,6 +218,7 @@ def main() -> None:
         walk_forward_config=effective_cfg.get("walk_forward"),
         replica_seeds=effective_cfg["replica_seeds"],
         continue_on_error=effective_cfg["continue_on_error"],
+        merge_tests=bool(effective_cfg.get("merge_tests", False)),
         objective_metric=effective_cfg.get("objective_metric", "robust_score"),
         objective_lambda=float(effective_cfg.get("objective_lambda", 1.0)),
     )
