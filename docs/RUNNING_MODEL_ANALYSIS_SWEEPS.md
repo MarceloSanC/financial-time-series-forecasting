@@ -119,6 +119,25 @@ Para evitar inconsistencias, ao usar `--merge-tests`:
 
 3. Qualquer outra mudanca de configuracao bloqueia a execucao com erro.
 
+## 5.1) Merge para `explicit_configs` e `optuna` (runner unificado)
+
+No entrypoint unificado (`main_tft_test_pipeline`), `merge_tests` tambem funciona para:
+
+- `test_type: "explicit_configs"`
+- `test_type: "optuna"`
+
+Comportamento:
+
+1. Reaproveita runs existentes apenas quando os artefatos obrigatorios existem e estao validos.
+2. Valida `metadata/split_metrics` e tenta carregar `model_state.pt` para detectar corrupcao.
+3. Se detectar artefato faltando/corrompido, reexecuta somente o run afetado.
+
+Exemplo:
+
+```bash
+python -m src.main_tft_test_pipeline --asset AAPL --config-json config/seu_teste.json --merge-tests
+```
+
 ## 6) Principais artefatos gerados
 
 No diretorio:
@@ -210,4 +229,3 @@ Campos obrigatorios:
 - `test_type: "ofat"`: exige `param_ranges`
 - `test_type: "optuna"`: exige `search_space`, `n_trials`, `top_k`, `study_name`
 - `test_type: "explicit_configs"`: exige `explicit_configs` com `training_config` por item
-
