@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import pickle
+import re
 from pathlib import Path
 from typing import Any
 
@@ -15,6 +16,7 @@ class LocalTFTInferenceModelLoader(TFTInferenceModelLoader):
     """
     Loads a TFT model artifact directory produced by LocalTFTModelRepository.
     """
+    _MODEL_VERSION_PATTERN = re.compile(r"^\d{8}_\d{6}_[A-Z0-9]+$")
 
     @staticmethod
     def _load_json(path: Path, required: bool = True) -> dict[str, Any]:
@@ -69,12 +71,33 @@ class LocalTFTInferenceModelLoader(TFTInferenceModelLoader):
             if isinstance(loaded, dict):
                 scalers = loaded
 
+        dataset_parameters: dict[str, Any] = {}
+        dataset_params_path = model_path / "dataset_parameters.pkl"
+        if dataset_params_path.exists():
+            with dataset_params_path.open("rb") as fp:
+                loaded = pickle.load(fp)
+            if not isinstance(loaded, dict):
+                raise ValueError(
+                    "[INFER_DATASET_SPEC_INVALID_TYPE] dataset_parameters.pkl must contain a dict. "
+                    f"model_path={model_path.resolve()}"
+                )
+            dataset_parameters = loaded
+
         asset_id = str(metadata.get("asset_id") or "").strip().upper()
         version = str(metadata.get("version") or "").strip()
         if not asset_id:
             raise ValueError("metadata.json missing `asset_id`.")
         if not version:
             raise ValueError("metadata.json missing `version`.")
+        if not self._MODEL_VERSION_PATTERN.fullmatch(version):
+            raise ValueError(
+                "metadata.json has invalid `version`. Expected pattern: YYYYMMDD_HHMMSS_<TAG>."
+            )
+        if model_path.name != version:
+            raise ValueError(
+                "Model directory name must match metadata.json `version` for traceability "
+                f"(dir={model_path.name}, metadata={version})."
+            )
 
         training_config = config.get("training_config")
         if not isinstance(training_config, dict):
@@ -102,4 +125,5 @@ class LocalTFTInferenceModelLoader(TFTInferenceModelLoader):
             feature_tokens=feature_tokens,
             training_config=training_config,
             scalers=scalers,
+            dataset_parameters=dataset_parameters,
         )
