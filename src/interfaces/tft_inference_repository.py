@@ -27,5 +27,5 @@ class TFTInferenceRepository(ABC):
 
     @abstractmethod
     def upsert_records(self, asset_id: str, records: list[TFTInferenceRecord]) -> int:
-        """Persist inference rows and return rows saved in this call."""
+        """Persist inference rows and return attempted upserts in this call."""
         ...
