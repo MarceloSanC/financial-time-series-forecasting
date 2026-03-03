@@ -182,6 +182,23 @@ Sem parâmetros adicionais, o treino usa:
 
 Para exemplos práticos e referência completa, consulte `docs/TRAIN_TFT_PARAMS.md`.
 
+## 9) Inferencia TFT em Novos Dados
+
+Executa previsoes com um modelo treinado e persiste resultados em:
+
+- `data/processed/inference_tft/{ASSET}/inference_tft_{ASSET}.parquet`
+
+Executar:
+
+```bash
+python -m src.main_infer_tft --asset AAPL --model-path data/models/AAPL/20260302_010101_B --start 20260101 --end 20260228
+```
+
+Referencia completa:
+
+- `docs/RUNNING_TFT_INFERENCE.md`
+- `docs/INFER_TFT_PARAMS.md`
+
 ## Executar Pipeline Completo de Dados (Sem Treino)
 
 Executa todos os orquestradores de ingestão e pré-processamento na ordem documentada, até a geração do dataset TFT.
