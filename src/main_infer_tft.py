@@ -86,6 +86,14 @@ def parse_args() -> argparse.Namespace:
         type=str,
         help="Optional inference repository base directory override.",
     )
+    parser.add_argument(
+        "--auto-refresh",
+        action="store_true",
+        help=(
+            "When dataset_tft lacks requested end-date coverage, run incremental fetch/build "
+            "pipelines automatically before inference."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -232,6 +240,7 @@ def main() -> None:
     start = _parse_yyyymmdd(args.start or file_config.get("start"))
     end = _parse_yyyymmdd(args.end or file_config.get("end"))
     overwrite = bool(file_config.get("overwrite", False)) or bool(args.overwrite)
+    auto_refresh = bool(file_config.get("auto_refresh", False)) or bool(args.auto_refresh)
     batch_size = (
         int(args.batch_size)
         if args.batch_size is not None
@@ -246,7 +255,7 @@ def main() -> None:
     inference_repo = ParquetTFTInferenceRepository(output_dir=inference_dir)
     model_loader = LocalTFTInferenceModelLoader()
     engine = PytorchForecastingTFTInferenceEngine()
-    refresh_fn = _build_refresh_fn(paths)
+    refresh_fn = _build_refresh_fn(paths) if auto_refresh else None
 
     use_case = RunTFTInferenceUseCase(
         dataset_repository=dataset_repo,
@@ -275,8 +284,9 @@ def main() -> None:
             "end": result.end.isoformat(),
             "inferred": result.inferred,
             "skipped_existing": result.skipped_existing,
-            "saved": result.saved,
+            "attempted_upserts": result.attempted_upserts,
             "refreshed_dataset": result.refreshed_dataset,
+            "auto_refresh": auto_refresh,
             "inference_dir": str(inference_dir.resolve()),
         },
     )
