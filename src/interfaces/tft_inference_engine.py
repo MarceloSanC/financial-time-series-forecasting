@@ -21,6 +21,7 @@ class TFTInferenceEngine(ABC):
         feature_set_name: str,
         features_used_csv: str,
         feature_cols: list[str],
+        dataset_parameters: dict[str, Any] | None,
         max_encoder_length: int,
         max_prediction_length: int,
         batch_size: int,
