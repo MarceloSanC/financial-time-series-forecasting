@@ -27,6 +27,9 @@ python -m src.main_infer_tft \
   --end 20260228
 ```
 
+Para manter paridade treino/inferencia, a inferencia exige `dataset_parameters` do artefato
+e reconstrucao via `TimeSeriesDataSet.from_parameters` (sem fallback legado).
+
 ## Comportamento De Janela Temporal
 
 ### 1) Periodo explicito (`--start/--end`)
@@ -47,7 +50,13 @@ Antes de inferir, a pipeline valida:
 - Se `dataset_tft` cobre o periodo solicitado.
 - Se existe historico suficiente para o `max_encoder_length` do modelo.
 
-Se o `end` solicitado estiver alem do `dataset_tft`, a pipeline roda refresh incremental:
+Modo padrao (`fail-fast`):
+
+- Se o `end` solicitado estiver alem do `dataset_tft`, a inferencia falha com orientacao para rodar fetch/build manualmente.
+
+Modo opcional (`--auto-refresh`):
+
+- Se o `end` solicitado estiver alem do `dataset_tft`, a pipeline roda refresh incremental:
 
 1. candles
 2. news raw
@@ -77,6 +86,12 @@ Colunas persistidas:
 - `quantile_p90`
 - `inference_run_id`
 - `created_at`
+
+## Invariante De Versao De Modelo
+
+- `model_version` deve seguir o padrao `YYYYMMDD_HHMMSS_<TAG>`.
+- O nome do diretorio do modelo deve ser exatamente igual ao `metadata.json.version`.
+- O repositorio de inferencia rejeita gravacao quando o mesmo `model_version` aparece com `model_path` diferente.
 
 ## Exemplos Uteis
 
