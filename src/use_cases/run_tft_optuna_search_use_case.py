@@ -36,6 +36,7 @@ class RunTFTOptunaSearchUseCase:
         walk_forward_config: dict[str, Any] | None,
         replica_seeds: list[int] | None,
         continue_on_error: bool,
+        merge_tests: bool = False,
         objective_metric: str = "robust_score",
         objective_lambda: float = 1.0,
     ) -> None:
@@ -46,6 +47,7 @@ class RunTFTOptunaSearchUseCase:
         self.walk_forward_config = dict(walk_forward_config or {})
         self.replica_seeds = list(replica_seeds or [7, 42, 123])
         self.continue_on_error = bool(continue_on_error)
+        self.merge_tests = bool(merge_tests)
         self.objective_metric = str(objective_metric or "robust_score")
         self.objective_lambda = float(objective_lambda)
 
@@ -234,6 +236,86 @@ class RunTFTOptunaSearchUseCase:
         plt.close(fig)
         return None
 
+    @staticmethod
+    def _existing_summary(path: Path) -> dict[str, Any] | None:
+        if not path.exists() or not path.is_file():
+            return None
+        try:
+            payload = json.loads(path.read_text(encoding="utf-8-sig"))
+        except Exception:
+            return None
+        if not isinstance(payload, dict):
+            return None
+        return payload
+
+    @staticmethod
+    def _contains_value(values: list[Any], target: Any) -> bool:
+        for candidate in values:
+            if candidate == target:
+                return True
+            try:
+                if float(candidate) == float(target):
+                    return True
+            except Exception:
+                continue
+        return False
+
+    @classmethod
+    def _validate_merge_context(
+        cls,
+        *,
+        existing_summary: dict[str, Any],
+        asset: str,
+        features: str | None,
+        study_name: str,
+        objective_metric: str,
+        objective_lambda: float,
+        search_space: dict[str, Any],
+        base_training_config: dict[str, Any],
+        split_config: dict[str, str],
+        walk_forward: dict[str, Any],
+        replica_seeds: list[int],
+    ) -> None:
+        if str(existing_summary.get("asset") or "").strip().upper() != asset:
+            raise ValueError("merge_tests requires same asset as previous Optuna run.")
+        if (existing_summary.get("features") or None) != (features or None):
+            raise ValueError("merge_tests requires same features as previous Optuna run.")
+        if str(existing_summary.get("study_name") or "").strip() != str(study_name).strip():
+            raise ValueError("merge_tests requires same study_name.")
+        if str(existing_summary.get("objective_metric") or "").strip() != str(objective_metric).strip():
+            raise ValueError("merge_tests requires same objective_metric.")
+        try:
+            old_lambda = float(existing_summary.get("objective_lambda"))
+        except Exception:
+            old_lambda = None
+        if old_lambda is None or float(old_lambda) != float(objective_lambda):
+            raise ValueError("merge_tests requires same objective_lambda.")
+        if dict(existing_summary.get("split_config") or {}) != dict(split_config or {}):
+            raise ValueError("merge_tests requires same split_config.")
+        if dict(existing_summary.get("walk_forward") or {}) != dict(walk_forward or {}):
+            raise ValueError("merge_tests requires same walk_forward config.")
+        if dict(existing_summary.get("best_params") or {}) is not None:
+            # best_params may change naturally; intentionally ignored.
+            pass
+        if dict(existing_summary.get("search_space") or search_space) != dict(search_space):
+            # Older summaries may not store search_space. If present, enforce equality.
+            if "search_space" in existing_summary:
+                raise ValueError("merge_tests requires same search_space.")
+        if dict(existing_summary.get("base_training_config") or base_training_config) != dict(
+            base_training_config
+        ):
+            if "base_training_config" in existing_summary:
+                raise ValueError("merge_tests requires same base training_config.")
+
+        old_seeds_raw = existing_summary.get("replica_seeds") or []
+        old_seeds = list(old_seeds_raw) if isinstance(old_seeds_raw, list) else []
+        for old_seed in old_seeds:
+            if not cls._contains_value(replica_seeds, old_seed):
+                raise ValueError(
+                    "merge_tests cannot remove old replica_seeds values. "
+                    f"Missing seed: {old_seed}"
+                )
+
     def execute(
         self,
         *,
@@ -274,6 +356,23 @@ class RunTFTOptunaSearchUseCase:
             run_output_dir = root_optuna_dir
             effective_study_name = study_name
         run_output_dir.mkdir(parents=True, exist_ok=True)
+
+        if self.merge_tests:
+            prev_summary = self._existing_summary(run_output_dir / "optuna_summary.json")
+            if prev_summary is not None:
+                self._validate_merge_context(
+                    existing_summary=prev_summary,
+                    asset=asset,
+                    features=features,
+                    study_name=effective_study_name,
+                    objective_metric=self.objective_metric,
+                    objective_lambda=self.objective_lambda,
+                    search_space=search_space,
+                    base_training_config=self.base_training_config,
+                    split_config=self.split_config,
+                    walk_forward=self.walk_forward_config,
+                    replica_seeds=self.replica_seeds,
+                )
 
         storage_path = (run_output_dir / "optuna_study.db").resolve()
         storage = f"sqlite:///{str(storage_path).replace('\\', '/')}"
@@ -318,6 +417,7 @@ class RunTFTOptunaSearchUseCase:
                 "walk_forward": self.walk_forward_config,
                 "replica_seeds": self.replica_seeds,
                 "search_space": search_space,
+                "merge_tests": self.merge_tests,
             }
 
             result = trial_use_case.execute(
@@ -325,7 +425,7 @@ class RunTFTOptunaSearchUseCase:
                 models_asset_dir=run_output_dir,
                 features=features,
                 continue_on_error=self.continue_on_error,
-                merge_tests=False,
+                merge_tests=self.merge_tests,
                 max_runs=None,
                 output_subdir=trial_sweep_name,
                 analysis_config=analysis_cfg,
@@ -413,6 +513,9 @@ class RunTFTOptunaSearchUseCase:
             "replica_seeds": self.replica_seeds,
             "split_config": self.split_config,
             "walk_forward": self.walk_forward_config,
+            "search_space": search_space,
+            "base_training_config": self.base_training_config,
+            "merge_tests": self.merge_tests,
             "storage": storage,
             "artifacts": {
                 "study_db": str(storage_path),
