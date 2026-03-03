@@ -84,6 +84,7 @@ class _FakeEngine:
         feature_set_name: str,
         features_used_csv: str,
         feature_cols: list[str],
+        dataset_parameters: dict | None,
         max_encoder_length: int,
         max_prediction_length: int,
         batch_size: int,
@@ -165,7 +166,7 @@ def test_use_case_skips_existing_when_not_overwrite() -> None:
 
     assert result.inferred >= 3
     assert result.skipped_existing >= 1
-    assert result.saved >= 2
+    assert result.attempted_upserts >= 2
 
 
 def test_use_case_requires_explicit_period_without_history() -> None:
@@ -221,4 +222,28 @@ def test_use_case_triggers_refresh_when_end_exceeds_dataset() -> None:
 
     assert called["value"] is True
     assert result.refreshed_dataset is True
-    assert result.saved > 0
+    assert result.attempted_upserts > 0
+
+
+def test_use_case_fail_fast_when_end_exceeds_dataset_and_auto_refresh_disabled() -> None:
+    start = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    dataset_repo = _FakeDatasetRepo(_dataset(start, rows=8))
+    inference_repo = _FakeInferenceRepo()
+    loader = _FakeModelLoader(asset_id="AAPL")
+    engine = _FakeEngine()
+
+    use_case = RunTFTInferenceUseCase(
+        dataset_repository=dataset_repo,
+        inference_repository=inference_repo,
+        model_loader=loader,
+        inference_engine=engine,
+        refresh_dataset_fn=None,
+    )
+
+    with pytest.raises(ValueError, match="auto-refresh is disabled"):
+        use_case.execute(
+            asset_id="AAPL",
+            model_path="/tmp/model",
+            start_date=start + timedelta(days=5),
+            end_date=start + timedelta(days=9),
+        )
