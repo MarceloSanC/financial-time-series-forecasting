@@ -10,10 +10,14 @@ from typing import Any
 
 import pandas as pd
 
+from src.domain.services.sweep_eta_estimator import SweepEtaEstimator
 from src.use_cases.run_tft_model_analysis_use_case import RunTFTModelAnalysisUseCase
 from src.use_cases.test_pipeline_common import validate_train_runner_contract
 
 logger = logging.getLogger(__name__)
+
+_PINK = "\033[95m"
+_RESET = "\033[0m"
 
 
 @dataclass(frozen=True)
@@ -134,23 +138,26 @@ class RunTFTOptunaSearchUseCase:
         )
 
     @staticmethod
-    def _save_top_k_val_test_metrics_plot(
+    def _save_val_test_metrics_plot(
         *,
         run_output_dir: Path,
-        top_entries: list[dict[str, Any]],
+        entries: list[dict[str, Any]],
+        filename: str,
+        plot_title_suffix: str,
+        x_axis_label: str,
     ) -> str | None:
         try:
             import matplotlib.pyplot as plt
         except Exception:
             return None
 
-        if not top_entries:
+        if not entries:
             return None
 
-        x = list(range(len(top_entries)))
+        x = list(range(len(entries)))
         labels = [
             f"R{int(entry.get('rank', idx + 1))} | T{int(entry.get('trial_number', idx))}"
-            for idx, entry in enumerate(top_entries)
+            for idx, entry in enumerate(entries)
         ]
 
         metric_specs = [
@@ -170,7 +177,7 @@ class RunTFTOptunaSearchUseCase:
             test_mean: list[float] = []
             test_std: list[float] = []
 
-            for entry in top_entries:
+            for entry in entries:
                 top_run = entry.get("top_run", {}) or {}
                 val_m = top_run.get(val_mean_key)
                 val_s = top_run.get(val_std_key)
@@ -218,16 +225,16 @@ class RunTFTOptunaSearchUseCase:
                     label="test +- std (box)",
                 )
 
-            ax.set_title(f"{title} - Top-k Optuna Trials")
+            ax.set_title(f"{title} - {plot_title_suffix}")
             ax.grid(True, linestyle="--", alpha=0.35)
             ax.legend(loc="best")
 
         axes[-1].set_xticks(x)
         axes[-1].set_xticklabels(labels, rotation=40, ha="right")
-        axes[-1].set_xlabel("Top-k ranking by objective value")
+        axes[-1].set_xlabel(x_axis_label)
 
         fig.tight_layout()
-        plot_path = run_output_dir / "optuna_top_k_val_test_metrics.png"
+        plot_path = run_output_dir / filename
         if has_any_metric:
             fig.savefig(plot_path, dpi=180, bbox_inches="tight")
             plt.close(fig)
@@ -468,7 +475,45 @@ class RunTFTOptunaSearchUseCase:
             direction="minimize",
         )
 
-        study.optimize(objective, n_trials=n_trials, timeout=timeout_seconds)
+        finished_before = len([t for t in study.trials if t.state.is_finished()])
+        eta_estimator = SweepEtaEstimator(total_trials=int(n_trials))
+
+        def on_trial_complete(study_obj: Any, trial_obj: Any) -> None:
+            duration_seconds = None
+            trial_duration = getattr(trial_obj, "duration", None)
+            if trial_duration is not None:
+                try:
+                    duration_seconds = float(trial_duration.total_seconds())
+                except Exception:
+                    duration_seconds = None
+            eta_estimator.add_sample(duration_seconds)
+
+            finished_now = len([t for t in study_obj.trials if t.state.is_finished()])
+            completed_current = max(0, finished_now - finished_before)
+            avg_seconds = eta_estimator.avg_seconds
+            eta_seconds = eta_estimator.estimate_remaining_seconds(completed_current)
+            progress_pct = (completed_current / float(n_trials)) * 100.0 if n_trials > 0 else 100.0
+            message = f"{_PINK}Optuna sweep progress{_RESET}"
+            logger.info(
+                message,
+                extra={
+                    "study_name": effective_study_name,
+                    "features": features or "(default)",
+                    "completed_trials": completed_current,
+                    "total_trials": int(n_trials),
+                    "progress_pct": round(progress_pct, 2),
+                    "avg_trial_seconds": round(avg_seconds, 2) if avg_seconds is not None else None,
+                    "eta_sweep": SweepEtaEstimator.format_seconds(eta_seconds),
+                    "trial_number": int(getattr(trial_obj, "number", -1)),
+                },
+            )
+
+        study.optimize(
+            objective,
+            n_trials=n_trials,
+            timeout=timeout_seconds,
+            callbacks=[on_trial_complete],
+        )
 
         completed = [t for t in study.trials if t.value is not None]
         completed_sorted = sorted(completed, key=lambda t: float(t.value))
@@ -489,12 +534,38 @@ class RunTFTOptunaSearchUseCase:
                 }
             )
 
+        all_entries: list[dict[str, Any]] = []
+        for idx, t in enumerate(completed_sorted, start=1):
+            trial_cfg = dict(self.base_training_config)
+            trial_cfg.update(dict(t.params))
+            all_entries.append(
+                {
+                    "rank": idx,
+                    "trial_number": int(t.number),
+                    "objective_value": float(t.value),
+                    "params": dict(t.params),
+                    "training_config": trial_cfg,
+                    "sweep_dir": t.user_attrs.get("sweep_dir"),
+                    "top_run": t.user_attrs.get("top_run", {}),
+                }
+            )
+
         best_trial = completed_sorted[0] if completed_sorted else None
         best_value = float(best_trial.value) if best_trial is not None else None
         best_params = dict(best_trial.params) if best_trial is not None else {}
-        top_k_metrics_plot_path = self._save_top_k_val_test_metrics_plot(
+        top_k_metrics_plot_path = self._save_val_test_metrics_plot(
             run_output_dir=run_output_dir,
-            top_entries=top_entries,
+            entries=top_entries,
+            filename="optuna_top_k_val_test_metrics.png",
+            plot_title_suffix="Top-k Optuna Trials",
+            x_axis_label="Top-k ranking by objective value",
+        )
+        all_trials_metrics_plot_path = self._save_val_test_metrics_plot(
+            run_output_dir=run_output_dir,
+            entries=all_entries,
+            filename="optuna_all_trials_val_test_metrics.png",
+            plot_title_suffix="All Optuna Trials",
+            x_axis_label="Trial ranking by objective value",
         )
 
         generated_at = datetime.now(timezone.utc).isoformat()
@@ -525,6 +596,7 @@ class RunTFTOptunaSearchUseCase:
                 "best_json": str((run_output_dir / "optuna_best_trial.json").resolve()),
                 "summary_json": str((run_output_dir / "optuna_summary.json").resolve()),
                 "top_k_val_test_metrics_plot_png": top_k_metrics_plot_path,
+                "all_trials_val_test_metrics_plot_png": all_trials_metrics_plot_path,
             },
         }
 
