@@ -6,10 +6,17 @@ import logging
 from pathlib import Path
 from typing import Any
 
+import numpy as np
 import pandas as pd
 
 from src.adapters.parquet_tft_dataset_repository import ParquetTFTDatasetRepository
 from src.domain.services.data_drift_analyzer import DataDriftAnalyzer
+from src.domain.services.explicit_config_sweep_analysis_service import (
+    ExplicitConfigSweepAnalysisService,
+)
+from src.use_cases.rebuild_explicit_sweep_predictions_use_case import (
+    RebuildExplicitSweepPredictionsUseCase,
+)
 from src.use_cases.run_tft_model_analysis_use_case import RunTFTModelAnalysisUseCase
 from src.utils.logging_config import setup_logging
 from src.utils.path_resolver import load_data_paths
@@ -36,7 +43,29 @@ def parse_args() -> argparse.Namespace:
 def _read_csv(path: Path) -> pd.DataFrame:
     if not path.exists():
         return pd.DataFrame()
-    return pd.read_csv(path)
+    try:
+        return pd.read_csv(path)
+    except pd.errors.EmptyDataError:
+        # Treat empty artifacts as "no data" to allow artifact regeneration
+        # without forcing a full retrain.
+        return pd.DataFrame()
+
+
+def _persist_optional_param_impact_artifacts(
+    *,
+    base_dir: Path,
+    impact_detail: pd.DataFrame,
+    impact_summary: pd.DataFrame,
+) -> None:
+    detail_path = base_dir / "param_impact_detail.csv"
+    summary_path = base_dir / "param_impact_summary.csv"
+    if not impact_detail.empty and not impact_summary.empty:
+        impact_detail.to_csv(detail_path, index=False)
+        impact_summary.to_csv(summary_path, index=False)
+        return
+    for path in (detail_path, summary_path):
+        if path.exists():
+            path.unlink()
 
 
 def _update_summary_plot_artifacts(sweep_dir: Path, plot_paths: list[str]) -> None:
@@ -276,6 +305,214 @@ def _build_drift_reports_for_sweep(
     )
 
 
+def _save_explicit_config_plots(
+    *,
+    analysis_dir: Path,
+    run_df: pd.DataFrame,
+    ranking_oos: pd.DataFrame,
+    generalization_gap: pd.DataFrame,
+    consistency: pd.DataFrame,
+    heatmap_test_rmse: pd.DataFrame,
+    confidence_intervals: pd.DataFrame,
+    dm_pairwise: pd.DataFrame,
+    mcs_result: pd.DataFrame,
+) -> list[str]:
+    try:
+        import matplotlib.pyplot as plt
+    except Exception:
+        return []
+
+    plot_dir = analysis_dir / "plots"
+    plot_dir.mkdir(parents=True, exist_ok=True)
+    generated: list[str] = []
+
+    def _save(fig: Any, name: str) -> None:
+        out = plot_dir / name
+        fig.tight_layout()
+        fig.savefig(out, dpi=140, bbox_inches="tight")
+        plt.close(fig)
+        generated.append(str(out))
+
+    if not run_df.empty:
+        box_df = run_df[run_df["status"] == "ok"].copy()
+        box_df["config_label"] = box_df["run_label"].astype(str).map(
+            ExplicitConfigSweepAnalysisService._parse_config_label
+        )
+        box_df["test_rmse"] = pd.to_numeric(box_df["test_rmse"], errors="coerce")
+        if not box_df.empty:
+            ordered = (
+                ranking_oos["config_label"].tolist()
+                if not ranking_oos.empty and "config_label" in ranking_oos.columns
+                else sorted(box_df["config_label"].astype(str).unique().tolist())
+            )
+            series = [
+                box_df.loc[box_df["config_label"] == label, "test_rmse"].dropna().to_numpy(dtype=float)
+                for label in ordered
+            ]
+            fig, ax = plt.subplots(figsize=(max(10, 1.4 * len(ordered)), 5))
+            ax.boxplot(series, labels=ordered, showfliers=True)
+            ax.set_title("EC - Test RMSE Distribution by Config")
+            ax.set_ylabel("test_rmse")
+            ax.tick_params(axis="x", rotation=30)
+            _save(fig, "ec_01_test_rmse_boxplot_by_config.png")
+
+    if not generalization_gap.empty:
+        gap = generalization_gap.sort_values("gap_rmse_test_minus_val", ascending=True)
+        x = np.arange(len(gap))
+        fig, ax = plt.subplots(figsize=(max(10, 1.3 * len(gap)), 5))
+        ax.bar(x, gap["gap_rmse_test_minus_val"].to_numpy(dtype=float))
+        ax.axhline(0.0, color="black", linewidth=1.0)
+        ax.set_xticks(x)
+        ax.set_xticklabels(gap["config_label"].astype(str), rotation=30, ha="right")
+        ax.set_ylabel("test_rmse - val_rmse")
+        ax.set_title("EC - Generalization Gap (RMSE)")
+        _save(fig, "ec_02_generalization_gap_rmse.png")
+
+    if not consistency.empty:
+        c = consistency.sort_values("top1_rate", ascending=False)
+        x = np.arange(len(c))
+        w = 0.25
+        fig, ax = plt.subplots(figsize=(max(10, 1.4 * len(c)), 5))
+        ax.bar(x - w, c["top1_rate"].to_numpy(dtype=float), width=w, label="top-1")
+        ax.bar(x, c["top3_rate"].to_numpy(dtype=float), width=w, label="top-3")
+        ax.bar(x + w, c["top5_rate"].to_numpy(dtype=float), width=w, label="top-5")
+        ax.set_xticks(x)
+        ax.set_xticklabels(c["config_label"].astype(str), rotation=30, ha="right")
+        ax.set_ylim(0.0, 1.0)
+        ax.set_title("EC - Consistency Rates by Config")
+        ax.legend()
+        _save(fig, "ec_03_consistency_topk_rates.png")
+
+    if isinstance(heatmap_test_rmse, pd.DataFrame) and not heatmap_test_rmse.empty:
+        h = heatmap_test_rmse.copy()
+        fig, ax = plt.subplots(figsize=(max(8, 1.6 * len(h.columns)), max(4, 0.6 * len(h.index))))
+        im = ax.imshow(h.to_numpy(dtype=float), aspect="auto", interpolation="nearest", cmap="viridis")
+        ax.set_xticks(np.arange(len(h.columns)))
+        ax.set_xticklabels([str(c) for c in h.columns], rotation=30, ha="right")
+        ax.set_yticks(np.arange(len(h.index)))
+        ax.set_yticklabels([str(i) for i in h.index])
+        ax.set_title("EC - Mean Test RMSE (Config x Fold)")
+        fig.colorbar(im, ax=ax, label="mean_test_rmse")
+        _save(fig, "ec_04_heatmap_test_rmse_config_fold.png")
+
+    if not confidence_intervals.empty:
+        ci = confidence_intervals[confidence_intervals["metric"] == "test_rmse"].copy()
+        if not ci.empty:
+            ci = ci.sort_values("mean", ascending=True).reset_index(drop=True)
+            x = np.arange(len(ci))
+            y = ci["mean"].to_numpy(dtype=float)
+            yerr_low = y - ci["ci95_low"].to_numpy(dtype=float)
+            yerr_high = ci["ci95_high"].to_numpy(dtype=float) - y
+            fig, ax = plt.subplots(figsize=(max(10, 1.3 * len(ci)), 5))
+            ax.errorbar(x, y, yerr=[yerr_low, yerr_high], fmt="o", capsize=4)
+            ax.set_xticks(x)
+            ax.set_xticklabels(ci["config_label"].astype(str), rotation=30, ha="right")
+            ax.set_ylabel("test_rmse mean (CI95)")
+            ax.set_title("EC - Test RMSE Confidence Intervals")
+            _save(fig, "ec_05_test_rmse_ci95.png")
+
+    if not dm_pairwise.empty:
+        labels = sorted(
+            set(dm_pairwise["left_config"].astype(str).tolist())
+            | set(dm_pairwise["right_config"].astype(str).tolist())
+        )
+        if labels:
+            pmat = pd.DataFrame(np.nan, index=labels, columns=labels, dtype=float)
+            for r in dm_pairwise.itertuples(index=False):
+                p = float(getattr(r, "pvalue_two_sided"))
+                left = str(getattr(r, "left_config"))
+                right = str(getattr(r, "right_config"))
+                pmat.loc[left, right] = p
+                pmat.loc[right, left] = p
+                pmat.loc[left, left] = 1.0
+                pmat.loc[right, right] = 1.0
+            fig, ax = plt.subplots(figsize=(max(8, 1.4 * len(labels)), max(6, 0.9 * len(labels))))
+            im = ax.imshow(pmat.to_numpy(dtype=float), aspect="auto", interpolation="nearest", cmap="magma_r")
+            ax.set_xticks(np.arange(len(labels)))
+            ax.set_xticklabels(labels, rotation=30, ha="right")
+            ax.set_yticks(np.arange(len(labels)))
+            ax.set_yticklabels(labels)
+            ax.set_title("EC - DM Pairwise p-values")
+            fig.colorbar(im, ax=ax, label="p-value")
+            _save(fig, "ec_06_dm_pairwise_pvalues_heatmap.png")
+
+    if not mcs_result.empty:
+        m = mcs_result.sort_values("mean_loss", ascending=True)
+        colors = ["#1f77b4" if bool(v) else "#bbbbbb" for v in m["selected_in_mcs_alpha_0_05"]]
+        fig, ax = plt.subplots(figsize=(max(10, 1.3 * len(m)), 5))
+        ax.bar(np.arange(len(m)), m["mean_loss"].to_numpy(dtype=float), color=colors)
+        ax.set_xticks(np.arange(len(m)))
+        ax.set_xticklabels(m["config_label"].astype(str), rotation=30, ha="right")
+        ax.set_ylabel("mean squared error loss")
+        ax.set_title("EC - MCS Selection (alpha=0.05)")
+        _save(fig, "ec_07_mcs_selection.png")
+
+    return generated
+
+
+def _generate_explicit_config_artifacts(
+    *,
+    sweep_dir: Path,
+    analysis_config: dict[str, Any],
+) -> list[str]:
+    test_type = str(analysis_config.get("test_type") or "").strip().lower()
+    if test_type != "explicit_configs":
+        return []
+
+    asset = _resolve_asset_from_sweep_dir(sweep_dir)
+    if not asset:
+        return []
+
+    paths = load_data_paths()
+    dataset_repo = ParquetTFTDatasetRepository(output_dir=Path(paths["dataset_tft"]))
+    rebuild_result = RebuildExplicitSweepPredictionsUseCase(dataset_repository=dataset_repo).execute(
+        sweep_dir=sweep_dir,
+        asset=asset,
+        analysis_config=analysis_config,
+        overwrite=False,
+    )
+
+    run_df = _read_csv(sweep_dir / "sweep_runs.csv")
+    analysis = ExplicitConfigSweepAnalysisService.build_run_level_tables(run_df)
+    pred_df = pd.read_parquet(rebuild_result.predictions_path) if rebuild_result.predictions_path.exists() else pd.DataFrame()
+    dm_df, mcs_df, mcs_trace_df = ExplicitConfigSweepAnalysisService.compute_dm_and_mcs(pred_df)
+
+    analysis_dir = sweep_dir / "explicit_analysis"
+    analysis_dir.mkdir(parents=True, exist_ok=True)
+    analysis.ranking_oos.to_csv(analysis_dir / "ec_ranking_oos.csv", index=False)
+    analysis.robustness.to_csv(analysis_dir / "ec_robustness.csv", index=False)
+    analysis.generalization_gap.to_csv(analysis_dir / "ec_generalization_gap.csv", index=False)
+    analysis.consistency.to_csv(analysis_dir / "ec_consistency_topk.csv", index=False)
+    analysis.heatmap_test_rmse.to_csv(analysis_dir / "ec_heatmap_test_rmse_config_fold.csv")
+    analysis.confidence_intervals.to_csv(analysis_dir / "ec_confidence_intervals.csv", index=False)
+    dm_df.to_csv(analysis_dir / "ec_dm_pairwise.csv", index=False)
+    mcs_df.to_csv(analysis_dir / "ec_mcs_result.csv", index=False)
+    mcs_trace_df.to_csv(analysis_dir / "ec_mcs_trace.csv", index=False)
+
+    extra_plots = _save_explicit_config_plots(
+        analysis_dir=analysis_dir,
+        run_df=run_df,
+        ranking_oos=analysis.ranking_oos,
+        generalization_gap=analysis.generalization_gap,
+        consistency=analysis.consistency,
+        heatmap_test_rmse=analysis.heatmap_test_rmse,
+        confidence_intervals=analysis.confidence_intervals,
+        dm_pairwise=dm_df,
+        mcs_result=mcs_df,
+    )
+    logger.info(
+        "Explicit config artifacts generated",
+        extra={
+            "sweep_dir": str(sweep_dir),
+            "pred_rows": int(len(pred_df)),
+            "dm_pairs": int(len(dm_df)),
+            "mcs_models": int(len(mcs_df)),
+            "plots": int(len(extra_plots)),
+        },
+    )
+    return extra_plots
+
+
 def _generate_for_analysis_dir(
     analysis_dir: Path,
     *,
@@ -329,8 +566,11 @@ def _build_reports_for_analysis_dir(
             baseline_rmse,
             baseline_mae,
         )
-    impact_detail.to_csv(analysis_dir / "param_impact_detail.csv", index=False)
-    impact_summary.to_csv(analysis_dir / "param_impact_summary.csv", index=False)
+    _persist_optional_param_impact_artifacts(
+        base_dir=analysis_dir,
+        impact_detail=impact_detail,
+        impact_summary=impact_summary,
+    )
 
     config_ranking = RunTFTModelAnalysisUseCase._build_config_ranking(
         run_df,
@@ -437,8 +677,11 @@ def _bootstrap_fold_reports_if_missing(
                 baseline_rmse,
                 baseline_mae,
             )
-        impact_detail.to_csv(fold_dir / "param_impact_detail.csv", index=False)
-        impact_summary.to_csv(fold_dir / "param_impact_summary.csv", index=False)
+        _persist_optional_param_impact_artifacts(
+            base_dir=fold_dir,
+            impact_detail=impact_detail,
+            impact_summary=impact_summary,
+        )
 
         config_ranking = RunTFTModelAnalysisUseCase._build_config_ranking(
             fold_df,
@@ -518,6 +761,14 @@ def generate_for_sweep(sweep_dir: Path) -> list[str]:
         param_ranges=param_ranges,
         baseline_config=baseline_config,
     )
+    explicit_plot_paths = []
+    if analysis_config_content:
+        explicit_plot_paths = _generate_explicit_config_artifacts(
+            sweep_dir=sweep_dir,
+            analysis_config=analysis_config_content,
+        )
+        if explicit_plot_paths:
+            root_plot_paths = list(dict.fromkeys([*root_plot_paths, *explicit_plot_paths]))
     _update_summary_global_ranking_fields(sweep_dir)
     _update_summary_plot_artifacts(sweep_dir, root_plot_paths)
 
