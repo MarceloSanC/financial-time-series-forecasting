@@ -5,6 +5,7 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+import torch
 
 from src.entities.tft_inference_record import TFTInferenceRecord
 from src.interfaces.tft_inference_engine import TFTInferenceEngine
@@ -13,6 +14,41 @@ logger = logging.getLogger(__name__)
 
 
 class PytorchForecastingTFTInferenceEngine(TFTInferenceEngine):
+    @staticmethod
+    def _prepare_dataframe_for_dataset(
+        *,
+        df: pd.DataFrame,
+        dataset_parameters: dict[str, Any],
+        asset_id: str,
+        model_version: str,
+        model_path: str,
+    ) -> pd.DataFrame:
+        prepared = df.copy()
+        time_idx_col = str(dataset_parameters.get("time_idx") or "time_idx")
+        if time_idx_col not in prepared.columns:
+            raise ValueError(
+                "[INFER_DATASET_SPEC_INCOMPATIBLE] dataset_parameters.time_idx column not found in data. "
+                f"time_idx={time_idx_col} asset={asset_id} model_version={model_version} model_path={model_path}"
+            )
+
+        numeric_idx = pd.to_numeric(prepared[time_idx_col], errors="coerce")
+        if numeric_idx.isna().any():
+            bad = int(numeric_idx.isna().sum())
+            raise ValueError(
+                "[INFER_DATASET_SPEC_INCOMPATIBLE] time_idx contains non-numeric/null values after coercion. "
+                f"time_idx={time_idx_col} invalid_rows={bad} asset={asset_id} "
+                f"model_version={model_version} model_path={model_path}"
+            )
+
+        if not np.all(np.isclose(numeric_idx.to_numpy(dtype=float), np.round(numeric_idx.to_numpy(dtype=float)))):
+            raise ValueError(
+                "[INFER_DATASET_SPEC_INCOMPATIBLE] time_idx contains non-integer values. "
+                f"time_idx={time_idx_col} asset={asset_id} model_version={model_version} model_path={model_path}"
+            )
+
+        prepared[time_idx_col] = numeric_idx.astype("int64")
+        return prepared
+
     def infer(
         self,
         *,
@@ -50,10 +86,17 @@ class PytorchForecastingTFTInferenceEngine(TFTInferenceEngine):
                 "dataset_parameters for inference dataset reconstruction via TimeSeriesDataSet.from_parameters. "
                 f"asset={asset_id} model_version={model_version} model_path={model_path}"
             )
+        prepared_df = self._prepare_dataframe_for_dataset(
+            df=df,
+            dataset_parameters=dataset_parameters,
+            asset_id=asset_id,
+            model_version=model_version,
+            model_path=model_path,
+        )
         try:
             inference_ds = TimeSeriesDataSet.from_parameters(
                 dataset_parameters,
-                df,
+                prepared_df,
                 predict=True,
                 stop_randomization=True,
             )
@@ -89,6 +132,8 @@ class PytorchForecastingTFTInferenceEngine(TFTInferenceEngine):
                 "logger": False,
                 "enable_progress_bar": False,
                 "enable_model_summary": False,
+                "accelerator": "gpu" if torch.cuda.is_available() else "cpu",
+                "devices": 1,
             }
         }
         try:
