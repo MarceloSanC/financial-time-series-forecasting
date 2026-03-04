@@ -5,6 +5,7 @@ import pickle
 import re
 from pathlib import Path
 from typing import Any
+import logging
 
 from src.interfaces.tft_inference_model_loader import (
     LoadedTFTInferenceModel,
@@ -17,6 +18,54 @@ class LocalTFTInferenceModelLoader(TFTInferenceModelLoader):
     Loads a TFT model artifact directory produced by LocalTFTModelRepository.
     """
     _MODEL_VERSION_PATTERN = re.compile(r"^\d{8}_\d{6}_[A-Z0-9]+$")
+    _GPU_DESERIALIZE_TOKENS = ("No HIP GPUs are available", "CUDA", "cuda")
+    _logger = logging.getLogger(__name__)
+
+    @staticmethod
+    def _load_checkpoint_on_cpu_fallback(
+        checkpoint_path: Path,
+        temporal_fusion_transformer_cls: Any,
+    ) -> Any:
+        import torch
+
+        checkpoint = torch.load(
+            str(checkpoint_path),
+            map_location="cpu",
+            weights_only=False,
+        )
+        if not isinstance(checkpoint, dict):
+            raise ValueError(
+                "Invalid checkpoint payload: expected dict root object."
+            )
+        hyper_parameters = checkpoint.get("hyper_parameters")
+        if not isinstance(hyper_parameters, dict):
+            raise ValueError(
+                "Invalid checkpoint payload: missing dict `hyper_parameters`."
+            )
+        state_dict = checkpoint.get("state_dict")
+        if not isinstance(state_dict, dict):
+            raise ValueError(
+                "Invalid checkpoint payload: missing dict `state_dict`."
+            )
+        model = temporal_fusion_transformer_cls(**hyper_parameters)
+        model.load_state_dict(state_dict, strict=True)
+        return model
+
+    @staticmethod
+    def _sanitize_torchmetrics_device_to_cpu(model: Any) -> None:
+        import torch
+
+        try:
+            from torchmetrics import Metric
+        except Exception:
+            return
+
+        for module in model.modules():
+            if isinstance(module, Metric):
+                try:
+                    module._device = torch.device("cpu")
+                except Exception:
+                    continue
 
     @staticmethod
     def _load_json(path: Path, required: bool = True) -> dict[str, Any]:
@@ -60,7 +109,27 @@ class LocalTFTInferenceModelLoader(TFTInferenceModelLoader):
                 "pytorch-forecasting is required for TFT inference."
             ) from exc
 
-        model = TemporalFusionTransformer.load_from_checkpoint(str(checkpoint_path))
+        try:
+            model = TemporalFusionTransformer.load_from_checkpoint(str(checkpoint_path))
+        except Exception as exc:
+            message = str(exc)
+            if any(token in message for token in self._GPU_DESERIALIZE_TOKENS):
+                self._logger.warning(
+                    "Checkpoint load failed on GPU path; retrying on CPU",
+                    extra={"checkpoint_path": str(checkpoint_path)},
+                )
+                model = self._load_checkpoint_on_cpu_fallback(
+                    checkpoint_path=checkpoint_path,
+                    temporal_fusion_transformer_cls=TemporalFusionTransformer,
+                )
+            else:
+                raise
+        try:
+            import torch
+            if not torch.cuda.is_available():
+                self._sanitize_torchmetrics_device_to_cpu(model)
+        except Exception:
+            self._sanitize_torchmetrics_device_to_cpu(model)
         model.eval()
 
         scalers: dict[str, Any] = {}
