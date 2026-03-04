@@ -1365,6 +1365,23 @@ class RunTFTModelAnalysisUseCase:
         )
         return varied.sort_values("test_rmse", ascending=True), summary
 
+    @staticmethod
+    def _persist_optional_param_impact_artifacts(
+        *,
+        base_dir: Path,
+        impact_detail: pd.DataFrame,
+        impact_summary: pd.DataFrame,
+    ) -> None:
+        detail_path = base_dir / "param_impact_detail.csv"
+        summary_path = base_dir / "param_impact_summary.csv"
+        if not impact_detail.empty and not impact_summary.empty:
+            impact_detail.to_csv(detail_path, index=False)
+            impact_summary.to_csv(summary_path, index=False)
+            return
+        for path in (detail_path, summary_path):
+            if path.exists():
+                path.unlink()
+
     @classmethod
     def _build_config_ranking(
         cls,
@@ -1978,8 +1995,11 @@ class RunTFTModelAnalysisUseCase:
                     fold_baseline_rmse,
                     fold_baseline_mae,
                 )
-                fold_impact_detail.to_csv(fold_dir / "param_impact_detail.csv", index=False)
-                fold_impact_summary.to_csv(fold_dir / "param_impact_summary.csv", index=False)
+            self._persist_optional_param_impact_artifacts(
+                base_dir=fold_dir,
+                impact_detail=fold_impact_detail,
+                impact_summary=fold_impact_summary,
+            )
 
             fold_config_ranking_raw = self._build_config_ranking(
                 fold_df,
@@ -2052,6 +2072,23 @@ class RunTFTModelAnalysisUseCase:
                     baseline_config=self.base_training_config,
                 )
 
+            fold_artifacts = {
+                "fold_dir": str(fold_dir),
+                "models_dir": str(fold_models_dir),
+                "sweep_runs_csv": str(fold_dir / "sweep_runs.csv"),
+                "all_models_ranked_csv": str(fold_dir / "all_models_ranked.csv"),
+                "config_ranking_csv": str(fold_dir / "config_ranking.csv"),
+                "config_ranking_report_order_csv": str(
+                    fold_dir / "config_ranking_report_order.csv"
+                ),
+                "drift_ks_psi_detail_csv": str(drift_detail_path),
+                "drift_ks_psi_summary_json": str(drift_summary_path),
+                "comparison_plots": fold_plot_artifacts,
+            }
+            if not fold_impact_detail.empty and not fold_impact_summary.empty:
+                fold_artifacts["param_impact_detail_csv"] = str(fold_dir / "param_impact_detail.csv")
+                fold_artifacts["param_impact_summary_csv"] = str(fold_dir / "param_impact_summary.csv")
+
             fold_summaries.append(
                 {
                     "fold_name": fold_name,
@@ -2064,21 +2101,7 @@ class RunTFTModelAnalysisUseCase:
                     "baseline_test_da": fold_baseline_da,
                     "top_5_runs": fold_top_5,
                     "drift": drift_summary_payload,
-                    "artifacts": {
-                        "fold_dir": str(fold_dir),
-                        "models_dir": str(fold_models_dir),
-                        "sweep_runs_csv": str(fold_dir / "sweep_runs.csv"),
-                        "all_models_ranked_csv": str(fold_dir / "all_models_ranked.csv"),
-                        "config_ranking_csv": str(fold_dir / "config_ranking.csv"),
-                        "config_ranking_report_order_csv": str(
-                            fold_dir / "config_ranking_report_order.csv"
-                        ),
-                        "param_impact_detail_csv": str(fold_dir / "param_impact_detail.csv"),
-                        "param_impact_summary_csv": str(fold_dir / "param_impact_summary.csv"),
-                        "drift_ks_psi_detail_csv": str(drift_detail_path),
-                        "drift_ks_psi_summary_json": str(drift_summary_path),
-                        "comparison_plots": fold_plot_artifacts,
-                    },
+                    "artifacts": fold_artifacts,
                 }
             )
 
