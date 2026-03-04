@@ -80,3 +80,55 @@ class FeatureWarmupInspector:
 
         return segments
 
+    @staticmethod
+    def suggest_trimmed_start_yyyymmdd(
+        df: pd.DataFrame,
+        feature_cols: list[str],
+        *,
+        requested_start: str,
+        requested_end: str,
+        timestamp_col: str = "timestamp",
+    ) -> str | None:
+        """
+        Return an adjusted start date (yyyymmdd) that skips leading null warm-up rows
+        across the selected feature set inside the requested window.
+
+        If no trimming is needed, returns requested_start.
+        If warm-up consumes the full scoped period, returns None.
+        """
+        if df.empty or timestamp_col not in df.columns:
+            return requested_start
+
+        ts = pd.to_datetime(df[timestamp_col], utc=True, errors="coerce")
+        start_utc = FeatureWarmupInspector._parse_yyyymmdd(requested_start)
+        end_utc = FeatureWarmupInspector._parse_yyyymmdd(requested_end)
+
+        scoped = df.copy()
+        scoped["_ts"] = ts
+        scoped = scoped[(scoped["_ts"] >= start_utc) & (scoped["_ts"] <= end_utc)]
+        if scoped.empty:
+            return None
+        scoped = scoped.sort_values("_ts").reset_index(drop=True)
+
+        max_warmup_len = 0
+        for feature_name in feature_cols:
+            if feature_name not in scoped.columns:
+                continue
+            series = scoped[feature_name]
+            if series.empty or not series.isna().iloc[0]:
+                continue
+            warmup_len = 0
+            for is_null in series.isna().tolist():
+                if is_null:
+                    warmup_len += 1
+                else:
+                    break
+            max_warmup_len = max(max_warmup_len, warmup_len)
+
+        if max_warmup_len <= 0:
+            return requested_start
+        if max_warmup_len >= len(scoped):
+            return None
+
+        next_valid_ts = scoped.loc[max_warmup_len, "_ts"]
+        return next_valid_ts.strftime("%Y%m%d")
