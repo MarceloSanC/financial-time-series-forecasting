@@ -23,6 +23,7 @@ TFT_TRAINING_DEFAULTS = {
     "seed": 42,
     "early_stopping_patience": 5,
     "early_stopping_min_delta": 0.0,
+    "warmup_policy": "strict_fail",
 }
 
 TFT_TRAINING_LIMITS = {
@@ -38,6 +39,8 @@ TFT_TRAINING_LIMITS = {
     "early_stopping_patience": {"min": 0},
     "early_stopping_min_delta": {"min": 0.0},
 }
+
+TFT_WARMUP_POLICIES = {"strict_fail", "drop_leading"}
 
 TFT_SPLIT_DEFAULTS = {
     "train_start": "20100101",
@@ -69,3 +72,9 @@ def validate_tft_training_config(config: dict) -> None:
             raise ValueError(
                 f"Invalid config: {key} must be > {rule['min_exclusive']}"
             )
+
+    warmup_policy = str(config.get("warmup_policy", "strict_fail")).strip().lower()
+    if warmup_policy not in TFT_WARMUP_POLICIES:
+        raise ValueError(
+            f"Invalid config: warmup_policy must be one of {sorted(TFT_WARMUP_POLICIES)}"
+        )
