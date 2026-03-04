@@ -95,6 +95,16 @@ Use quando os modelos/runs ja existem e voce quer recomputar relatorios/plots:
 python -m src.main_generate_sweep_artifacts --sweep-dir data/models/AAPL/sweeps/SEU_SWEEP
 ```
 
+### 4.1) Reconstruir previsoes por timestamp para `explicit_configs` (sem retreino)
+
+Necessario para testes estatisticos de comparacao preditiva (ex.: DM/MCS).
+
+```bash
+python -m src.main_rebuild_explicit_sweep_predictions \
+  --sweep-dir data/models/AAPL/sweeps/SEU_SWEEP_EXPLICIT \
+  --overwrite
+```
+
 ## 5) Merge incremental de testes (`--merge-tests`)
 
 Use para adicionar novos runs ao mesmo sweep sem perder historico:
@@ -161,6 +171,21 @@ Estrutura por fold:
 - `folds/{fold_name}/param_impact_*.csv`
 - `folds/{fold_name}/plots/*.png`
 - `folds/{fold_name}/models/{version}/...`
+
+Artefatos adicionais para `test_type: explicit_configs`:
+
+- `explicit_analysis/predictions_long.parquet`
+- `explicit_analysis/prediction_rebuild_failures.csv`
+- `explicit_analysis/ec_ranking_oos.csv`
+- `explicit_analysis/ec_robustness.csv`
+- `explicit_analysis/ec_generalization_gap.csv`
+- `explicit_analysis/ec_consistency_topk.csv`
+- `explicit_analysis/ec_heatmap_test_rmse_config_fold.csv`
+- `explicit_analysis/ec_confidence_intervals.csv`
+- `explicit_analysis/ec_dm_pairwise.csv`
+- `explicit_analysis/ec_mcs_result.csv`
+- `explicit_analysis/ec_mcs_trace.csv`
+- `explicit_analysis/plots/ec_*.png`
 
 ## 7) Leitura rapida dos resultados
 
