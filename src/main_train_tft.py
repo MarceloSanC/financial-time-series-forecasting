@@ -5,6 +5,8 @@ import json
 import logging
 from pathlib import Path
 
+import yaml
+
 from src.adapters.parquet_tft_dataset_repository import ParquetTFTDatasetRepository
 from src.adapters.pytorch_forecasting_tft_trainer import PytorchForecastingTFTTrainer
 from src.adapters.local_tft_model_repository import LocalTFTModelRepository
@@ -156,6 +158,31 @@ def _load_json_config(path: str | None) -> dict:
     return content
 
 
+def _load_train_quality_gate_defaults() -> dict:
+    cfg_path = Path(__file__).parent.parent / "config" / "quality" / "dataset_quality.yaml"
+    if not cfg_path.exists():
+        return {}
+    with open(cfg_path, encoding="utf-8") as f:
+        payload = yaml.safe_load(f) or {}
+    section = payload.get("train_guard_rail", {})
+    if not isinstance(section, dict):
+        return {}
+    return {
+        "quality_gate_max_nan_ratio_per_feature": section.get(
+            "max_nan_ratio_per_feature"
+        ),
+        "quality_gate_min_temporal_coverage_days": section.get(
+            "min_temporal_coverage_days"
+        ),
+        "quality_gate_require_unique_timestamps": section.get(
+            "require_unique_timestamps"
+        ),
+        "quality_gate_require_monotonic_timestamps": section.get(
+            "require_monotonic_timestamps"
+        ),
+    }
+
+
 def main() -> None:
     setup_logging(logging.INFO)
     args = parse_args()
@@ -187,14 +214,24 @@ def main() -> None:
     )
 
     training_config = dict(TFT_TRAINING_DEFAULTS)
+    qg_defaults = _load_train_quality_gate_defaults()
+    for k, v in qg_defaults.items():
+        if v is not None:
+            training_config[k] = v
     json_training = file_config.get("training_config")
     if isinstance(json_training, dict):
         for key, value in json_training.items():
             if key in TFT_TRAINING_DEFAULTS:
                 training_config[key] = value
+        if "derived_feature_groups" in json_training:
+            training_config["derived_feature_groups"] = json_training[
+                "derived_feature_groups"
+            ]
     for key in TFT_TRAINING_DEFAULTS:
         if key in file_config:
             training_config[key] = file_config[key]
+    if "derived_feature_groups" in file_config:
+        training_config["derived_feature_groups"] = file_config["derived_feature_groups"]
 
     overrides = {
         "max_encoder_length": args.max_encoder_length,
