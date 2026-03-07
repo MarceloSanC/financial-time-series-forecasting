@@ -53,14 +53,18 @@ def test_main_dataset_tft_skips_when_exists_without_overwrite(monkeypatch, tmp_p
         main_dataset_tft, "parse_args", lambda: Namespace(asset=asset_id, overwrite=False)
     )
 
-    calls: list[Path] = []
+    calls: list[tuple[Path, dict]] = []
     monkeypatch.setattr(main_dataset_tft.DataQualityReporter, "report_exists", lambda *_: False)
-    monkeypatch.setattr(
-        main_dataset_tft.DataQualityReporter,
-        "report_from_parquet",
-        lambda path, **_: calls.append(path),
-    )
+    monkeypatch.setattr(main_dataset_tft, "load_quality_gate_config", lambda: main_dataset_tft.DatasetQualityGateConfig())
+
+    def _capture_report(path: Path, **kwargs):
+        calls.append((path, kwargs))
+
+    monkeypatch.setattr(main_dataset_tft.DataQualityReporter, "report_from_parquet", _capture_report)
 
     main_dataset_tft.main()
 
-    assert calls == [dataset_path]
+    assert len(calls) == 1
+    assert calls[0][0] == dataset_path
+    assert "extra_sections" in calls[0][1]
+    assert "quality_gate" in calls[0][1]["extra_sections"]
