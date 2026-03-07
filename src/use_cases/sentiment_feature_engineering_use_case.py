@@ -5,7 +5,10 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 
 from src.domain.services.sentiment_aggregator import SentimentAggregator
-from src.domain.time.trading_calendar import normalize_to_trading_day
+from src.domain.time.trading_calendar import (
+    TradingDayPolicy,
+    trading_day_from_timestamp,
+)
 from src.domain.time.utc import require_tz_aware, to_utc
 from src.entities.daily_sentiment import DailySentiment
 from src.entities.scored_news_article import ScoredNewsArticle
@@ -40,10 +43,12 @@ class SentimentFeatureEngineeringUseCase:
         scored_news_repository: ScoredNewsRepository,
         sentiment_aggregator: SentimentAggregator,
         daily_sentiment_repository: DailySentimentRepository,
+        trading_day_policy: TradingDayPolicy | None = None,
     ) -> None:
         self.scored_news_repository = scored_news_repository
         self.sentiment_aggregator = sentiment_aggregator
         self.daily_sentiment_repository = daily_sentiment_repository
+        self.trading_day_policy = trading_day_policy or TradingDayPolicy()
 
     def execute(
         self,
@@ -71,12 +76,14 @@ class SentimentFeatureEngineeringUseCase:
             daily=daily,
             start_utc=start_utc,
             end_utc=end_utc,
+            trading_day_policy=self.trading_day_policy,
         )
         self._validate_daily_causality(
             scored=scored,
             daily=daily,
             start_utc=start_utc,
             end_utc=end_utc,
+            trading_day_policy=self.trading_day_policy,
         )
 
         if daily:
@@ -110,6 +117,7 @@ class SentimentFeatureEngineeringUseCase:
         daily: list[DailySentiment],
         start_utc: datetime,
         end_utc: datetime,
+        trading_day_policy: TradingDayPolicy,
     ) -> None:
         """
         Explicit causality guard:
@@ -122,7 +130,10 @@ class SentimentFeatureEngineeringUseCase:
 
         day_counts: dict = {}
         for article in scored:
-            article_day = normalize_to_trading_day(article.published_at)
+            article_day = trading_day_from_timestamp(
+                article.published_at,
+                trading_day_policy,
+            )
             if article_day < start_day or article_day > end_day:
                 raise ValueError(
                     "Causality violation: scored news outside requested date window"
@@ -165,6 +176,7 @@ class SentimentFeatureEngineeringUseCase:
         daily: list[DailySentiment],
         start_utc: datetime,
         end_utc: datetime,
+        trading_day_policy: TradingDayPolicy,
     ) -> list[DailySentiment]:
         by_day = {item.day: item for item in daily}
 
@@ -172,7 +184,8 @@ class SentimentFeatureEngineeringUseCase:
         current = start_utc.date()
         end_day = end_utc.date()
         while current <= end_day:
-            all_days.append(current)
+            if trading_day_policy.weekends or current.weekday() < 5:
+                all_days.append(current)
             current += timedelta(days=1)
 
         filled: list[DailySentiment] = []
