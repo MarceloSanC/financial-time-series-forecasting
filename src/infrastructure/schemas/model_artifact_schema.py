@@ -24,6 +24,13 @@ TFT_TRAINING_DEFAULTS = {
     "early_stopping_patience": 5,
     "early_stopping_min_delta": 0.0,
     "warmup_policy": "strict_fail",
+    "min_samples_train": 1,
+    "min_samples_val": 1,
+    "min_samples_test": 1,
+    "quality_gate_max_nan_ratio_per_feature": 1.0,
+    "quality_gate_min_temporal_coverage_days": 1,
+    "quality_gate_require_unique_timestamps": True,
+    "quality_gate_require_monotonic_timestamps": True,
 }
 
 TFT_TRAINING_LIMITS = {
@@ -38,6 +45,11 @@ TFT_TRAINING_LIMITS = {
     "hidden_continuous_size": {"min": 1},
     "early_stopping_patience": {"min": 0},
     "early_stopping_min_delta": {"min": 0.0},
+    "min_samples_train": {"min": 1},
+    "min_samples_val": {"min": 1},
+    "min_samples_test": {"min": 1},
+    "quality_gate_max_nan_ratio_per_feature": {"min": 0.0, "max": 1.0},
+    "quality_gate_min_temporal_coverage_days": {"min": 1},
 }
 
 TFT_WARMUP_POLICIES = {"strict_fail", "drop_leading"}
@@ -72,6 +84,19 @@ def validate_tft_training_config(config: dict) -> None:
             raise ValueError(
                 f"Invalid config: {key} must be > {rule['min_exclusive']}"
             )
+
+    if "quality_gate_require_unique_timestamps" in config and not isinstance(
+        config["quality_gate_require_unique_timestamps"], bool
+    ):
+        raise ValueError(
+            "Invalid config: quality_gate_require_unique_timestamps must be boolean"
+        )
+    if "quality_gate_require_monotonic_timestamps" in config and not isinstance(
+        config["quality_gate_require_monotonic_timestamps"], bool
+    ):
+        raise ValueError(
+            "Invalid config: quality_gate_require_monotonic_timestamps must be boolean"
+        )
 
     warmup_policy = str(config.get("warmup_policy", "strict_fail")).strip().lower()
     if warmup_policy not in TFT_WARMUP_POLICIES:
