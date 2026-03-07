@@ -4,6 +4,7 @@ import argparse
 import logging
 from pathlib import Path
 
+import pandas as pd
 import yaml
 from dotenv import load_dotenv
 
@@ -16,10 +17,14 @@ from src.adapters.parquet_technical_indicator_repository import (
     ParquetTechnicalIndicatorRepository,
 )
 from src.adapters.parquet_tft_dataset_repository import ParquetTFTDatasetRepository
+from src.domain.time.trading_calendar import trading_policy_from_asset_config
 from src.domain.time.utc import parse_iso_utc
 from src.use_cases.build_tft_dataset_use_case import BuildTFTDatasetUseCase
+from src.domain.services.dataset_quality_gate import DatasetQualityGateConfig
+from src.domain.services.dataset_quality_gate import DatasetQualityGate
 from src.domain.services.data_quality_reporter import DataQualityReporter
 from src.domain.services.data_quality_profiles import get_profile
+from src.infrastructure.schemas.feature_validation_schema import FEATURE_WARMUP_BARS
 from src.utils.logging_config import setup_logging
 from src.utils.path_resolver import load_data_paths
 
@@ -31,6 +36,23 @@ def load_config() -> dict:
     config_path = Path(__file__).parent.parent / "config" / "data_sources.yaml"
     with open(config_path, encoding="utf-8") as f:
         return yaml.safe_load(f)
+
+
+def load_quality_gate_config() -> DatasetQualityGateConfig:
+    cfg_path = Path(__file__).parent.parent / "config" / "quality" / "dataset_quality.yaml"
+    if not cfg_path.exists():
+        return DatasetQualityGateConfig()
+    with open(cfg_path, encoding="utf-8") as f:
+        payload = yaml.safe_load(f) or {}
+    section = payload.get("build_dataset_tft", {})
+    if not isinstance(section, dict):
+        section = {}
+    return DatasetQualityGateConfig(
+        max_nan_ratio_per_feature=float(section.get("max_nan_ratio_per_feature", 1.0)),
+        min_temporal_coverage_days=int(section.get("min_temporal_coverage_days", 1)),
+        require_unique_timestamps=bool(section.get("require_unique_timestamps", True)),
+        require_monotonic_timestamps=bool(section.get("require_monotonic_timestamps", True)),
+    )
 
 
 def parse_args() -> argparse.Namespace:
@@ -46,6 +68,29 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
+def _model_feature_columns(df: pd.DataFrame) -> list[str]:
+    excluded = {"asset_id", "timestamp", "time_idx", "day_of_week", "month", "target_return"}
+    return [c for c in df.columns if c not in excluded]
+
+
+def _report_extra_sections(
+    *,
+    dataset_path: Path,
+    quality_gate_config: DatasetQualityGateConfig,
+) -> dict:
+    try:
+        df = pd.read_parquet(dataset_path)
+    except Exception:
+        return {}
+    quality_gate_report = DatasetQualityGate.evaluate(
+        df=df,
+        feature_cols=_model_feature_columns(df),
+        config=quality_gate_config,
+        warmup_counts=FEATURE_WARMUP_BARS,
+    )
+    return {"quality_gate": quality_gate_report}
+
+
 def main() -> None:
     setup_logging(logging.INFO)
 
@@ -54,6 +99,7 @@ def main() -> None:
     overwrite = args.overwrite
 
     config = load_config()
+    quality_gate_config = load_quality_gate_config()
     asset_cfg = next(
         (a for a in config.get("assets", []) if str(a.get("symbol", "")).upper() == asset_id),
         None,
@@ -65,6 +111,7 @@ def main() -> None:
     end_date = parse_iso_utc(asset_cfg["end_date"])
     if start_date > end_date:
         raise ValueError("start_date must be <= end_date")
+    trading_day_policy = trading_policy_from_asset_config(asset_cfg)
 
     paths = load_data_paths()
 
@@ -101,6 +148,13 @@ def main() -> None:
             "fundamentals_dir": str(processed_fundamentals_dir.resolve()),
             "dataset_dir": str(dataset_tft_dir.resolve()),
             "overwrite": overwrite,
+            "open_hour": trading_day_policy.open_hour.isoformat(),
+            "close_hour": trading_day_policy.close_hour.isoformat(),
+            "weekends": trading_day_policy.weekends,
+            "quality_gate_max_nan_ratio_per_feature": quality_gate_config.max_nan_ratio_per_feature,
+            "quality_gate_min_temporal_coverage_days": quality_gate_config.min_temporal_coverage_days,
+            "quality_gate_require_unique_timestamps": quality_gate_config.require_unique_timestamps,
+            "quality_gate_require_monotonic_timestamps": quality_gate_config.require_monotonic_timestamps,
         },
     )
 
@@ -124,7 +178,14 @@ def main() -> None:
         )
         profile = get_profile("dataset_tft")
         if not DataQualityReporter.report_exists(dataset_path.parent / "reports", profile.prefix):
-            DataQualityReporter.report_from_parquet(dataset_path, **profile.to_kwargs())
+            DataQualityReporter.report_from_parquet(
+                dataset_path,
+                **profile.to_kwargs(),
+                extra_sections=_report_extra_sections(
+                    dataset_path=dataset_path,
+                    quality_gate_config=quality_gate_config,
+                ),
+            )
         return
 
     use_case = BuildTFTDatasetUseCase(
@@ -133,6 +194,8 @@ def main() -> None:
         daily_sentiment_repository=daily_sentiment_repository,
         fundamental_repository=fundamental_repository,
         tft_dataset_repository=tft_dataset_repository,
+        trading_day_policy=trading_day_policy,
+        quality_gate_config=quality_gate_config,
     )
 
     result = use_case.execute(
@@ -142,7 +205,14 @@ def main() -> None:
     )
     if dataset_path.exists():
         profile = get_profile("dataset_tft")
-        DataQualityReporter.report_from_parquet(dataset_path, **profile.to_kwargs())
+        DataQualityReporter.report_from_parquet(
+            dataset_path,
+            **profile.to_kwargs(),
+            extra_sections=_report_extra_sections(
+                dataset_path=dataset_path,
+                quality_gate_config=quality_gate_config,
+            ),
+        )
 
     logger.info(
         "TFT dataset completed",
