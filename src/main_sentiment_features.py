@@ -12,6 +12,7 @@ from src.adapters.parquet_daily_sentiment_repository import (
 )
 from src.adapters.parquet_scored_news_repository import ParquetScoredNewsRepository
 from src.domain.services.sentiment_aggregator import SentimentAggregator
+from src.domain.time.trading_calendar import trading_policy_from_asset_config
 from src.domain.time.utc import parse_iso_utc
 from src.use_cases.sentiment_feature_engineering_use_case import (
     SentimentFeatureEngineeringUseCase,
@@ -57,6 +58,7 @@ def main() -> None:
     end_date = parse_iso_utc(asset_cfg["end_date"])
     if start_date > end_date:
         raise ValueError("start_date must be <= end_date")
+    trading_day_policy = trading_policy_from_asset_config(asset_cfg)
 
     paths = load_data_paths()
     processed_news_dir = paths.get("processed_news_scored")
@@ -79,6 +81,9 @@ def main() -> None:
             "processed_sentiment_daily_dir": str(
                 processed_sentiment_daily_dir.resolve()
             ),
+            "open_hour": trading_day_policy.open_hour.isoformat(),
+            "close_hour": trading_day_policy.close_hour.isoformat(),
+            "weekends": trading_day_policy.weekends,
         },
     )
 
@@ -86,12 +91,13 @@ def main() -> None:
     daily_sentiment_repository = ParquetDailySentimentRepository(
         output_dir=processed_sentiment_daily_dir
     )
-    sentiment_aggregator = SentimentAggregator()
+    sentiment_aggregator = SentimentAggregator(trading_day_policy=trading_day_policy)
 
     use_case = SentimentFeatureEngineeringUseCase(
         scored_news_repository=scored_repository,
         sentiment_aggregator=sentiment_aggregator,
         daily_sentiment_repository=daily_sentiment_repository,
+        trading_day_policy=trading_day_policy,
     )
 
     result = use_case.execute(
