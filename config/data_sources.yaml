@@ -4,11 +4,17 @@ assets:
     name: "Apple Inc"
     start_date: "2010-01-01"
     end_date: "2025-12-31"
+    open_hour: "09:30"
+    close_hour: "16:00"
+    weekends: false
 
   - symbol: "MSFT"
     name: "Microsoft"
     start_date: "2010-01-01"
     end_date: "2025-12-31"
+    open_hour: "09:30"
+    close_hour: "16:00"
+    weekends: false
 
 data_sources:
   candles:
