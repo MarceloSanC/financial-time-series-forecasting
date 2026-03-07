@@ -33,3 +33,17 @@ def test_validate_tft_training_config_rejects_prediction_gt_encoder() -> None:
     cfg["max_prediction_length"] = 31
     with pytest.raises(ValueError, match="max_prediction_length"):
         validate_tft_training_config(cfg)
+
+
+def test_validate_tft_training_config_rejects_non_boolean_unique_timestamp_gate() -> None:
+    cfg = dict(TFT_TRAINING_DEFAULTS)
+    cfg["quality_gate_require_unique_timestamps"] = "yes"
+    with pytest.raises(ValueError, match="quality_gate_require_unique_timestamps"):
+        validate_tft_training_config(cfg)
+
+
+def test_validate_tft_training_config_rejects_non_boolean_monotonic_timestamp_gate() -> None:
+    cfg = dict(TFT_TRAINING_DEFAULTS)
+    cfg["quality_gate_require_monotonic_timestamps"] = "yes"
+    with pytest.raises(ValueError, match="quality_gate_require_monotonic_timestamps"):
+        validate_tft_training_config(cfg)
