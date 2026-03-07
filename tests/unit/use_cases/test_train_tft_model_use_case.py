@@ -67,6 +67,7 @@ class FakeModelRepo(ModelRepository):
     last_ablation_results: list[dict[str, float | str]] | None = None
     last_version: str | None = None
     last_dataset_parameters: dict | None = None
+    last_config: dict | None = None
 
     def save_training_artifacts(
         self,
@@ -91,6 +92,7 @@ class FakeModelRepo(ModelRepository):
         self.last_ablation_results = ablation_results
         self.last_version = version
         self.last_dataset_parameters = dataset_parameters
+        self.last_config = config
         return "fake_dir"
 
 
@@ -126,14 +128,29 @@ def _df_ablation() -> pd.DataFrame:
             "close": [10.5, 11.5, 12.5],
             "volume": [1000, 1100, 1200],
             "volatility_20d": [0.1, 0.2, 0.3],
+            "rsi_14": [30.0, 40.0, 50.0],
+            "candle_body": [0.5, 0.5, 0.5],
+            "macd_signal": [0.01, 0.02, 0.03],
+            "ema_100": [10.0, 10.1, 10.2],
+            "macd": [0.1, 0.2, 0.3],
+            "ema_10": [10.2, 10.3, 10.4],
+            "ema_200": [9.8, 9.9, 10.0],
+            "ema_50": [10.1, 10.2, 10.3],
+            "candle_range": [2.0, 2.0, 2.0],
             "sentiment_score": [0.1, -0.2, 0.0],
             "news_volume": [3, 0, 1],
             "sentiment_std": [0.2, 0.0, 0.1],
+            "has_news": [1, 0, 1],
             "revenue": [100.0, 100.0, 100.0],
             "net_income": [10.0, 10.0, 10.0],
             "operating_cash_flow": [15.0, 15.0, 15.0],
             "total_shareholder_equity": [50.0, 50.0, 50.0],
             "total_liabilities": [25.0, 25.0, 25.0],
+            "net_margin": [0.1, 0.1, 0.1],
+            "leverage_ratio": [0.5, 0.5, 0.5],
+            "cashflow_efficiency": [0.15, 0.15, 0.15],
+            "revenue_yoy_growth": [0.0, 0.0, 0.0],
+            "net_income_yoy_growth": [0.0, 0.0, 0.0],
             "day_of_week": [0, 1, 3],
             "month": [1, 1, 1],
         }
@@ -278,6 +295,129 @@ def test_custom_feature_tokens_add_c_suffix() -> None:
 
     assert repo.last_version is not None
     assert repo.last_version.endswith("_BC")
+    assert repo.last_config is not None
+    assert repo.last_config["feature_list_ordered"] == trainer.seen_features
+    assert isinstance(repo.last_config["feature_set_hash"], str)
+    assert len(repo.last_config["feature_set_hash"]) == 64
+
+
+def test_warmup_strict_fail_raises_for_window_feature() -> None:
+    df = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(
+                ["2024-01-01", "2024-01-02", "2025-01-02"], utc=True
+            ),
+            "asset_id": ["AAPL", "AAPL", "AAPL"],
+            "time_idx": [0, 1, 2],
+            "target_return": [0.1, 0.2, 0.3],
+            "ema_200": [None, 1.0, 2.0],
+            "day_of_week": [0, 1, 3],
+            "month": [1, 1, 1],
+        }
+    )
+    use_case = TrainTFTModelUseCase(
+        dataset_repository=FakeDatasetRepository(df),
+        model_trainer=FakeTrainer(),
+        model_repository=FakeModelRepo(),
+    )
+    split_config = {
+        "train_start": "20240101",
+        "train_end": "20240101",
+        "val_start": "20240102",
+        "val_end": "20240102",
+        "test_start": "20250102",
+        "test_end": "20250102",
+    }
+    with pytest.raises(ValueError, match="policy=strict_fail"):
+        use_case.execute(
+            "AAPL",
+            features=["ema_200"],
+            split_config=split_config,
+            training_config={"warmup_policy": "strict_fail"},
+        )
+
+
+def test_warmup_drop_leading_adjusts_train_start_and_runs() -> None:
+    df = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(
+                ["2024-01-01", "2024-01-02", "2025-01-02", "2026-01-02"], utc=True
+            ),
+            "asset_id": ["AAPL", "AAPL", "AAPL", "AAPL"],
+            "time_idx": [0, 1, 2, 3],
+            "target_return": [0.1, 0.2, 0.3, 0.4],
+            "ema_200": [None, 1.0, 2.0, 3.0],
+            "day_of_week": [0, 1, 3, 4],
+            "month": [1, 1, 1, 1],
+        }
+    )
+    trainer = FakeTrainer()
+    repo = FakeModelRepo()
+    use_case = TrainTFTModelUseCase(
+        dataset_repository=FakeDatasetRepository(df),
+        model_trainer=trainer,
+        model_repository=repo,
+    )
+    split_config = {
+        "train_start": "20240101",
+        "train_end": "20240102",
+        "val_start": "20250102",
+        "val_end": "20250102",
+        "test_start": "20260102",
+        "test_end": "20260102",
+    }
+    result = use_case.execute(
+        "AAPL",
+        features=["ema_200"],
+        split_config=split_config,
+        training_config={"warmup_policy": "drop_leading"},
+    )
+    assert result.metrics["rmse"] == 1.0
+    assert repo.saved is True
+    assert repo.last_config is not None
+    assert repo.last_config["warmup_policy"] == "drop_leading"
+    assert repo.last_config["warmup_applied"] is True
+    assert repo.last_config["effective_train_start"] == "20240102"
+    assert repo.last_config["feature_list_ordered"] == ["ema_200"]
+
+
+def test_warmup_drop_leading_revalidates_min_samples_and_fails_if_insufficient() -> None:
+    df = pd.DataFrame(
+        {
+            "timestamp": pd.to_datetime(
+                ["2024-01-01", "2024-01-02", "2025-01-02", "2026-01-02"], utc=True
+            ),
+            "asset_id": ["AAPL", "AAPL", "AAPL", "AAPL"],
+            "time_idx": [0, 1, 2, 3],
+            "target_return": [0.1, 0.2, 0.3, 0.4],
+            "ema_200": [None, 1.0, 2.0, 3.0],
+            "day_of_week": [0, 1, 3, 4],
+            "month": [1, 1, 1, 1],
+        }
+    )
+    use_case = TrainTFTModelUseCase(
+        dataset_repository=FakeDatasetRepository(df),
+        model_trainer=FakeTrainer(),
+        model_repository=FakeModelRepo(),
+    )
+    split_config = {
+        "train_start": "20240101",
+        "train_end": "20240102",
+        "val_start": "20250102",
+        "val_end": "20250102",
+        "test_start": "20260102",
+        "test_end": "20260102",
+    }
+    with pytest.raises(ValueError, match="insufficient samples"):
+        use_case.execute(
+            "AAPL",
+            features=["ema_200"],
+            split_config=split_config,
+            training_config={
+                "warmup_policy": "drop_leading",
+                "min_samples_train": 2,
+            },
+        )
 
 
 def test_raises_when_split_window_is_empty() -> None:
@@ -314,6 +454,78 @@ def test_raises_when_unknown_feature_token_is_provided() -> None:
     }
     with pytest.raises(ValueError, match="Requested features not found"):
         use_case.execute("AAPL", features=["UNKNOWN_GROUP"], split_config=split_config)
+
+
+def test_raises_when_group_features_are_missing_in_dataset() -> None:
+    use_case = TrainTFTModelUseCase(
+        dataset_repository=FakeDatasetRepository(_df()),
+        model_trainer=FakeTrainer(),
+        model_repository=FakeModelRepo(),
+    )
+    split_config = {
+        "train_start": "20240101",
+        "train_end": "20240101",
+        "val_start": "20240102",
+        "val_end": "20240102",
+        "test_start": "20250102",
+        "test_end": "20250102",
+    }
+    with pytest.raises(ValueError, match="not fully available"):
+        use_case.execute("AAPL", features=["TECHNICAL_FEATURES"], split_config=split_config)
+
+
+def test_derived_feature_groups_can_be_enabled_via_training_config() -> None:
+    trainer = FakeTrainer()
+    repo = FakeModelRepo()
+    use_case = TrainTFTModelUseCase(
+        dataset_repository=FakeDatasetRepository(_df_ablation()),
+        model_trainer=trainer,
+        model_repository=repo,
+    )
+    split_config = {
+        "train_start": "20240101",
+        "train_end": "20240101",
+        "val_start": "20240102",
+        "val_end": "20240102",
+        "test_start": "20250102",
+        "test_end": "20250102",
+    }
+
+    use_case.execute(
+        "AAPL",
+        features=["BASELINE_FEATURES"],
+        split_config=split_config,
+        training_config={"derived_feature_groups": ["FUNDAMENTAL_DERIVED_FEATURES"]},
+    )
+
+    assert trainer.seen_features is not None
+    assert "open" in trainer.seen_features
+    assert "net_margin" in trainer.seen_features
+    assert repo.last_version is not None
+    assert repo.last_version.endswith("_BQ")
+
+
+def test_raises_when_derived_feature_groups_has_invalid_type() -> None:
+    use_case = TrainTFTModelUseCase(
+        dataset_repository=FakeDatasetRepository(_df_ablation()),
+        model_trainer=FakeTrainer(),
+        model_repository=FakeModelRepo(),
+    )
+    split_config = {
+        "train_start": "20240101",
+        "train_end": "20240101",
+        "val_start": "20240102",
+        "val_end": "20240102",
+        "test_start": "20250102",
+        "test_end": "20250102",
+    }
+    with pytest.raises(ValueError, match="derived_feature_groups must be a list"):
+        use_case.execute(
+            "AAPL",
+            features=["BASELINE_FEATURES"],
+            split_config=split_config,
+            training_config={"derived_feature_groups": "FUNDAMENTAL_DERIVED_FEATURES"},
+        )
 
 
 def test_skips_ablation_when_explicit_features_are_provided() -> None:
@@ -380,6 +592,79 @@ def test_raises_when_features_list_is_empty() -> None:
         use_case.execute("AAPL", features=[], split_config=split_config)
 
 
+def test_quality_gate_rejects_duplicate_timestamps() -> None:
+    df = _df_ablation().copy()
+    df.loc[1, "timestamp"] = df.loc[0, "timestamp"]
+    use_case = TrainTFTModelUseCase(
+        dataset_repository=FakeDatasetRepository(df),
+        model_trainer=FakeTrainer(),
+        model_repository=FakeModelRepo(),
+    )
+    split_config = {
+        "train_start": "20240101",
+        "train_end": "20240101",
+        "val_start": "20240102",
+        "val_end": "20240102",
+        "test_start": "20250102",
+        "test_end": "20250102",
+    }
+    with pytest.raises(ValueError, match="duplicate timestamp"):
+        use_case.execute(
+            "AAPL",
+            features=["BASELINE_FEATURES"],
+            split_config=split_config,
+            training_config={"quality_gate_require_unique_timestamps": True},
+        )
+
+
+def test_quality_gate_rejects_high_nan_ratio_per_feature() -> None:
+    df = _df_ablation().copy()
+    df["close"] = [None, None, 12.5]
+    use_case = TrainTFTModelUseCase(
+        dataset_repository=FakeDatasetRepository(df),
+        model_trainer=FakeTrainer(),
+        model_repository=FakeModelRepo(),
+    )
+    split_config = {
+        "train_start": "20240101",
+        "train_end": "20240101",
+        "val_start": "20240102",
+        "val_end": "20240102",
+        "test_start": "20250102",
+        "test_end": "20250102",
+    }
+    with pytest.raises(ValueError, match="NaN ratio above threshold"):
+        use_case.execute(
+            "AAPL",
+            features=["close"],
+            split_config=split_config,
+            training_config={"quality_gate_max_nan_ratio_per_feature": 0.5},
+        )
+
+
+def test_quality_gate_rejects_insufficient_temporal_coverage() -> None:
+    use_case = TrainTFTModelUseCase(
+        dataset_repository=FakeDatasetRepository(_df_ablation()),
+        model_trainer=FakeTrainer(),
+        model_repository=FakeModelRepo(),
+    )
+    split_config = {
+        "train_start": "20240101",
+        "train_end": "20240101",
+        "val_start": "20240102",
+        "val_end": "20240102",
+        "test_start": "20250102",
+        "test_end": "20250102",
+    }
+    with pytest.raises(ValueError, match="temporal coverage below minimum"):
+        use_case.execute(
+            "AAPL",
+            features=["BASELINE_FEATURES"],
+            split_config=split_config,
+            training_config={"quality_gate_min_temporal_coverage_days": 800},
+        )
+
+
 def test_applies_split_normalization_for_technical_features_and_persists_scalers() -> None:
     df = pd.DataFrame(
         {
@@ -395,6 +680,15 @@ def test_applies_split_normalization_for_technical_features_and_persists_scalers
             "close": [10.5, 11.5, 12.5],
             "volume": [1000, 1100, 1200],
             "volatility_20d": [10.0, 20.0, 30.0],
+            "rsi_14": [30.0, 40.0, 50.0],
+            "candle_body": [0.5, 0.5, 0.5],
+            "macd_signal": [0.01, 0.02, 0.03],
+            "ema_100": [10.0, 10.1, 10.2],
+            "macd": [0.1, 0.2, 0.3],
+            "ema_10": [10.2, 10.3, 10.4],
+            "ema_200": [9.8, 9.9, 10.0],
+            "ema_50": [10.1, 10.2, 10.3],
+            "candle_range": [2.0, 2.0, 2.0],
             "day_of_week": [0, 1, 3],
             "month": [1, 1, 1],
         }
