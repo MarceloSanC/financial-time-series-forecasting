@@ -316,3 +316,14 @@ def test_out_of_range_missing_column_is_ignored() -> None:
         business_days=False,
     )
     assert report["out_of_range"] == {}
+
+
+def test_generate_report_includes_extra_sections() -> None:
+    df = pd.DataFrame({"value": [1.0, 2.0]})
+    report = DataQualityReporter.generate_report(
+        df,
+        business_days=False,
+        extra_sections={"quality_gate": {"passed": True}},
+    )
+    assert "quality_gate" in report
+    assert report["quality_gate"]["passed"] is True
