@@ -55,6 +55,52 @@ FUNDAMENTAL_FEATURES: List[str] = [
     "total_liabilities",
 ]
 
+FUNDAMENTAL_DERIVED_FEATURES: List[str] = [
+    "net_margin",
+    "leverage_ratio",
+    "cashflow_efficiency",
+    "revenue_yoy_growth",
+    "net_income_yoy_growth",
+]
+
+MOMENTUM_LIQUIDITY_FEATURES: List[str] = [
+    "log_return_1d",
+    "log_return_5d",
+    "log_return_21d",
+    "momentum_5d",
+    "momentum_21d",
+    "momentum_63d",
+    "reversal_1d",
+    "reversal_5d",
+    "drawdown_lookback",
+    "amihud_illiquidity_proxy",
+    "volume_zscore",
+    "volume_spike_flag",
+]
+
+VOLATILITY_ROBUST_FEATURES: List[str] = [
+    "volatility_parkinson",
+    "volatility_garman_klass",
+    "downside_semivolatility",
+    "vol_of_vol",
+]
+
+REGIME_FEATURES: List[str] = [
+    "volatility_regime",
+    "trend_regime",
+    "stress_tail_return_flag",
+]
+
+SENTIMENT_DYNAMICS_FEATURES: List[str] = [
+    "sentiment_lag_1",
+    "sentiment_lag_3",
+    "sentiment_lag_5",
+    "sentiment_ema",
+    "sentiment_surprise",
+    "sentiment_x_volatility",
+    "sentiment_x_volume",
+]
+
 DEFAULT_TFT_FEATURES: List[str] = [
     *BASELINE_FEATURES
 ]
