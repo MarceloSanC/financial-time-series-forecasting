@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import logging
 from pathlib import Path
 from typing import Any
 
@@ -247,3 +248,53 @@ def test_use_case_fail_fast_when_end_exceeds_dataset_and_auto_refresh_disabled()
             start_date=start + timedelta(days=5),
             end_date=start + timedelta(days=9),
         )
+
+
+def test_inference_fails_with_clear_diagnostic_when_model_feature_is_missing() -> None:
+    start = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    df = _dataset(start).drop(columns=["close"])
+    dataset_repo = _FakeDatasetRepo(df)
+    inference_repo = _FakeInferenceRepo()
+    loader = _FakeModelLoader(asset_id="AAPL")
+    engine = _FakeEngine()
+    use_case = RunTFTInferenceUseCase(
+        dataset_repository=dataset_repo,
+        inference_repository=inference_repo,
+        model_loader=loader,
+        inference_engine=engine,
+    )
+
+    with pytest.raises(ValueError, match="missing_model_features=.*close"):
+        use_case.execute(
+            asset_id="AAPL",
+            model_path="/tmp/model",
+            start_date=start + timedelta(days=5),
+            end_date=start + timedelta(days=7),
+        )
+
+
+def test_inference_logs_excess_dataset_features_but_runs(caplog) -> None:
+    caplog.set_level(logging.INFO)
+    start = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    df = _dataset(start)
+    df["open"] = df["close"] - 1.0  # feature implemented but unused by model
+    dataset_repo = _FakeDatasetRepo(df)
+    inference_repo = _FakeInferenceRepo()
+    loader = _FakeModelLoader(asset_id="AAPL")
+    engine = _FakeEngine()
+    use_case = RunTFTInferenceUseCase(
+        dataset_repository=dataset_repo,
+        inference_repository=inference_repo,
+        model_loader=loader,
+        inference_engine=engine,
+    )
+
+    result = use_case.execute(
+        asset_id="AAPL",
+        model_path="/tmp/model",
+        start_date=start + timedelta(days=5),
+        end_date=start + timedelta(days=7),
+    )
+
+    assert result.attempted_upserts > 0
+    assert any("extra model feature columns not used" in r.message for r in caplog.records)
