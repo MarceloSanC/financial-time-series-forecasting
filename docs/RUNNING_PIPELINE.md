@@ -182,6 +182,48 @@ Sem parâmetros adicionais, o treino usa:
 
 Para exemplos práticos e referência completa, consulte `docs/TRAIN_TFT_PARAMS.md`.
 
+### Exemplos por feature set
+
+Baseline:
+
+```bash
+python -m src.main_train_tft --asset AAPL --features BASELINE_FEATURES
+```
+
+Baseline + Technical:
+
+```bash
+python -m src.main_train_tft --asset AAPL --features BASELINE_FEATURES,TECHNICAL_FEATURES
+```
+
+Sentiment dynamics + regimes (derivadas):
+
+```bash
+python -m src.main_train_tft --asset AAPL --config-json config/sweeps/optuna/default_tft_optuna_sweep.json
+```
+
+Ativando subconjuntos derivados via JSON de treino:
+
+```json
+{
+  "features": ["BASELINE_FEATURES"],
+  "training_config": {
+    "derived_feature_groups": ["MOMENTUM_LIQUIDITY_FEATURES", "REGIME_FEATURES"],
+    "warmup_policy": "drop_leading"
+  }
+}
+```
+
+### Notas de warmup e qualidade pre-treino
+
+- O treino calcula `required_warmup_count` a partir das features selecionadas.
+- `warmup_policy=strict_fail` aborta se houver aquecimento insuficiente no intervalo.
+- `warmup_policy=drop_leading` ajusta `effective_train_start`.
+- Quality gate pre-treino:
+  - `quality_gate_max_nan_ratio_per_feature`
+  - `quality_gate_min_temporal_coverage_days`
+  - `quality_gate_require_unique_timestamps`
+
 ## 9) Inferencia TFT em Novos Dados
 
 Executa previsoes com um modelo treinado e persiste resultados em:
