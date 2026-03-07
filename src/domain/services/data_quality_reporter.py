@@ -32,6 +32,7 @@ class DataQualityReporter:
         validation_rules: list[dict[str, Any]] | None = None,
         comparison_rules: list[dict[str, Any]] | None = None,
         business_days: bool = True,
+        extra_sections: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         report: dict[str, Any] = {
             "rows": int(len(df)),
@@ -187,6 +188,11 @@ class DataQualityReporter:
         if invalid_rows_mask is not None:
             report["invalid_rows_total"] = int(invalid_rows_mask.sum())
 
+        if extra_sections:
+            for key, value in extra_sections.items():
+                if key not in report:
+                    report[key] = value
+
         return report
 
     @staticmethod
@@ -218,6 +224,7 @@ class DataQualityReporter:
         validation_rules: list[dict[str, Any]] | None = None,
         comparison_rules: list[dict[str, Any]] | None = None,
         business_days: bool = True,
+        extra_sections: dict[str, Any] | None = None,
     ) -> Path:
         logger = logging.getLogger(__name__)
         try:
@@ -237,6 +244,7 @@ class DataQualityReporter:
             validation_rules=validation_rules,
             comparison_rules=comparison_rules,
             business_days=business_days,
+            extra_sections=extra_sections,
         )
         report["source_path"] = str(parquet_path.resolve())
         report["file_size_bytes"] = parquet_path.stat().st_size
