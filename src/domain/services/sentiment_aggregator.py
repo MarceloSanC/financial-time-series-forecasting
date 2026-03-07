@@ -7,7 +7,10 @@ from datetime import date
 from statistics import mean, pstdev
 from typing import Iterable, List
 
-from src.domain.time.trading_calendar import normalize_to_trading_day
+from src.domain.time.trading_calendar import (
+    TradingDayPolicy,
+    trading_day_from_timestamp,
+)
 from src.entities.scored_news_article import ScoredNewsArticle
 from src.entities.daily_sentiment import DailySentiment
 
@@ -22,6 +25,9 @@ class SentimentAggregator:
     - Não depende de ML, APIs ou infraestrutura
     - Produz entidades ricas e auditáveis
     """
+
+    def __init__(self, trading_day_policy: TradingDayPolicy | None = None) -> None:
+        self.trading_day_policy = trading_day_policy or TradingDayPolicy()
 
     def aggregate_daily(
         self,
@@ -51,7 +57,10 @@ class SentimentAggregator:
                     "All articles must belong to the same asset_id"
                 )
 
-            day = normalize_to_trading_day(article.published_at)
+            day = trading_day_from_timestamp(
+                article.published_at,
+                self.trading_day_policy,
+            )
             grouped_scores[day].append(article.sentiment_score)
 
         daily_sentiments: list[DailySentiment] = []
