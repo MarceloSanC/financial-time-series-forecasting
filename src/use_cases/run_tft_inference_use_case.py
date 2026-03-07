@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 
 from src.domain.time.utc import require_tz_aware, to_utc
+from src.infrastructure.schemas.feature_validation_schema import IMPLEMENTED_FEATURES
 from src.entities.tft_inference_record import TFTInferenceRecord
 from src.interfaces.tft_dataset_repository import TFTDatasetRepository
 from src.interfaces.tft_inference_engine import TFTInferenceEngine
@@ -96,6 +97,23 @@ class RunTFTInferenceUseCase:
         if start_utc > end_utc:
             raise ValueError("Requested period invalid: start_date must be <= end_date.")
         return start_utc, end_utc
+
+    @staticmethod
+    def _validate_feature_compatibility(
+        *,
+        dataset_df: pd.DataFrame,
+        model_feature_cols: list[str],
+    ) -> tuple[list[str], list[str]]:
+        expected = [c for c in model_feature_cols if c.strip()]
+        expected_set = set(expected)
+        missing = sorted([c for c in expected if c not in dataset_df.columns])
+
+        implemented_set = set(IMPLEMENTED_FEATURES) | expected_set
+        dataset_feature_cols = sorted(
+            [c for c in dataset_df.columns if c in implemented_set]
+        )
+        excess = sorted([c for c in dataset_feature_cols if c not in expected_set])
+        return missing, excess
 
     def execute(
         self,
@@ -204,11 +222,30 @@ class RunTFTInferenceUseCase:
                 f"Need at least {max_encoder_length} prior rows before {start_utc.date()}."
             )
 
-        required_cols = set(["timestamp", "time_idx", "asset_id", "target_return"])
-        required_cols.update(model_bundle.feature_cols)
+        required_cols = {"timestamp", "time_idx", "asset_id", "target_return"}
         missing = [c for c in required_cols if c not in dataset_df.columns]
         if missing:
             raise ValueError(f"dataset_tft missing required columns for inference: {sorted(missing)}")
+
+        missing_model_features, excess_dataset_features = self._validate_feature_compatibility(
+            dataset_df=dataset_df,
+            model_feature_cols=model_bundle.feature_cols,
+        )
+        if missing_model_features:
+            raise ValueError(
+                "Inference feature compatibility validation failed: "
+                f"missing_model_features={missing_model_features}; "
+                f"excess_dataset_features={excess_dataset_features}."
+            )
+        if excess_dataset_features:
+            logger.info(
+                "Inference feature compatibility: dataset contains extra model feature columns not used by this model",
+                extra={
+                    "asset_id": asset,
+                    "model_version": model_bundle.version,
+                    "excess_dataset_features": excess_dataset_features,
+                },
+            )
 
         inference_slice = dataset_df.iloc[first_target_idx - max_encoder_length : last_target_idx + 1].copy()
         inference_slice = self._apply_scalers(inference_slice, model_bundle.scalers)
