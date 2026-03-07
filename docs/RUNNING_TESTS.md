@@ -64,3 +64,29 @@ Validam a integração entre múltiplas camadas do sistema, podendo
 envolver acesso a disco ou pipelines completos.
 
 - Testes de integração: `tests/integration/` — usam APIs reais (marcados com `@pytest.mark.integration`)
+
+## Testes recomendados para feature sets (anti-leakage, warmup, schema)
+
+Build de dataset e features derivadas:
+
+```bash
+.venv/bin/pytest -q tests/unit/use_cases/test_build_tft_dataset_use_case.py
+```
+
+Treino com validacoes de warmup e quality gate:
+
+```bash
+.venv/bin/pytest -q tests/unit/use_cases/test_train_tft_model_use_case.py
+```
+
+Validacao de contratos de config de treino:
+
+```bash
+.venv/bin/pytest -q tests/unit/infrastructure/schemas/test_model_artifact_schema.py
+```
+
+Validacao de registry e warmup canonical:
+
+```bash
+.venv/bin/pytest -q tests/unit/infrastructure/schemas/test_feature_registry.py tests/unit/infrastructure/schemas/test_feature_validation_schema.py
+```
