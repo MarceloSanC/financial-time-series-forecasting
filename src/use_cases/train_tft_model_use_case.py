@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+from hashlib import sha256
 import logging
 
 import numpy as np
@@ -9,15 +10,25 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 
 from src.domain.services.feature_warmup_inspector import FeatureWarmupInspector
+from src.domain.services.dataset_quality_gate import (
+    DatasetQualityGate,
+    DatasetQualityGateConfig,
+)
 from src.infrastructure.schemas.tft_dataset_parquet_schema import (
     BASELINE_FEATURES,
     DEFAULT_TFT_FEATURES,
+    FUNDAMENTAL_DERIVED_FEATURES,
     FUNDAMENTAL_FEATURES,
+    MOMENTUM_LIQUIDITY_FEATURES,
+    REGIME_FEATURES,
+    SENTIMENT_DYNAMICS_FEATURES,
     SENTIMENT_FEATURES,
     TECHNICAL_FEATURES,
+    VOLATILITY_ROBUST_FEATURES,
 )
 from src.infrastructure.schemas.model_artifact_schema import TFT_SPLIT_DEFAULTS
 from src.infrastructure.schemas.model_artifact_schema import TFT_TRAINING_DEFAULTS
+from src.infrastructure.schemas.feature_validation_schema import FEATURE_WARMUP_BARS
 
 from src.interfaces.tft_dataset_repository import TFTDatasetRepository
 from src.interfaces.model_trainer import ModelTrainer, TrainingResult
@@ -75,7 +86,17 @@ class TrainTFTModelUseCase:
             "S": ("S", SENTIMENT_FEATURES),
             "F": ("F", FUNDAMENTAL_FEATURES),
         }
-        allowed_order = ["B", "T", "S", "F", "C"]
+        token_groups["MOMENTUM_LIQUIDITY_FEATURES"] = ("D", MOMENTUM_LIQUIDITY_FEATURES)
+        token_groups["D"] = ("D", MOMENTUM_LIQUIDITY_FEATURES)
+        token_groups["VOLATILITY_ROBUST_FEATURES"] = ("V", VOLATILITY_ROBUST_FEATURES)
+        token_groups["V"] = ("V", VOLATILITY_ROBUST_FEATURES)
+        token_groups["REGIME_FEATURES"] = ("R", REGIME_FEATURES)
+        token_groups["R"] = ("R", REGIME_FEATURES)
+        token_groups["SENTIMENT_DYNAMICS_FEATURES"] = ("Y", SENTIMENT_DYNAMICS_FEATURES)
+        token_groups["Y"] = ("Y", SENTIMENT_DYNAMICS_FEATURES)
+        token_groups["FUNDAMENTAL_DERIVED_FEATURES"] = ("Q", FUNDAMENTAL_DERIVED_FEATURES)
+        token_groups["Q"] = ("Q", FUNDAMENTAL_DERIVED_FEATURES)
+        allowed_order = ["B", "T", "S", "F", "D", "V", "R", "Y", "Q", "C"]
 
         if features is None:
             selected = TrainTFTModelUseCase._select_features(df, None)
@@ -88,6 +109,16 @@ class TrainTFTModelUseCase:
                 letters.add("S")
             if any(c in selected for c in FUNDAMENTAL_FEATURES):
                 letters.add("F")
+            if any(c in selected for c in MOMENTUM_LIQUIDITY_FEATURES):
+                letters.add("D")
+            if any(c in selected for c in VOLATILITY_ROBUST_FEATURES):
+                letters.add("V")
+            if any(c in selected for c in REGIME_FEATURES):
+                letters.add("R")
+            if any(c in selected for c in SENTIMENT_DYNAMICS_FEATURES):
+                letters.add("Y")
+            if any(c in selected for c in FUNDAMENTAL_DERIVED_FEATURES):
+                letters.add("Q")
             suffix = "".join([l for l in allowed_order if l in letters]) or "C"
             return selected, suffix
 
@@ -96,6 +127,7 @@ class TrainTFTModelUseCase:
         letters: set[str] = set()
         custom_requested = False
         missing: list[str] = []
+        missing_group_columns: dict[str, list[str]] = {}
 
         for raw_token in features:
             token = raw_token.strip()
@@ -103,6 +135,9 @@ class TrainTFTModelUseCase:
             if upper in token_groups:
                 letter, cols = token_groups[upper]
                 letters.add(letter)
+                group_missing = [col for col in cols if col not in df.columns]
+                if group_missing:
+                    missing_group_columns[upper] = group_missing
                 for col in cols:
                     if col in df.columns and col not in selected_set:
                         selected.append(col)
@@ -124,6 +159,15 @@ class TrainTFTModelUseCase:
 
         if missing:
             raise ValueError(f"Requested features not found in dataset: {missing}")
+        if missing_group_columns:
+            details = "; ".join(
+                f"{group} missing {cols}"
+                for group, cols in sorted(missing_group_columns.items())
+            )
+            raise ValueError(
+                "Requested feature groups are not fully available in dataset: "
+                f"{details}"
+            )
         if not selected:
             raise ValueError("No valid features resolved from provided --features")
 
@@ -279,6 +323,136 @@ class TrainTFTModelUseCase:
         test_df = df[(ts >= te_start) & (ts <= te_end)].copy()
         return train_df, val_df, test_df
 
+    @staticmethod
+    def _apply_warmup_policy_to_split(
+        df: pd.DataFrame,
+        *,
+        feature_cols: list[str],
+        split_cfg: dict,
+        warmup_policy: str,
+    ) -> tuple[dict, dict]:
+        policy = str(warmup_policy).strip().lower()
+        if policy not in {"strict_fail", "drop_leading"}:
+            raise ValueError("warmup_policy must be one of ['strict_fail', 'drop_leading']")
+
+        warmup_features = [
+            c for c in feature_cols if int(FEATURE_WARMUP_BARS.get(c, 0)) > 0
+        ]
+        required_warmup_count = max((int(FEATURE_WARMUP_BARS.get(c, 0)) for c in warmup_features), default=0)
+        if not warmup_features:
+            return split_cfg, {
+                "warmup_policy": policy,
+                "required_warmup_count": required_warmup_count,
+                "warmup_applied": False,
+                "warmup_features": [],
+                "effective_train_start": split_cfg["train_start"],
+            }
+
+        segments = FeatureWarmupInspector.detect_leading_null_warmups(
+            df,
+            warmup_features,
+            requested_start=split_cfg["train_start"],
+            requested_end=split_cfg["test_end"],
+        )
+        if not segments:
+            return split_cfg, {
+                "warmup_policy": policy,
+                "required_warmup_count": required_warmup_count,
+                "warmup_applied": False,
+                "warmup_features": warmup_features,
+                "effective_train_start": split_cfg["train_start"],
+            }
+
+        if policy == "strict_fail":
+            detail = ", ".join(f"{s.feature_name}:{s.num_null}" for s in segments)
+            raise ValueError(
+                "Warm-up validation failed for selected features in requested training period "
+                f"(policy=strict_fail). leading_nulls={detail}"
+            )
+
+        # drop_leading
+        suggested = FeatureWarmupInspector.suggest_trimmed_start_yyyymmdd(
+            df,
+            warmup_features,
+            requested_start=split_cfg["train_start"],
+            requested_end=split_cfg["test_end"],
+        )
+        if suggested is None:
+            raise ValueError(
+                "Warm-up validation failed: warm-up consumes the entire requested window."
+            )
+        new_split = dict(split_cfg)
+        new_split["train_start"] = suggested
+        return new_split, {
+            "warmup_policy": policy,
+            "required_warmup_count": required_warmup_count,
+            "warmup_applied": suggested != split_cfg["train_start"],
+            "warmup_features": warmup_features,
+            "effective_train_start": suggested,
+        }
+
+    @staticmethod
+    def _validate_min_split_samples(
+        *,
+        train_df: pd.DataFrame,
+        val_df: pd.DataFrame,
+        test_df: pd.DataFrame,
+        trainer_config: dict,
+    ) -> None:
+        min_train = int(trainer_config.get("min_samples_train", 1))
+        min_val = int(trainer_config.get("min_samples_val", 1))
+        min_test = int(trainer_config.get("min_samples_test", 1))
+
+        counts = {
+            "train": len(train_df),
+            "val": len(val_df),
+            "test": len(test_df),
+        }
+        required = {
+            "train": min_train,
+            "val": min_val,
+            "test": min_test,
+        }
+        insufficient = [
+            f"{split}={counts[split]}<min={required[split]}"
+            for split in ("train", "val", "test")
+            if counts[split] < required[split]
+        ]
+        if insufficient:
+            raise ValueError(
+                "Train/validation/test split has insufficient samples after warmup/split validation: "
+                + ", ".join(insufficient)
+            )
+
+    @staticmethod
+    def _run_pretrain_quality_gate(
+        *,
+        df: pd.DataFrame,
+        feature_cols: list[str],
+        trainer_config: dict,
+    ) -> None:
+        cfg = DatasetQualityGateConfig(
+            max_nan_ratio_per_feature=float(
+                trainer_config.get("quality_gate_max_nan_ratio_per_feature", 1.0)
+            ),
+            min_temporal_coverage_days=int(
+                trainer_config.get("quality_gate_min_temporal_coverage_days", 1)
+            ),
+            require_unique_timestamps=bool(
+                trainer_config.get("quality_gate_require_unique_timestamps", True)
+            ),
+            require_monotonic_timestamps=bool(
+                trainer_config.get("quality_gate_require_monotonic_timestamps", True)
+            ),
+        )
+        DatasetQualityGate.validate(
+            df=df,
+            feature_cols=feature_cols,
+            config=cfg,
+            context="pre-train",
+            warmup_counts=FEATURE_WARMUP_BARS,
+        )
+
     def execute(
         self,
         asset_id: str,
@@ -295,29 +469,39 @@ class TrainTFTModelUseCase:
         if "time_idx" not in df.columns or "target_return" not in df.columns:
             raise ValueError("Dataset missing required columns for TFT training")
 
-        feature_cols, feature_tag = self._resolve_features(df, features)
+        trainer_config = self._build_trainer_config(training_config)
+        derived_group_tokens = trainer_config.get("derived_feature_groups")
+        requested_features = [] if features is None else list(features)
+        if isinstance(derived_group_tokens, list):
+            for token in derived_group_tokens:
+                parsed = str(token).strip()
+                if parsed and parsed not in requested_features:
+                    requested_features.append(parsed)
+        elif derived_group_tokens is not None:
+            raise ValueError(
+                "training_config.derived_feature_groups must be a list of feature group tokens"
+            )
+        feature_inputs = None if features is None and not requested_features else requested_features
+        feature_cols, feature_tag = self._resolve_features(df, feature_inputs)
+        feature_set_hash = sha256(",".join(feature_cols).encode("utf-8")).hexdigest()
+        self._run_pretrain_quality_gate(
+            df=df,
+            feature_cols=feature_cols,
+            trainer_config=trainer_config,
+        )
 
         known_real_cols = [c for c in ["time_idx", "day_of_week", "month"] if c in df.columns]
+        warmup_policy = str(trainer_config.get("warmup_policy", "strict_fail")).strip().lower()
 
         split_cfg = dict(TFT_SPLIT_DEFAULTS)
         if split_config:
             split_cfg.update(split_config)
-        warmup_segments = FeatureWarmupInspector.detect_leading_null_warmups(
+        split_cfg, warmup_meta = self._apply_warmup_policy_to_split(
             df,
-            feature_cols,
-            requested_start=split_cfg["train_start"],
-            requested_end=split_cfg["test_end"],
+            feature_cols=feature_cols,
+            split_cfg=split_cfg,
+            warmup_policy=warmup_policy,
         )
-        for segment in warmup_segments:
-            logger.warning(
-                "Warm-up null segment detected. Requested period %s to %s contains %d leading null values for feature '%s' from %s to %s.",
-                segment.requested_start,
-                segment.requested_end,
-                segment.num_null,
-                segment.feature_name,
-                segment.first_date_warmup,
-                segment.last_date_warmup_null,
-            )
         train_df, val_df, test_df = self._apply_time_split(
             df,
             train_start=split_cfg["train_start"],
@@ -330,6 +514,12 @@ class TrainTFTModelUseCase:
 
         if train_df.empty or val_df.empty or test_df.empty:
             raise ValueError("Train/validation/test split resulted in empty dataset")
+        self._validate_min_split_samples(
+            train_df=train_df,
+            val_df=val_df,
+            test_df=test_df,
+            trainer_config=trainer_config,
+        )
 
         train_df, val_df, test_df, split_scalers = self._apply_split_feature_normalization(
             train_df,
@@ -338,12 +528,18 @@ class TrainTFTModelUseCase:
             feature_cols=feature_cols,
         )
 
-        trainer_config = self._build_trainer_config(training_config)
         metadata_config = dict(trainer_config)
         metadata_config["split_config"] = split_cfg
         metadata_config["feature_set_tag"] = feature_tag
-        metadata_config["feature_tokens"] = features or ["DEFAULT_TFT_FEATURES"]
+        metadata_config["feature_tokens"] = feature_inputs or ["DEFAULT_TFT_FEATURES"]
+        metadata_config["feature_list_ordered"] = feature_cols
+        metadata_config["feature_set_hash"] = feature_set_hash
         metadata_config["split_normalized_technical_features"] = sorted(split_scalers.keys())
+        metadata_config["warmup_policy"] = warmup_meta["warmup_policy"]
+        metadata_config["required_warmup_count"] = warmup_meta["required_warmup_count"]
+        metadata_config["warmup_applied"] = warmup_meta["warmup_applied"]
+        metadata_config["warmup_features"] = warmup_meta["warmup_features"]
+        metadata_config["effective_train_start"] = warmup_meta["effective_train_start"]
 
         training_result: TrainingResult = self.model_trainer.train(
             train_df,
@@ -410,4 +606,9 @@ class TrainTFTModelUseCase:
     @staticmethod
     def _build_trainer_config(training_config: dict | None) -> dict:
         config = dict(training_config or {})
-        return {k: v for k, v in config.items() if k in TFT_TRAINING_DEFAULTS}
+        allowed_extra = {"derived_feature_groups"}
+        return {
+            k: v
+            for k, v in config.items()
+            if k in TFT_TRAINING_DEFAULTS or k in allowed_extra
+        }
