@@ -13,7 +13,7 @@ from src.adapters.alpha_vantage_fundamental_fetcher import (
     AlphaVantageFundamentalFetcher,
 )
 from src.adapters.parquet_fundamental_repository import ParquetFundamentalRepository
-from src.domain.time.utc import parse_iso_utc
+from src.utils.asset_periods import resolve_data_period
 from src.use_cases.fetch_fundamentals_use_case import FetchFundamentalsUseCase
 from src.domain.services.data_quality_reporter import DataQualityReporter
 from src.domain.services.data_quality_profiles import get_profile
@@ -72,10 +72,7 @@ def main() -> None:
     if not asset_cfg:
         raise RuntimeError(f"Asset not found in config/data_sources.yaml: {asset_id}")
 
-    start_date = parse_iso_utc(asset_cfg["start_date"])
-    end_date = parse_iso_utc(asset_cfg["end_date"])
-    if start_date > end_date:
-        raise ValueError("start_date must be <= end_date")
+    start_date, end_date = resolve_data_period(asset_cfg)
 
     api_key = os.getenv("ALPHAVANTAGE_API_KEY")
     if not api_key:
