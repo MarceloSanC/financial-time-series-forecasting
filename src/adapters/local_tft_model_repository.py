@@ -10,14 +10,18 @@ from datetime import datetime, timezone
 import pandas as pd
 
 from src.interfaces.model_repository import ModelRepository
+from src.utils.path_policy import to_project_relative
 
 
 class LocalTFTModelRepository(ModelRepository):
     """
     Save TFT model artifacts to local filesystem.
 
-    Layout:
-      data/models/tft/{ASSET}/{VERSION}/
+    Layout (default):
+      data/models/{ASSET}/{VERSION}/
+
+    Layout (with run_subdir="runs"):
+      data/models/{ASSET}/runs/{VERSION}/
         model_state.pt
         metrics.json
         history.csv
@@ -27,8 +31,11 @@ class LocalTFTModelRepository(ModelRepository):
         plots/*.png
     """
 
-    def __init__(self, base_dir: str | Path) -> None:
+    def __init__(self, base_dir: str | Path, run_subdir: str | None = None) -> None:
         self.base_dir = Path(base_dir)
+        self.run_subdir = str(run_subdir).strip() if run_subdir is not None else None
+        if self.run_subdir == "":
+            self.run_subdir = None
         self.base_dir.mkdir(parents=True, exist_ok=True)
 
     def save_training_artifacts(
@@ -53,7 +60,10 @@ class LocalTFTModelRepository(ModelRepository):
         import torch
 
         asset_dir = self.base_dir / asset_id
-        version_dir = asset_dir / version
+        if self.run_subdir:
+            version_dir = asset_dir / self.run_subdir / version
+        else:
+            version_dir = asset_dir / version
         version_dir.mkdir(parents=True, exist_ok=True)
 
         model_path = version_dir / "model_state.pt"
@@ -94,7 +104,7 @@ class LocalTFTModelRepository(ModelRepository):
                 scalers_path = version_dir / "scalers.pkl"
                 with scalers_path.open("wb") as fp:
                     pickle.dump(scalers, fp)
-                scaler_out = str(scalers_path.resolve())
+                scaler_out = to_project_relative(scalers_path)
                 scaler_types = sorted(
                     {
                         type(v).__name__
@@ -111,7 +121,7 @@ class LocalTFTModelRepository(ModelRepository):
                 ckpt_dir.mkdir(parents=True, exist_ok=True)
                 dst = ckpt_dir / "best.ckpt"
                 shutil.copy2(src, dst)
-                checkpoint_out = str(dst.resolve())
+                checkpoint_out = to_project_relative(dst)
 
         plots_out: dict[str, str] = {}
         analysis_out: dict[str, str] = {}
@@ -134,7 +144,7 @@ class LocalTFTModelRepository(ModelRepository):
                 loss_path = plots_dir / "loss_curve.png"
                 fig.savefig(loss_path, dpi=120, bbox_inches="tight")
                 plt.close(fig)
-                plots_out["loss_curve"] = str(loss_path.resolve())
+                plots_out["loss_curve"] = to_project_relative(loss_path)
             except Exception:
                 plots_out = {}
 
@@ -143,13 +153,13 @@ class LocalTFTModelRepository(ModelRepository):
         if feature_importance:
             fi_path = analysis_dir / "feature_importance.csv"
             pd.DataFrame(feature_importance).to_csv(fi_path, index=False)
-            analysis_out["feature_importance_csv"] = str(fi_path.resolve())
+            analysis_out["feature_importance_csv"] = to_project_relative(fi_path)
 
         if ablation_results:
             ablation_path = analysis_dir / "ablation_results.csv"
             ablation_df = pd.DataFrame(ablation_results)
             ablation_df.to_csv(ablation_path, index=False)
-            analysis_out["ablation_results_csv"] = str(ablation_path.resolve())
+            analysis_out["ablation_results_csv"] = to_project_relative(ablation_path)
             try:
                 import matplotlib.pyplot as plt
 
@@ -169,7 +179,9 @@ class LocalTFTModelRepository(ModelRepository):
                     ablation_plot = analysis_dir / "ablation_comparison.png"
                     fig.savefig(ablation_plot, dpi=120, bbox_inches="tight")
                     plt.close(fig)
-                    analysis_out["ablation_comparison_plot"] = str(ablation_plot.resolve())
+                    analysis_out["ablation_comparison_plot"] = to_project_relative(
+                        ablation_plot
+                    )
             except Exception:
                 pass
 
@@ -195,7 +207,12 @@ class LocalTFTModelRepository(ModelRepository):
             metadata["scaler_artifacts"] = {"scalers_pkl": scaler_out}
         merged_plots = {}
         if plots:
-            merged_plots.update(plots)
+            merged_plots.update(
+                {
+                    str(k): to_project_relative(v) if v is not None else None
+                    for k, v in plots.items()
+                }
+            )
         if plots_out:
             merged_plots.update(plots_out)
         if merged_plots:
