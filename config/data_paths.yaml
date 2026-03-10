@@ -12,6 +12,8 @@ data:
     fundamentals: data/processed/fundamentals
     dataset_tft: data/processed/dataset_tft
     inference_tft: data/processed/inference_tft
+    analytics_silver: data/analytics/silver
+    analytics_gold: data/analytics/gold
 
   models:
     tft: data/models
