@@ -33,6 +33,7 @@ Os defaults e limites sao definidos em `src/infrastructure/schemas/model_artifac
 | `--early-stopping-patience` | `int` | `5` | `>= 0` | Nao | `--early-stopping-patience 8` | Parada antecipada |
 | `--early-stopping-min-delta` | `float` | `0.0` | `>= 0` | Nao | `--early-stopping-min-delta 0.0001` | Sensibilidade da parada antecipada |
 | `--run-ablation` | flag | `False` | booleano | Nao | `--run-ablation` | Executa ablacoes adicionais (mais custo/tempo) |
+| `store_split_timestamps_ref` (JSON) | `bool` | `false` | `true/false` | Nao | `"store_split_timestamps_ref": true` | Controla persistencia da lista completa de timestamps por split em `fact_split_timestamps_ref` |
 
 ## Observacoes
 
@@ -40,6 +41,7 @@ Os defaults e limites sao definidos em `src/infrastructure/schemas/model_artifac
 - `--features` aceita grupos e colunas combinadas.
 - A validacao de ranges e feita antes do treino. Em caso invalido, o processo falha com mensagem clara.
 - A configuracao efetiva usada no treino e salva no `metadata.json` em `training_config`.
+- Por padrao, `store_split_timestamps_ref=false` para economizar armazenamento no analytics store.
 
 ## Configuracao Via JSON (`--config-json`)
 
@@ -67,7 +69,8 @@ Exemplo de `config/train_tft_aapl.json`:
     "hidden_continuous_size": 8,
     "seed": 42,
     "early_stopping_patience": 5,
-    "early_stopping_min_delta": 0.0
+    "early_stopping_min_delta": 0.0,
+    "store_split_timestamps_ref": false
   },
   "split_config": {
     "train_start": "20100101",
