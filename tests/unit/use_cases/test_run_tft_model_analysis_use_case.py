@@ -34,6 +34,11 @@ def test_param_ranges_empty_dict_is_preserved_for_optuna_usage() -> None:
     assert use_case.param_ranges == {}
 
 
+def test_parse_feature_tokens_supports_plus_composition() -> None:
+    parsed = RunTFTModelAnalysisUseCase._parse_feature_tokens("BASELINE_FEATURES+SENTIMENT_FEATURES")
+    assert parsed == ["BASELINE_FEATURES", "SENTIMENT_FEATURES"]
+
+
 class _FakeTrainRunner:
     def __init__(self, fail_after: int | None = None) -> None:
         self.index = 0
