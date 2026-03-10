@@ -11,6 +11,8 @@ import pandas as pd
 from src.domain.time.utc import require_tz_aware, to_utc
 from src.infrastructure.schemas.feature_validation_schema import IMPLEMENTED_FEATURES
 from src.entities.tft_inference_record import TFTInferenceRecord
+from src.infrastructure.schemas.analytics_store_schema import ANALYTICS_SCHEMA_VERSION
+from src.interfaces.analytics_run_repository import AnalyticsRunRepository
 from src.interfaces.tft_dataset_repository import TFTDatasetRepository
 from src.interfaces.tft_inference_engine import TFTInferenceEngine
 from src.interfaces.tft_inference_model_loader import TFTInferenceModelLoader
@@ -39,13 +41,51 @@ class RunTFTInferenceUseCase:
         inference_repository: TFTInferenceRepository,
         model_loader: TFTInferenceModelLoader,
         inference_engine: TFTInferenceEngine,
+        analytics_run_repository: AnalyticsRunRepository | None = None,
         refresh_dataset_fn: Callable[[str, datetime, datetime, datetime], None] | None = None,
     ) -> None:
         self.dataset_repository = dataset_repository
         self.inference_repository = inference_repository
         self.model_loader = model_loader
         self.inference_engine = inference_engine
+        self.analytics_run_repository = analytics_run_repository
         self.refresh_dataset_fn = refresh_dataset_fn
+
+    def _persist_fact_inference_run(
+        self,
+        *,
+        asset: str,
+        model_version: str,
+        inference_run_id: str,
+        start_utc: datetime,
+        end_utc: datetime,
+        overwrite: bool,
+        batch_size: int,
+        result_status: str,
+        inferred_count: int,
+        skipped_count: int,
+        upserts_count: int,
+        duration_seconds: float,
+    ) -> None:
+        if self.analytics_run_repository is None:
+            return
+        row = {
+            "schema_version": ANALYTICS_SCHEMA_VERSION,
+            "run_id": None,
+            "inference_run_id": str(inference_run_id),
+            "model_version": str(model_version),
+            "asset": str(asset),
+            "inference_start_utc": str(start_utc.isoformat()),
+            "inference_end_utc": str(end_utc.isoformat()),
+            "overwrite": str(bool(overwrite)).lower(),
+            "batch_size": int(batch_size),
+            "status": str(result_status),
+            "inferred_count": int(inferred_count),
+            "skipped_count": int(skipped_count),
+            "upserts_count": int(upserts_count),
+            "duration_seconds": float(duration_seconds),
+        }
+        self.analytics_run_repository.append_fact_inference_runs(row)
 
     @staticmethod
     def _normalize_asset(asset_id: str) -> str:
@@ -126,6 +166,7 @@ class RunTFTInferenceUseCase:
         batch_size: int = 64,
         default_end_date: datetime | None = None,
     ) -> RunTFTInferenceResult:
+        run_started_at = datetime.now(timezone.utc)
         asset = self._normalize_asset(asset_id)
         default_end = default_end_date or datetime.now(timezone.utc)
         require_tz_aware(default_end, "default_end_date")
@@ -293,6 +334,22 @@ class RunTFTInferenceUseCase:
             records = filtered
 
         attempted_upserts = self.inference_repository.upsert_records(asset, records)
+
+        duration_seconds = float((datetime.now(timezone.utc) - run_started_at).total_seconds())
+        self._persist_fact_inference_run(
+            asset=asset,
+            model_version=model_bundle.version,
+            inference_run_id=run_id,
+            start_utc=start_utc,
+            end_utc=end_utc,
+            overwrite=overwrite,
+            batch_size=batch_size,
+            result_status="ok",
+            inferred_count=len(records) + skipped_existing,
+            skipped_count=skipped_existing,
+            upserts_count=attempted_upserts,
+            duration_seconds=duration_seconds,
+        )
 
         return RunTFTInferenceResult(
             asset_id=asset,
