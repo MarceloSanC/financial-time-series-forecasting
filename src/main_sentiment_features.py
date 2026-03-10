@@ -13,7 +13,7 @@ from src.adapters.parquet_daily_sentiment_repository import (
 from src.adapters.parquet_scored_news_repository import ParquetScoredNewsRepository
 from src.domain.services.sentiment_aggregator import SentimentAggregator
 from src.domain.time.trading_calendar import trading_policy_from_asset_config
-from src.domain.time.utc import parse_iso_utc
+from src.utils.asset_periods import resolve_data_period
 from src.use_cases.sentiment_feature_engineering_use_case import (
     SentimentFeatureEngineeringUseCase,
 )
@@ -54,10 +54,7 @@ def main() -> None:
     if not asset_cfg:
         raise RuntimeError(f"Asset not found in config/data_sources.yaml: {asset_id}")
 
-    start_date = parse_iso_utc(asset_cfg["start_date"])
-    end_date = parse_iso_utc(asset_cfg["end_date"])
-    if start_date > end_date:
-        raise ValueError("start_date must be <= end_date")
+    start_date, end_date = resolve_data_period(asset_cfg)
     trading_day_policy = trading_policy_from_asset_config(asset_cfg)
 
     paths = load_data_paths()
