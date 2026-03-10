@@ -27,6 +27,19 @@ def _base_args(config_json: str | None = None, features: str | None = None) -> N
         seed=None,
         early_stopping_patience=None,
         early_stopping_min_delta=None,
+        prediction_mode=None,
+        quantile_levels=None,
+        warmup_policy=None,
+        min_samples_train=None,
+        min_samples_val=None,
+        min_samples_test=None,
+        quality_gate_max_nan_ratio_per_feature=None,
+        quality_gate_min_temporal_coverage_days=None,
+        quality_gate_require_unique_timestamps=None,
+        quality_gate_require_monotonic_timestamps=None,
+        store_split_timestamps_ref=None,
+        evaluate_train_split=None,
+        compute_feature_importance=None,
         train_start=None,
         train_end=None,
         val_start=None,
@@ -62,6 +75,7 @@ def test_main_train_tft_reads_json_config(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(main_train_tft, "parse_args", lambda: _base_args(config_json=str(cfg_path)))
     monkeypatch.setattr(main_train_tft, "ParquetTFTDatasetRepository", lambda **_: object())
     monkeypatch.setattr(main_train_tft, "LocalTFTModelRepository", lambda **_: object())
+    monkeypatch.setattr(main_train_tft, "ParquetAnalyticsRunRepository", lambda **_: object())
     monkeypatch.setattr(main_train_tft, "PytorchForecastingTFTTrainer", lambda: object())
 
     captured: dict = {}
@@ -111,6 +125,7 @@ def test_main_train_tft_cli_overrides_json(monkeypatch, tmp_path: Path) -> None:
     monkeypatch.setattr(main_train_tft, "parse_args", lambda: args)
     monkeypatch.setattr(main_train_tft, "ParquetTFTDatasetRepository", lambda **_: object())
     monkeypatch.setattr(main_train_tft, "LocalTFTModelRepository", lambda **_: object())
+    monkeypatch.setattr(main_train_tft, "ParquetAnalyticsRunRepository", lambda **_: object())
     monkeypatch.setattr(main_train_tft, "PytorchForecastingTFTTrainer", lambda: object())
 
     captured: dict = {}
@@ -170,6 +185,7 @@ def test_main_train_tft_features_csv_string_in_json(monkeypatch, tmp_path: Path)
     monkeypatch.setattr(main_train_tft, "parse_args", lambda: _base_args(config_json=str(cfg_path)))
     monkeypatch.setattr(main_train_tft, "ParquetTFTDatasetRepository", lambda **_: object())
     monkeypatch.setattr(main_train_tft, "LocalTFTModelRepository", lambda **_: object())
+    monkeypatch.setattr(main_train_tft, "ParquetAnalyticsRunRepository", lambda **_: object())
     monkeypatch.setattr(main_train_tft, "PytorchForecastingTFTTrainer", lambda: object())
 
     captured: dict = {}
@@ -192,9 +208,112 @@ def test_main_train_tft_features_csv_string_in_json(monkeypatch, tmp_path: Path)
     assert captured["features"] == ["BASELINE_FEATURES", "sentiment_score"]
 
 
+def test_main_train_tft_features_supports_plus_composition(monkeypatch, tmp_path: Path) -> None:
+    args = _base_args(features="BASELINE_FEATURES+SENTIMENT_FEATURES")
+    monkeypatch.setattr(main_train_tft, "load_data_paths", lambda: {"dataset_tft": tmp_path, "models": tmp_path})
+    monkeypatch.setattr(main_train_tft, "parse_args", lambda: args)
+    monkeypatch.setattr(main_train_tft, "ParquetTFTDatasetRepository", lambda **_: object())
+    monkeypatch.setattr(main_train_tft, "LocalTFTModelRepository", lambda **_: object())
+    monkeypatch.setattr(main_train_tft, "ParquetAnalyticsRunRepository", lambda **_: object())
+    monkeypatch.setattr(main_train_tft, "PytorchForecastingTFTTrainer", lambda: object())
+
+    captured: dict = {}
+
+    class _FakeUseCase:
+        def __init__(self, **kwargs):
+            pass
+
+        def execute(self, asset_id: str, **kwargs):
+            captured.update(kwargs)
+            return type(
+                "_R",
+                (),
+                {"asset_id": asset_id, "version": "v", "artifacts_dir": "d", "metrics": {"rmse": 1.0}},
+            )()
+
+    monkeypatch.setattr(main_train_tft, "TrainTFTModelUseCase", _FakeUseCase)
+    main_train_tft.main()
+
+    assert captured["features"] == ["BASELINE_FEATURES", "SENTIMENT_FEATURES"]
+
+
 def test_main_train_tft_range_validation_raises(monkeypatch, tmp_path: Path) -> None:
     args = _base_args()
     args.dropout = 1.5
     monkeypatch.setattr(main_train_tft, "parse_args", lambda: args)
     with pytest.raises(ValueError, match="dropout"):
         main_train_tft.main()
+
+
+def test_main_train_tft_uses_training_period_split_defaults(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(main_train_tft, "load_data_paths", lambda: {"dataset_tft": tmp_path, "models": tmp_path})
+    monkeypatch.setattr(main_train_tft, "parse_args", lambda: _base_args())
+    monkeypatch.setattr(
+        main_train_tft,
+        "_load_asset_training_split_defaults",
+        lambda asset_id: {
+            "train_start": "20100101",
+            "train_end": "20201231",
+            "val_start": "20210101",
+            "val_end": "20221231",
+            "test_start": "20230101",
+            "test_end": "20251231",
+        },
+    )
+    monkeypatch.setattr(main_train_tft, "ParquetTFTDatasetRepository", lambda **_: object())
+    monkeypatch.setattr(main_train_tft, "LocalTFTModelRepository", lambda **_: object())
+    monkeypatch.setattr(main_train_tft, "ParquetAnalyticsRunRepository", lambda **_: object())
+    monkeypatch.setattr(main_train_tft, "PytorchForecastingTFTTrainer", lambda: object())
+
+    captured: dict = {}
+
+    class _FakeUseCase:
+        def __init__(self, **kwargs):
+            pass
+
+        def execute(self, asset_id: str, **kwargs):
+            captured.update(kwargs)
+            return type(
+                "_R",
+                (),
+                {"asset_id": asset_id, "version": "v", "artifacts_dir": "d", "metrics": {"rmse": 1.0}},
+            )()
+
+    monkeypatch.setattr(main_train_tft, "TrainTFTModelUseCase", _FakeUseCase)
+    main_train_tft.main()
+
+    assert captured["split_config"]["train_start"] == "20100101"
+    assert captured["split_config"]["test_end"] == "20251231"
+
+
+def test_main_train_tft_uses_runs_subdir_as_default_models_dir(monkeypatch, tmp_path: Path) -> None:
+    monkeypatch.setattr(main_train_tft, "load_data_paths", lambda: {"dataset_tft": tmp_path, "models": tmp_path / "models"})
+    monkeypatch.setattr(main_train_tft, "parse_args", lambda: _base_args())
+    monkeypatch.setattr(main_train_tft, "ParquetTFTDatasetRepository", lambda **_: object())
+    monkeypatch.setattr(main_train_tft, "ParquetAnalyticsRunRepository", lambda **_: object())
+    monkeypatch.setattr(main_train_tft, "PytorchForecastingTFTTrainer", lambda: object())
+
+    captured_repo_kwargs: dict = {}
+
+    class _Repo:
+        def __init__(self, **kwargs):
+            captured_repo_kwargs.update(kwargs)
+
+    monkeypatch.setattr(main_train_tft, "LocalTFTModelRepository", _Repo)
+
+    class _FakeUseCase:
+        def __init__(self, **kwargs):
+            pass
+
+        def execute(self, asset_id: str, **kwargs):
+            return type(
+                "_R",
+                (),
+                {"asset_id": asset_id, "version": "v", "artifacts_dir": "d", "metrics": {"rmse": 1.0}},
+            )()
+
+    monkeypatch.setattr(main_train_tft, "TrainTFTModelUseCase", _FakeUseCase)
+    main_train_tft.main()
+
+    assert Path(captured_repo_kwargs["base_dir"]) == (tmp_path / "models")
+    assert captured_repo_kwargs["run_subdir"] == "runs"
