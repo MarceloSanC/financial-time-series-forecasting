@@ -1,13 +1,13 @@
 # src/main_candles.py
 import argparse
 import logging
-from datetime import datetime, timezone
 from pathlib import Path
 
 import yaml
 
 from src.utils.path_resolver import load_data_paths
 from src.utils.logging_config import setup_logging
+from src.utils.asset_periods import resolve_data_period
 from src.adapters.parquet_candle_repository import ParquetCandleRepository
 from src.adapters.yfinance_candle_fetcher import YFinanceCandleFetcher
 from src.use_cases.fetch_candles_use_case import FetchCandlesUseCase
@@ -22,31 +22,6 @@ def load_config() -> dict:
     config_path = Path(__file__).parent.parent / "config" / "data_sources.yaml"
     with open(config_path, encoding="utf-8") as f:
         return yaml.safe_load(f)
-
-
-def _to_utc(dt: datetime) -> datetime:
-    """Guarantee timezone-aware UTC datetime."""
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
-
-
-def _parse_iso_utc(value: str) -> datetime:
-    """
-    Parse ISO date/datetime from config and return UTC-aware datetime.
-    Accepts:
-      - 'YYYY-MM-DD'
-      - 'YYYY-MM-DDTHH:MM:SS'
-      - with or without timezone
-    """
-    dt = datetime.fromisoformat(value)
-
-    # Se veio apenas data (00:00) e naive, trate como dia UTC
-    if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-
-    return dt.astimezone(timezone.utc)
-
 
 def main():
     setup_logging(logging.INFO)
@@ -83,8 +58,7 @@ def main():
     use_case = FetchCandlesUseCase(fetcher, repository)
 
     # ---------- Execute ----------
-    start = _parse_iso_utc(asset_config["start_date"])
-    end = _parse_iso_utc(asset_config["end_date"])
+    start, end = resolve_data_period(asset_config)
 
     logger.info(
         "Starting candles pipeline",
