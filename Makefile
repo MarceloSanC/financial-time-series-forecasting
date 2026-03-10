@@ -1,4 +1,4 @@
-.PHONY: help install test lint format type-check clean check-python-version
+.PHONY: help install test lint format type-check type-check-analytics test-analytics ci-local clean check-python-version
 
 check-python-version:
 	@python -c "import sys; v = sys.version_info; assert v.major == 3 and v.minor >= 12, f'Python 3.12+ required, got {v.major}.{v.minor}'; print('Python 3.12+ OK')"
@@ -12,6 +12,9 @@ help:
 	@echo "  lint        		- Verifica estilo e imports"
 	@echo "  format      		- Formata código com black + ruff"
 	@echo "  type-check  		- Verifica anotações de tipo"
+	@echo "  type-check-analytics - Verifica tipos dos módulos do analytics store"
+	@echo "  test-analytics      - Testes sintéticos/contrato do analytics store"
+	@echo "  ci-local            - Pipeline local equivalente ao CI"
 	@echo "  clean       		- Remove arquivos temporários"
 	@echo "  run-candles        - Executa main_candles (ex: make run-candles ASSET=AAPL)"
 	@echo "  run-news-raw       - Executa main_news_dataset (ex: make run-news-raw ASSET=AAPL)"
@@ -45,6 +48,25 @@ format:
 
 type-check:
 	mypy src/
+
+type-check-analytics:
+	python -m mypy --explicit-package-bases --ignore-missing-imports --disable-error-code import-untyped \
+		src/infrastructure/schemas/analytics_store_schema.py \
+		src/use_cases/refresh_analytics_store_use_case.py \
+		src/use_cases/validate_analytics_quality_use_case.py \
+		src/main_refresh_analytics_store.py
+
+test-analytics:
+	python -m pytest -q \
+		tests/unit/infrastructure/schemas/test_analytics_store_schema.py \
+		tests/unit/use_cases/test_refresh_analytics_store_use_case.py \
+		tests/unit/use_cases/test_validate_analytics_quality_use_case.py
+
+ci-local:
+	$(MAKE) lint
+	$(MAKE) type-check-analytics
+	python -m pytest tests/ -m "not integration" --tb=short -ra
+	$(MAKE) test-analytics
 
 clean:
 	find . -type d -name __pycache__ -exec rm -rf {} + 2>/dev/null || true
