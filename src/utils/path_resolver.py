@@ -33,6 +33,8 @@ def load_data_paths() -> dict:
         ),
         "dataset_tft": resolve(paths["data"]["processed"]["dataset_tft"]),
         "inference_tft": resolve(paths["data"]["processed"]["inference_tft"]),
+        "analytics_silver": resolve(paths["data"]["processed"].get("analytics_silver", "data/analytics/silver")),
+        "analytics_gold": resolve(paths["data"]["processed"].get("analytics_gold", "data/analytics/gold")),
         "models": resolve(paths["data"]["models"]["tft"]),
         "news_dataset": resolve(paths["data"]["raw"]["news"]),
     }
