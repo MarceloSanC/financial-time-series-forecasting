@@ -51,9 +51,15 @@ def setup_logging(level: int = logging.INFO) -> None:
 
     root = logging.getLogger()
 
+    def _configure_noisy_libraries() -> None:
+        # opcional: silenciar libs muito verbosas
+        logging.getLogger("yfinance").setLevel(logging.WARNING)
+        logging.getLogger("urllib3").setLevel(logging.WARNING)
+
     # evita duplicar handlers se setup_logging() for chamado mais de uma vez
     if root.handlers:
         root.setLevel(level)
+        _configure_noisy_libraries()
         return
 
     root.setLevel(level)
@@ -73,10 +79,4 @@ def setup_logging(level: int = logging.INFO) -> None:
     file_handler.setFormatter(formatter)
     root.addHandler(file_handler)
 
-    # opcional: silenciar libs muito verbosas
-    logging.getLogger("yfinance").setLevel(logging.WARNING)
-    logging.getLogger("urllib3").setLevel(logging.WARNING)
-    # Lightning can be noisy during repeated predict calls.
-    logging.getLogger("lightning").setLevel(logging.WARNING)
-    logging.getLogger("lightning.pytorch").setLevel(logging.WARNING)
-    logging.getLogger("pytorch_lightning").setLevel(logging.WARNING)
+    _configure_noisy_libraries()
