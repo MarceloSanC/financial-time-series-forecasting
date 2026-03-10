@@ -7,6 +7,7 @@ import yaml
 
 from src.utils.path_resolver import load_data_paths
 from src.utils.logging_config import setup_logging
+from src.utils.asset_periods import resolve_data_period
 
 from src.adapters.parquet_candle_repository import ParquetCandleRepository
 from src.adapters.parquet_technical_indicator_repository import (
@@ -100,8 +101,9 @@ def main() -> None:
                 None,
             )
             if asset_cfg:
-                requested_start = pd.to_datetime(asset_cfg["start_date"], utc=True, errors="coerce")
-                requested_end = pd.to_datetime(asset_cfg["end_date"], utc=True, errors="coerce")
+                data_start, data_end = resolve_data_period(asset_cfg)
+                requested_start = pd.Timestamp(data_start)
+                requested_end = pd.Timestamp(data_end)
                 if existing_start <= requested_start and existing_end >= requested_end:
                     logger.info(
                         "Technical indicators skipped (period already covered). Use --overwrite to rebuild.",
