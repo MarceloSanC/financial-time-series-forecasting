@@ -6,6 +6,7 @@ import math
 from pathlib import Path, PureWindowsPath
 
 import matplotlib.pyplot as plt
+from src.utils.path_policy import to_project_relative
 
 
 def _parse_args() -> argparse.Namespace:
@@ -200,7 +201,7 @@ def main() -> None:
         if not isinstance(artifacts, dict):
             artifacts = {}
             summary["artifacts"] = artifacts
-        artifacts["top_k_val_test_metrics_plot_png"] = str(top_output.resolve())
+        artifacts["top_k_val_test_metrics_plot_png"] = to_project_relative(top_output)
 
     all_entries = _load_all_entries(summary_path)
     all_output = _save_plot(
@@ -216,7 +217,7 @@ def main() -> None:
         if not isinstance(artifacts, dict):
             artifacts = {}
             summary["artifacts"] = artifacts
-        artifacts["all_trials_val_test_metrics_plot_png"] = str(all_output.resolve())
+        artifacts["all_trials_val_test_metrics_plot_png"] = to_project_relative(all_output)
 
     summary_path.write_text(json.dumps(summary, indent=2, ensure_ascii=False), encoding="utf-8")
 
