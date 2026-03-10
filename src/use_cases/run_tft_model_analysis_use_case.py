@@ -32,6 +32,7 @@ from src.use_cases.test_pipeline_common import (
     validate_split_metrics_payload,
     validate_train_runner_contract,
 )
+from src.utils.feature_token_parser import parse_feature_tokens
 from src.utils.path_resolver import load_data_paths
 
 logger = logging.getLogger(__name__)
@@ -108,10 +109,7 @@ class RunTFTModelAnalysisUseCase:
 
     @staticmethod
     def _parse_feature_tokens(features: str | None) -> list[str] | None:
-        if features is None:
-            return None
-        tokens = [t.strip() for t in str(features).split(",") if t.strip()]
-        return tokens or None
+        return parse_feature_tokens(features)
 
     @staticmethod
     def _resolve_features_for_drift(
