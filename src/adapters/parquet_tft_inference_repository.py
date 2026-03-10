@@ -13,6 +13,7 @@ from src.infrastructure.schemas.tft_inference_parquet_schema import (
     TFT_INFERENCE_DTYPES,
 )
 from src.interfaces.tft_inference_repository import TFTInferenceRepository
+from src.utils.path_policy import to_project_relative
 
 logger = logging.getLogger(__name__)
 
@@ -52,7 +53,8 @@ class ParquetTFTInferenceRepository(TFTInferenceRepository):
         text = str(value).strip()
         if not text:
             return ""
-        return str(Path(text).expanduser().resolve(strict=False))
+        normalized = to_project_relative(text)
+        return str(normalized or "")
 
     def _load_df(self, asset_id: str) -> pd.DataFrame:
         path = self._filepath(asset_id)
@@ -126,7 +128,7 @@ class ParquetTFTInferenceRepository(TFTInferenceRepository):
                     "asset_id": symbol,
                     "timestamp": to_utc(r.timestamp),
                     "model_version": r.model_version,
-                    "model_path": r.model_path,
+                    "model_path": to_project_relative(r.model_path) or "",
                     "feature_set_name": r.feature_set_name,
                     "features_used_csv": r.features_used_csv,
                     "prediction": float(r.prediction),
