@@ -16,6 +16,7 @@ class TrainingResult:
     feature_importance: list[dict[str, float | str]] = field(default_factory=list)
     checkpoint_path: str | None = None
     dataset_parameters: dict[str, Any] = field(default_factory=dict)
+    split_predictions: dict[str, dict[str, list[float]]] = field(default_factory=dict)
 
 
 class ModelTrainer(ABC):
