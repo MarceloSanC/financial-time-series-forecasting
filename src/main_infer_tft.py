@@ -21,6 +21,7 @@ from src.adapters.parquet_scored_news_repository import ParquetScoredNewsReposit
 from src.adapters.parquet_technical_indicator_repository import (
     ParquetTechnicalIndicatorRepository,
 )
+from src.adapters.parquet_analytics_run_repository import ParquetAnalyticsRunRepository
 from src.adapters.parquet_tft_dataset_repository import ParquetTFTDatasetRepository
 from src.adapters.parquet_tft_inference_repository import ParquetTFTInferenceRepository
 from src.adapters.pytorch_forecasting_tft_inference_engine import (
@@ -119,6 +120,28 @@ def _parse_yyyymmdd(value: str | None) -> datetime | None:
         return datetime.strptime(value, "%Y%m%d").replace(tzinfo=timezone.utc)
     except ValueError as exc:
         raise ValueError(f"Invalid date format: {value}. Expected yyyymmdd.") from exc
+
+
+def _resolve_model_path_input(model_path: str, asset: str, models_root: Path) -> str:
+    raw = model_path.strip()
+    if not raw:
+        return raw
+
+    candidate = Path(raw)
+    if candidate.exists():
+        return str(candidate)
+
+    # Shorthand support: allow passing only VERSION (e.g., 20260308_180007_BT).
+    # Priority follows current default training layout and then legacy layout.
+    expanded_candidates = [
+        models_root / asset / "runs" / raw,
+        models_root / asset / raw,
+    ]
+    for c in expanded_candidates:
+        if c.exists():
+            return str(c)
+
+    return raw
 
 
 def _build_refresh_fn(paths: dict):
@@ -248,11 +271,13 @@ def main() -> None:
     )
 
     paths = load_data_paths()
+    model_path = _resolve_model_path_input(model_path, asset, paths["models"])
     dataset_dir = Path(args.dataset_dir) if args.dataset_dir else paths["dataset_tft"]
     inference_dir = Path(args.inference_dir) if args.inference_dir else paths["inference_tft"]
 
     dataset_repo = ParquetTFTDatasetRepository(output_dir=dataset_dir)
     inference_repo = ParquetTFTInferenceRepository(output_dir=inference_dir)
+    analytics_repo = ParquetAnalyticsRunRepository(output_dir=paths["analytics_silver"])
     model_loader = LocalTFTInferenceModelLoader()
     engine = PytorchForecastingTFTInferenceEngine()
     refresh_fn = _build_refresh_fn(paths) if auto_refresh else None
@@ -262,6 +287,7 @@ def main() -> None:
         inference_repository=inference_repo,
         model_loader=model_loader,
         inference_engine=engine,
+        analytics_run_repository=analytics_repo,
         refresh_dataset_fn=refresh_fn,
     )
 
