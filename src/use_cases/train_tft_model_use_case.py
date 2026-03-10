@@ -1,9 +1,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import json
+import importlib.metadata
 from datetime import datetime, timezone
 from hashlib import sha256
+import platform
+import subprocess
 import logging
+import traceback
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
@@ -29,10 +35,20 @@ from src.infrastructure.schemas.tft_dataset_parquet_schema import (
 from src.infrastructure.schemas.model_artifact_schema import TFT_SPLIT_DEFAULTS
 from src.infrastructure.schemas.model_artifact_schema import TFT_TRAINING_DEFAULTS
 from src.infrastructure.schemas.feature_validation_schema import FEATURE_WARMUP_BARS
+from src.infrastructure.schemas.analytics_store_schema import (
+    ANALYTICS_SCHEMA_VERSION,
+    compute_config_signature,
+    compute_feature_set_hash,
+    compute_dataset_fingerprint,
+    compute_run_id,
+    compute_split_fingerprint,
+)
+from src.utils.path_policy import to_project_relative
 
 from src.interfaces.tft_dataset_repository import TFTDatasetRepository
 from src.interfaces.model_trainer import ModelTrainer, TrainingResult
 from src.interfaces.model_repository import ModelRepository
+from src.interfaces.analytics_run_repository import AnalyticsRunRepository
 
 logger = logging.getLogger(__name__)
 
@@ -51,10 +67,12 @@ class TrainTFTModelUseCase:
         dataset_repository: TFTDatasetRepository,
         model_trainer: ModelTrainer,
         model_repository: ModelRepository,
+        analytics_run_repository: AnalyticsRunRepository | None = None,
     ) -> None:
         self.dataset_repository = dataset_repository
         self.model_trainer = model_trainer
         self.model_repository = model_repository
+        self.analytics_run_repository = analytics_run_repository
 
     @staticmethod
     def _select_features(df: pd.DataFrame, features: list[str] | None) -> list[str]:
@@ -363,20 +381,37 @@ class TrainTFTModelUseCase:
                 "effective_train_start": split_cfg["train_start"],
             }
 
-        if policy == "strict_fail":
-            detail = ", ".join(f"{s.feature_name}:{s.num_null}" for s in segments)
-            raise ValueError(
-                "Warm-up validation failed for selected features in requested training period "
-                f"(policy=strict_fail). leading_nulls={detail}"
-            )
-
-        # drop_leading
         suggested = FeatureWarmupInspector.suggest_trimmed_start_yyyymmdd(
             df,
             warmup_features,
             requested_start=split_cfg["train_start"],
             requested_end=split_cfg["test_end"],
         )
+        longest_warmup = max(
+            (int(FEATURE_WARMUP_BARS.get(c, 0)) for c in warmup_features),
+            default=0,
+        )
+        longest_warmup_features = sorted(
+            [c for c in warmup_features if int(FEATURE_WARMUP_BARS.get(c, 0)) == longest_warmup]
+        )
+
+        if policy == "strict_fail":
+            detail = ", ".join(f"{s.feature_name}:{s.num_null}" for s in segments)
+            longest_info = (
+                f"longest_warmup={longest_warmup}, longest_warmup_features={longest_warmup_features}"
+            )
+            first_valid = (
+                f"first_valid_train_start={suggested}"
+                if suggested is not None
+                else "first_valid_train_start=unavailable"
+            )
+            raise ValueError(
+                "Warm-up validation failed for selected features in requested training period "
+                f"(policy=strict_fail). leading_nulls={detail}; {longest_info}; {first_valid}. "
+                "Use warmup_policy=drop_leading to auto-adjust train_start."
+            )
+
+        # drop_leading
         if suggested is None:
             raise ValueError(
                 "Warm-up validation failed: warm-up consumes the entire requested window."
@@ -453,6 +488,563 @@ class TrainTFTModelUseCase:
             warmup_counts=FEATURE_WARMUP_BARS,
         )
 
+    @staticmethod
+    def _collect_git_commit() -> str:
+        try:
+            out = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+            return out
+        except Exception:
+            return "unknown"
+
+    @staticmethod
+    def _collect_library_versions() -> dict[str, str]:
+        packages = ["torch", "lightning", "pytorch-forecasting", "pandas"]
+        out: dict[str, str] = {}
+        for pkg in packages:
+            try:
+                out[pkg] = importlib.metadata.version(pkg)
+            except Exception:
+                out[pkg] = "unknown"
+        return out
+
+    @staticmethod
+    def _collect_hardware_info() -> dict[str, str | int | float]:
+        info: dict[str, str | int | float] = {
+            "platform": platform.platform(),
+            "machine": platform.machine(),
+            "processor": platform.processor(),
+        }
+        try:
+            import torch
+
+            info["gpu_available"] = bool(torch.cuda.is_available())
+            info["gpu_count"] = int(torch.cuda.device_count()) if torch.cuda.is_available() else 0
+            if torch.cuda.is_available():
+                info["gpu_name"] = str(torch.cuda.get_device_name(0))
+        except Exception:
+            info["gpu_available"] = False
+            info["gpu_count"] = 0
+        return info
+
+    def _persist_dim_run(
+        self,
+        *,
+        asset_id: str,
+        version: str,
+        artifacts_dir: str,
+        trainer_config: dict,
+        feature_cols: list[str],
+        split_signature: str,
+        config_signature: str,
+        feature_set_hash: str,
+        created_at_utc: str,
+        status: str = "ok",
+    ) -> tuple[str | None, dict | None]:
+        if self.analytics_run_repository is None:
+            return None, None
+
+        parent_sweep_id = trainer_config.get("parent_sweep_id")
+        trial_number = trainer_config.get("trial_number")
+        fold_name = trainer_config.get("fold")
+        seed = trainer_config.get("seed")
+        pipeline_version = str(trainer_config.get("pipeline_version", "0.1"))
+
+        run_id = compute_run_id(
+            asset=asset_id,
+            feature_set_hash=feature_set_hash,
+            trial_number=trial_number if isinstance(trial_number, int) else None,
+            fold=str(fold_name) if fold_name is not None else None,
+            seed=seed if isinstance(seed, int) else None,
+            model_version=version,
+            config_signature=config_signature,
+            split_signature=split_signature,
+            pipeline_version=pipeline_version,
+        )
+
+        version_dir = Path(artifacts_dir)
+        final_model = version_dir / "model_state.pt"
+        best_ckpt = version_dir / "checkpoints" / "best.ckpt"
+
+        row = {
+            "schema_version": ANALYTICS_SCHEMA_VERSION,
+            "run_id": run_id,
+            "execution_id": None,
+            "parent_sweep_id": str(parent_sweep_id) if parent_sweep_id is not None else None,
+            "trial_number": int(trial_number) if isinstance(trial_number, int) else None,
+            "fold": str(fold_name) if fold_name is not None else None,
+            "seed": int(seed) if isinstance(seed, int) else None,
+            "asset": str(asset_id),
+            "feature_set_name": str(trainer_config.get("feature_set_name", trainer_config.get("feature_set_tag", "CUSTOM"))),
+            "feature_set_hash": feature_set_hash,
+            "feature_list_ordered_json": pd.Series(feature_cols).to_json(orient="values"),
+            "config_signature": config_signature,
+            "split_fingerprint": split_signature,
+            "model_version": version,
+            "checkpoint_path_final": to_project_relative(final_model),
+            "checkpoint_path_best": to_project_relative(best_ckpt),
+            "git_commit": self._collect_git_commit(),
+            "pipeline_version": pipeline_version,
+            "library_versions_json": pd.Series(self._collect_library_versions()).to_json(),
+            "hardware_info_json": pd.Series(self._collect_hardware_info()).to_json(),
+            "status": str(status),
+            "duration_total_seconds": float(trainer_config.get("duration_total_seconds", 0.0) or 0.0),
+            "eta_recorded_seconds": float(trainer_config.get("eta_recorded_seconds", 0.0) or 0.0),
+            "retries": int(trainer_config.get("retries", 0) or 0),
+            "created_at_utc": created_at_utc,
+        }
+        self.analytics_run_repository.upsert_dim_run(row)
+        return run_id, row
+
+    def _persist_run_snapshot(
+        self,
+        *,
+        run_id: str,
+        asset_id: str,
+        parent_sweep_id: str | None,
+        split_cfg: dict,
+        warmup_meta: dict,
+        df: pd.DataFrame,
+        train_df: pd.DataFrame,
+        val_df: pd.DataFrame,
+        test_df: pd.DataFrame,
+        split_signature: str,
+        store_split_timestamps_ref: bool,
+    ) -> None:
+        if self.analytics_run_repository is None:
+            return
+
+        ts_all = pd.to_datetime(df["timestamp"], utc=True, errors="coerce")
+        ts_train = pd.to_datetime(train_df["timestamp"], utc=True, errors="coerce")
+        ts_val = pd.to_datetime(val_df["timestamp"], utc=True, errors="coerce")
+        ts_test = pd.to_datetime(test_df["timestamp"], utc=True, errors="coerce")
+
+        fingerprint = compute_dataset_fingerprint(
+            asset=asset_id,
+            timestamp_min=str(ts_all.min().isoformat()),
+            timestamp_max=str(ts_all.max().isoformat()),
+            row_count=int(len(df)),
+            close_sum=float(pd.to_numeric(df.get("close"), errors="coerce").sum() if "close" in df.columns else 0.0),
+            volume_sum=float(pd.to_numeric(df.get("volume"), errors="coerce").sum() if "volume" in df.columns else 0.0),
+            parquet_file_hash=sha256(("|".join(str(x) for x in ts_all.astype(str).tolist())).encode("utf-8")).hexdigest(),
+        )
+
+        row = {
+            "schema_version": ANALYTICS_SCHEMA_VERSION,
+            "run_id": run_id,
+            "asset": asset_id,
+            "parent_sweep_id": parent_sweep_id,
+            "dataset_start_utc": str(ts_all.min().isoformat()),
+            "dataset_end_utc": str(ts_all.max().isoformat()),
+            "train_start_utc": str(ts_train.min().isoformat()),
+            "train_end_utc": str(ts_train.max().isoformat()),
+            "val_start_utc": str(ts_val.min().isoformat()),
+            "val_end_utc": str(ts_val.max().isoformat()),
+            "test_start_utc": str(ts_test.min().isoformat()),
+            "test_end_utc": str(ts_test.max().isoformat()),
+            "warmup_policy": str(warmup_meta.get("warmup_policy", split_cfg.get("warmup_policy", "strict_fail"))),
+            "required_warmup_count": int(warmup_meta.get("required_warmup_count", 0) or 0),
+            "warmup_applied": str(bool(warmup_meta.get("warmup_applied", False))).lower(),
+            "effective_train_start_utc": str(warmup_meta.get("effective_train_start") or split_cfg.get("train_start")),
+            "n_samples_train": int(len(train_df)),
+            "n_samples_val": int(len(val_df)),
+            "n_samples_test": int(len(test_df)),
+            "dataset_fingerprint": fingerprint,
+            "split_fingerprint": split_signature,
+        }
+        self.analytics_run_repository.append_fact_run_snapshot(row)
+
+        if store_split_timestamps_ref:
+            split_rows = []
+            for split_name, series in (("train", ts_train), ("val", ts_val), ("test", ts_test)):
+                values = [str(x.isoformat()) for x in series]
+                compact_json = pd.Series(values).to_json(orient="values")
+                split_rows.append(
+                    {
+                        "schema_version": ANALYTICS_SCHEMA_VERSION,
+                        "run_id": run_id,
+                        "split": split_name,
+                        "artifact_path": None,
+                        "artifact_hash": sha256(compact_json.encode("utf-8")).hexdigest(),
+                        "timestamps_compact_json": compact_json,
+                    }
+                )
+            self.analytics_run_repository.append_fact_split_timestamps_ref(split_rows)
+
+    @staticmethod
+    def _safe_json_dumps(value: object) -> str:
+        def _normalize(v: object) -> object:
+            if v is None or isinstance(v, (str, int, float, bool)):
+                return v
+            if isinstance(v, (datetime, pd.Timestamp)):
+                return str(v)
+            if isinstance(v, np.generic):
+                return v.item()
+            if isinstance(v, dict):
+                return {str(k): _normalize(val) for k, val in v.items()}
+            if isinstance(v, (list, tuple, set)):
+                return [_normalize(item) for item in v]
+            if hasattr(v, 'get_params') and callable(getattr(v, 'get_params')):
+                try:
+                    params = v.get_params(deep=False)
+                except Exception:
+                    params = {}
+                return {
+                    '__type__': type(v).__name__,
+                    'params': _normalize(params),
+                }
+            return str(v)
+
+        return json.dumps(_normalize(value), ensure_ascii=False, sort_keys=True)
+
+    @staticmethod
+    def _extract_loss_metadata(model: object, prediction_mode: str) -> tuple[str, list[float]]:
+        loss = getattr(model, 'loss', None)
+        loss_name = type(loss).__name__ if loss is not None else 'unknown'
+
+        quantile_levels: list[float] = []
+        raw_quantiles = getattr(loss, 'quantiles', None)
+        if isinstance(raw_quantiles, (list, tuple)):
+            for q in raw_quantiles:
+                try:
+                    quantile_levels.append(float(q))
+                except Exception:
+                    continue
+
+        mode = str(prediction_mode).strip().lower()
+        if mode == 'quantile' and not quantile_levels:
+            quantile_levels = [0.1, 0.5, 0.9]
+        return loss_name, quantile_levels
+
+    @staticmethod
+    def _infer_scaler_type(dataset_parameters: dict | None) -> str:
+        if not isinstance(dataset_parameters, dict):
+            return 'unknown'
+        scalers = dataset_parameters.get('scalers')
+        if not isinstance(scalers, dict) or not scalers:
+            return 'none'
+        scaler_names = sorted({type(s).__name__ for s in scalers.values() if s is not None})
+        if not scaler_names:
+            return 'none'
+        if len(scaler_names) == 1:
+            return scaler_names[0]
+        return 'mixed:' + ','.join(scaler_names)
+
+    def _persist_fact_oos_predictions(
+        self,
+        *,
+        run_id: str,
+        asset_id: str,
+        feature_set_name: str,
+        config_signature: str,
+        fold_name: str | None,
+        seed: int | None,
+        split_frames: dict[str, pd.DataFrame],
+        split_predictions: dict[str, dict[str, list[float]]],
+    ) -> None:
+        if self.analytics_run_repository is None:
+            return
+        if not split_predictions:
+            return
+
+        rows: list[dict[str, object]] = []
+        for split_name, pred in split_predictions.items():
+            if split_name not in split_frames:
+                continue
+            y_true = [float(v) for v in pred.get("y_true", [])]
+            y_pred = [float(v) for v in pred.get("y_pred", [])]
+            q10 = [float(v) for v in pred.get("quantile_p10", [])]
+            q50 = [float(v) for v in pred.get("quantile_p50", [])]
+            q90 = [float(v) for v in pred.get("quantile_p90", [])]
+            horizons = [int(v) for v in pred.get("horizon", [])]
+
+            n = min(len(y_true), len(y_pred), len(q10), len(q50), len(q90), len(horizons))
+            if n == 0:
+                continue
+
+            split_df = split_frames[split_name].copy().sort_values("timestamp").reset_index(drop=True)
+            if len(split_df) < n:
+                n = len(split_df)
+            split_tail = split_df.tail(n).reset_index(drop=True)
+
+            for i in range(n):
+                ts = pd.to_datetime(split_tail.loc[i, "timestamp"], utc=True, errors="coerce")
+                if pd.isna(ts):
+                    continue
+                target_ts = ts + pd.Timedelta(days=max(horizons[i] - 1, 0))
+                err = float(y_pred[i] - y_true[i])
+                rows.append(
+                    {
+                        "schema_version": ANALYTICS_SCHEMA_VERSION,
+                        "run_id": run_id,
+                        "asset": str(asset_id),
+                        "feature_set_name": str(feature_set_name),
+                        "config_signature": str(config_signature),
+                        "split": str(split_name),
+                        "fold": str(fold_name) if fold_name is not None else "none",
+                        "seed": int(seed) if seed is not None else 0,
+                        "horizon": int(horizons[i]),
+                        "timestamp_utc": str(ts.isoformat()),
+                        "target_timestamp_utc": str(target_ts.isoformat()),
+                        "y_true": float(y_true[i]),
+                        "y_pred": float(y_pred[i]),
+                        "error": err,
+                        "abs_error": float(abs(err)),
+                        "sq_error": float(err * err),
+                        "quantile_p10": float(q10[i]),
+                        "quantile_p50": float(q50[i]),
+                        "quantile_p90": float(q90[i]),
+                        "year": int(target_ts.year),
+                    }
+                )
+
+        if rows:
+            self.analytics_run_repository.append_fact_oos_predictions(rows)
+
+    def _persist_fact_epoch_metrics(
+        self,
+        *,
+        run_id: str,
+        asset_id: str,
+        parent_sweep_id: str | None,
+        fold_name: str | None,
+        history: list[dict[str, float]],
+    ) -> None:
+        if self.analytics_run_repository is None:
+            return
+        if not history:
+            return
+
+        rows: list[dict[str, object]] = []
+        for idx, h in enumerate(history):
+            train_loss = h.get("train_loss")
+            val_loss = h.get("val_loss")
+            if train_loss is None or val_loss is None:
+                continue
+
+            epoch_value = int(h.get("epoch", idx))
+            row = {
+                "schema_version": ANALYTICS_SCHEMA_VERSION,
+                "run_id": run_id,
+                "asset": str(asset_id),
+                "parent_sweep_id": str(parent_sweep_id) if parent_sweep_id is not None else None,
+                "fold": str(fold_name) if fold_name is not None else "none",
+                "epoch": int(epoch_value),
+                "train_loss": float(train_loss),
+                "val_loss": float(val_loss),
+            }
+            if "epoch_time_seconds" in h:
+                row["epoch_time_seconds"] = float(h["epoch_time_seconds"])
+            if "best_epoch" in h:
+                row["best_epoch"] = int(h["best_epoch"])
+            if "stopped_epoch" in h:
+                row["stopped_epoch"] = int(h["stopped_epoch"])
+            if "early_stop_reason" in h:
+                row["early_stop_reason"] = str(h["early_stop_reason"])
+            rows.append(row)
+
+        if rows:
+            self.analytics_run_repository.append_fact_epoch_metrics(rows)
+
+    def _persist_fact_split_metrics(
+        self,
+        *,
+        run_id: str,
+        asset_id: str,
+        parent_sweep_id: str | None,
+        split_metrics: dict[str, dict[str, float]],
+        split_counts: dict[str, int],
+    ) -> None:
+        if self.analytics_run_repository is None:
+            return
+        if not split_metrics:
+            return
+
+        rows: list[dict[str, object]] = []
+        for split_name, metrics in split_metrics.items():
+            rmse = metrics.get("rmse")
+            mae = metrics.get("mae")
+            da = metrics.get("directional_accuracy")
+            if rmse is None or mae is None or da is None:
+                continue
+            rows.append(
+                {
+                    "schema_version": ANALYTICS_SCHEMA_VERSION,
+                    "run_id": run_id,
+                    "asset": str(asset_id),
+                    "parent_sweep_id": str(parent_sweep_id) if parent_sweep_id is not None else None,
+                    "split": str(split_name),
+                    "rmse": float(rmse),
+                    "mae": float(mae),
+                    "mape": float(metrics.get("mape", 0.0)),
+                    "smape": float(metrics.get("smape", 0.0)),
+                    "directional_accuracy": float(da),
+                    "n_samples": int(split_counts.get(split_name, 0)),
+                }
+            )
+
+        if rows:
+            self.analytics_run_repository.append_fact_split_metrics(rows)
+
+    def _persist_bridge_run_features(
+        self,
+        *,
+        run_id: str,
+        feature_cols: list[str],
+    ) -> None:
+        if self.analytics_run_repository is None:
+            return
+        if not feature_cols:
+            return
+        rows = [
+            {
+                "schema_version": ANALYTICS_SCHEMA_VERSION,
+                "run_id": run_id,
+                "feature_order": int(idx),
+                "feature_name": str(name),
+            }
+            for idx, name in enumerate(feature_cols)
+        ]
+        self.analytics_run_repository.append_bridge_run_features(rows)
+
+    def _persist_fact_config(
+        self,
+        *,
+        run_id: str,
+        asset_id: str,
+        parent_sweep_id: str | None,
+        trainer_config: dict,
+        training_result: TrainingResult,
+        dataset_parameters: dict | None,
+    ) -> None:
+        if self.analytics_run_repository is None:
+            return
+
+        prediction_mode = str(trainer_config.get('prediction_mode', 'quantile')).strip().lower()
+        loss_name, quantile_levels = self._extract_loss_metadata(training_result.model, prediction_mode)
+
+        row = {
+            'schema_version': ANALYTICS_SCHEMA_VERSION,
+            'run_id': run_id,
+            'asset': str(asset_id),
+            'parent_sweep_id': str(parent_sweep_id) if parent_sweep_id is not None else None,
+            'prediction_mode': prediction_mode,
+            'loss_name': loss_name,
+            'quantile_levels_json': self._safe_json_dumps(quantile_levels),
+            'max_encoder_length': int(trainer_config.get('max_encoder_length', TFT_TRAINING_DEFAULTS['max_encoder_length'])),
+            'max_prediction_length': int(trainer_config.get('max_prediction_length', TFT_TRAINING_DEFAULTS['max_prediction_length'])),
+            'batch_size': int(trainer_config.get('batch_size', TFT_TRAINING_DEFAULTS['batch_size'])),
+            'max_epochs': int(trainer_config.get('max_epochs', TFT_TRAINING_DEFAULTS['max_epochs'])),
+            'learning_rate': float(trainer_config.get('learning_rate', TFT_TRAINING_DEFAULTS['learning_rate'])),
+            'hidden_size': int(trainer_config.get('hidden_size', TFT_TRAINING_DEFAULTS['hidden_size'])),
+            'attention_head_size': int(trainer_config.get('attention_head_size', TFT_TRAINING_DEFAULTS['attention_head_size'])),
+            'dropout': float(trainer_config.get('dropout', TFT_TRAINING_DEFAULTS['dropout'])),
+            'hidden_continuous_size': int(trainer_config.get('hidden_continuous_size', TFT_TRAINING_DEFAULTS['hidden_continuous_size'])),
+            'early_stopping_patience': int(trainer_config.get('early_stopping_patience', TFT_TRAINING_DEFAULTS['early_stopping_patience'])),
+            'early_stopping_min_delta': float(trainer_config.get('early_stopping_min_delta', TFT_TRAINING_DEFAULTS['early_stopping_min_delta'])),
+            'scaler_type': self._infer_scaler_type(dataset_parameters),
+            'training_config_json': self._safe_json_dumps(trainer_config),
+            'dataset_parameters_json': self._safe_json_dumps(dataset_parameters or {}),
+            'search_space_json': self._safe_json_dumps(trainer_config.get('search_space', {})),
+            'objective_name': str(trainer_config.get('objective_metric', trainer_config.get('objective_name', 'val_loss'))),
+            'objective_direction': str(trainer_config.get('objective_direction', 'minimize')),
+        }
+        self.analytics_run_repository.append_fact_config(row)
+
+    def _persist_fact_model_artifacts(
+        self,
+        *,
+        run_id: str,
+        asset_id: str,
+        version: str,
+        artifacts_dir: str,
+        training_result: TrainingResult,
+    ) -> None:
+        if self.analytics_run_repository is None:
+            return
+
+        version_dir = Path(artifacts_dir)
+        checkpoint_final = version_dir / "model_state.pt"
+        checkpoint_best = version_dir / "checkpoints" / "best.ckpt"
+        config_path = version_dir / "config.json"
+        scaler_path = version_dir / "scalers.pkl"
+        encoder_path = version_dir / "dataset_parameters.pkl"
+        history_path = version_dir / "history.csv"
+        metrics_path = version_dir / "metrics.json"
+        split_metrics_path = version_dir / "split_metrics.json"
+        metadata_path = version_dir / "metadata.json"
+        loss_curve_path = version_dir / "plots" / "loss_curve.png"
+
+        fi_payload = training_result.feature_importance or []
+        attention_summary = {
+            "available": False,
+            "source": "training_pipeline",
+            "reason": "attention tensors are not exported by trainer yet",
+        }
+        logs_refs = {
+            "history_csv": to_project_relative(history_path) if history_path.exists() else None,
+            "metrics_json": to_project_relative(metrics_path) if metrics_path.exists() else None,
+            "split_metrics_json": to_project_relative(split_metrics_path) if split_metrics_path.exists() else None,
+            "metadata_json": to_project_relative(metadata_path) if metadata_path.exists() else None,
+            "loss_curve_png": to_project_relative(loss_curve_path) if loss_curve_path.exists() else None,
+        }
+
+        row = {
+            "schema_version": ANALYTICS_SCHEMA_VERSION,
+            "run_id": run_id,
+            "asset": str(asset_id),
+            "model_version": str(version),
+            "checkpoint_path_final": to_project_relative(checkpoint_final),
+            "checkpoint_path_best": (
+                to_project_relative(checkpoint_best)
+                if checkpoint_best.exists()
+                else None
+            ),
+            "config_path": to_project_relative(config_path),
+            "scaler_path": (
+                to_project_relative(scaler_path) if scaler_path.exists() else None
+            ),
+            "encoder_path": (
+                to_project_relative(encoder_path) if encoder_path.exists() else None
+            ),
+            "feature_importance_json": self._safe_json_dumps(fi_payload),
+            "attention_summary_json": self._safe_json_dumps(attention_summary),
+            "logs_ref_json": self._safe_json_dumps(logs_refs),
+        }
+        self.analytics_run_repository.append_fact_model_artifacts(row)
+
+    def _append_fact_failure(
+        self,
+        *,
+        run_id: str,
+        asset_id: str,
+        trainer_config: dict,
+        stage: str,
+        exc: Exception,
+    ) -> None:
+        if self.analytics_run_repository is None:
+            return
+        tb_text = traceback.format_exc()
+        if not tb_text or tb_text == "NoneType: None\n":
+            tb_text = str(exc)
+        tb_excerpt = tb_text[-4000:]
+        row = {
+            "schema_version": ANALYTICS_SCHEMA_VERSION,
+            "run_id": run_id,
+            "execution_id": None,
+            "asset": str(asset_id),
+            "failed_at_utc": datetime.now(timezone.utc).isoformat(),
+            "stage": str(stage),
+            "error_type": type(exc).__name__,
+            "error_message": str(exc)[:1000],
+            "trace_hash": sha256(tb_text.encode("utf-8")).hexdigest(),
+            "traceback_excerpt": tb_excerpt,
+            "entrypoint": str(trainer_config.get("entrypoint", "src.main_train_tft")),
+            "cmdline": str(trainer_config.get("cmdline", "")),
+            "stdout_truncated": str(trainer_config.get("stdout_truncated", ""))[:2000],
+            "stderr_truncated": str(trainer_config.get("stderr_truncated", tb_excerpt))[:2000],
+        }
+        self.analytics_run_repository.append_fact_failures(row)
+
     def execute(
         self,
         asset_id: str,
@@ -462,6 +1054,8 @@ class TrainTFTModelUseCase:
         split_config: dict | None = None,
         run_ablation: bool = False,
     ) -> TrainTFTModelResult:
+        run_started_at = datetime.now(timezone.utc)
+
         df = self.dataset_repository.load(asset_id)
         if df.empty:
             raise ValueError("Dataset is empty")
@@ -481,9 +1075,16 @@ class TrainTFTModelUseCase:
             raise ValueError(
                 "training_config.derived_feature_groups must be a list of feature group tokens"
             )
+
         feature_inputs = None if features is None and not requested_features else requested_features
         feature_cols, feature_tag = self._resolve_features(df, feature_inputs)
-        feature_set_hash = sha256(",".join(feature_cols).encode("utf-8")).hexdigest()
+        feature_set_hash = compute_feature_set_hash(feature_cols)
+        version = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S") + f"_{feature_tag}"
+        created_at_utc = run_started_at.isoformat()
+
+        trainer_config.setdefault("prediction_mode", str(TFT_TRAINING_DEFAULTS.get("prediction_mode", "quantile")))
+        trainer_config.setdefault("quantile_levels", TFT_TRAINING_DEFAULTS.get("quantile_levels", [0.1, 0.5, 0.9]))
+
         self._run_pretrain_quality_gate(
             df=df,
             feature_cols=feature_cols,
@@ -521,6 +1122,13 @@ class TrainTFTModelUseCase:
             trainer_config=trainer_config,
         )
 
+        split_signature = compute_split_fingerprint(
+            train_timestamps=[str(ts.isoformat()) for ts in pd.to_datetime(train_df["timestamp"], utc=True)],
+            val_timestamps=[str(ts.isoformat()) for ts in pd.to_datetime(val_df["timestamp"], utc=True)],
+            test_timestamps=[str(ts.isoformat()) for ts in pd.to_datetime(test_df["timestamp"], utc=True)],
+        )
+        config_signature = compute_config_signature(trainer_config)
+
         train_df, val_df, test_df, split_scalers = self._apply_split_feature_normalization(
             train_df,
             val_df,
@@ -531,6 +1139,7 @@ class TrainTFTModelUseCase:
         metadata_config = dict(trainer_config)
         metadata_config["split_config"] = split_cfg
         metadata_config["feature_set_tag"] = feature_tag
+        metadata_config["feature_set_name"] = feature_tag
         metadata_config["feature_tokens"] = feature_inputs or ["DEFAULT_TFT_FEATURES"]
         metadata_config["feature_list_ordered"] = feature_cols
         metadata_config["feature_set_hash"] = feature_set_hash
@@ -541,50 +1150,41 @@ class TrainTFTModelUseCase:
         metadata_config["warmup_features"] = warmup_meta["warmup_features"]
         metadata_config["effective_train_start"] = warmup_meta["effective_train_start"]
 
-        training_result: TrainingResult = self.model_trainer.train(
-            train_df,
-            val_df,
-            test_df,
-            feature_cols=feature_cols,
-            target_col="target_return",
-            time_idx_col="time_idx",
-            group_col="asset_id",
-            known_real_cols=known_real_cols,
-            config=trainer_config,
-        )
-        ablation_results: list[dict[str, float | str]] = []
-        if run_ablation and features is None:
-            ablation_results = self._run_ablation(
-                df=df,
-                train_df=train_df,
-                val_df=val_df,
-                test_df=test_df,
+        artifacts_dir = to_project_relative(Path("data/models") / asset_id / "failed_runs" / version)
+        persisted_run_id: str | None = None
+        persisted_dim_row: dict | None = None
+
+        try:
+            training_result: TrainingResult = self.model_trainer.train(
+                train_df,
+                val_df,
+                test_df,
+                feature_cols=feature_cols,
+                target_col="target_return",
+                time_idx_col="time_idx",
+                group_col="asset_id",
                 known_real_cols=known_real_cols,
-                split_cfg=split_cfg,
-                training_config=trainer_config,
+                config=trainer_config,
             )
 
-        version = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S") + f"_{feature_tag}"
-        training_window = {
-            "start": df["timestamp"].min().isoformat(),
-            "end": df["timestamp"].max().isoformat(),
-        }
+            ablation_results: list[dict[str, float | str]] = []
+            if run_ablation and features is None:
+                ablation_results = self._run_ablation(
+                    df=df,
+                    train_df=train_df,
+                    val_df=val_df,
+                    test_df=test_df,
+                    known_real_cols=known_real_cols,
+                    split_cfg=split_cfg,
+                    training_config=trainer_config,
+                )
 
-        artifacts_dir = self.model_repository.save_training_artifacts(
-            asset_id,
-            version,
-            training_result.model,
-            metrics=training_result.metrics,
-            history=training_result.history,
-            split_metrics=training_result.split_metrics,
-            features_used=feature_cols,
-            training_window=training_window,
-            split_window=split_cfg,
-            config=metadata_config,
-            feature_importance=training_result.feature_importance,
-            ablation_results=ablation_results,
-            checkpoint_path=training_result.checkpoint_path,
-            dataset_parameters={
+            training_window = {
+                "start": df["timestamp"].min().isoformat(),
+                "end": df["timestamp"].max().isoformat(),
+            }
+
+            dataset_parameters_payload = {
                 **(training_result.dataset_parameters or {}),
                 "scalers": {
                     **(
@@ -594,19 +1194,153 @@ class TrainTFTModelUseCase:
                     ),
                     **split_scalers,
                 },
-            },
-        )
+            }
 
-        return TrainTFTModelResult(
-            asset_id=asset_id,
-            version=version,
-            metrics=training_result.metrics,
-            artifacts_dir=artifacts_dir,
-        )
+            artifacts_dir = self.model_repository.save_training_artifacts(
+                asset_id,
+                version,
+                training_result.model,
+                metrics=training_result.metrics,
+                history=training_result.history,
+                split_metrics=training_result.split_metrics,
+                features_used=feature_cols,
+                training_window=training_window,
+                split_window=split_cfg,
+                config=metadata_config,
+                feature_importance=training_result.feature_importance,
+                ablation_results=ablation_results,
+                checkpoint_path=training_result.checkpoint_path,
+                dataset_parameters=dataset_parameters_payload,
+            )
+
+            metadata_config["duration_total_seconds"] = float((datetime.now(timezone.utc) - run_started_at).total_seconds())
+
+            persisted_run_id, persisted_dim_row = self._persist_dim_run(
+                asset_id=asset_id,
+                version=version,
+                artifacts_dir=artifacts_dir,
+                trainer_config=metadata_config,
+                feature_cols=feature_cols,
+                split_signature=split_signature,
+                config_signature=config_signature,
+                feature_set_hash=feature_set_hash,
+                created_at_utc=created_at_utc,
+                status="ok",
+            )
+
+            if persisted_run_id:
+                try:
+                    self._persist_run_snapshot(
+                        run_id=persisted_run_id,
+                        asset_id=asset_id,
+                        parent_sweep_id=metadata_config.get("parent_sweep_id"),
+                        split_cfg=split_cfg,
+                        warmup_meta=warmup_meta,
+                        df=df,
+                        train_df=train_df,
+                        val_df=val_df,
+                        test_df=test_df,
+                        split_signature=split_signature,
+                        store_split_timestamps_ref=bool(
+                            metadata_config.get("store_split_timestamps_ref", False)
+                        ),
+                    )
+                    self._persist_fact_epoch_metrics(
+                        run_id=persisted_run_id,
+                        asset_id=asset_id,
+                        parent_sweep_id=metadata_config.get("parent_sweep_id"),
+                        fold_name=metadata_config.get("fold"),
+                        history=training_result.history,
+                    )
+                    self._persist_fact_split_metrics(
+                        run_id=persisted_run_id,
+                        asset_id=asset_id,
+                        parent_sweep_id=metadata_config.get("parent_sweep_id"),
+                        split_metrics=training_result.split_metrics,
+                        split_counts={
+                            "train": int(len(train_df)),
+                            "val": int(len(val_df)),
+                            "test": int(len(test_df)),
+                        },
+                    )
+                    self._persist_fact_oos_predictions(
+                        run_id=persisted_run_id,
+                        asset_id=asset_id,
+                        feature_set_name=metadata_config.get("feature_set_name", feature_tag),
+                        config_signature=config_signature,
+                        fold_name=metadata_config.get("fold"),
+                        seed=metadata_config.get("seed") if isinstance(metadata_config.get("seed"), int) else None,
+                        split_frames={"train": train_df, "val": val_df, "test": test_df},
+                        split_predictions=training_result.split_predictions,
+                    )
+                    self._persist_fact_config(
+                        run_id=persisted_run_id,
+                        asset_id=asset_id,
+                        parent_sweep_id=metadata_config.get("parent_sweep_id"),
+                        trainer_config=metadata_config,
+                        training_result=training_result,
+                        dataset_parameters=dataset_parameters_payload,
+                    )
+                    self._persist_fact_model_artifacts(
+                        run_id=persisted_run_id,
+                        asset_id=asset_id,
+                        version=version,
+                        artifacts_dir=artifacts_dir,
+                        training_result=training_result,
+                    )
+                    self._persist_bridge_run_features(
+                        run_id=persisted_run_id,
+                        feature_cols=feature_cols,
+                    )
+                except Exception as persist_exc:
+                    if persisted_dim_row is not None:
+                        partial_row = dict(persisted_dim_row)
+                        partial_row["status"] = "partial_failed"
+                        self.analytics_run_repository.upsert_dim_run(partial_row)
+                    self._append_fact_failure(
+                        run_id=persisted_run_id,
+                        asset_id=asset_id,
+                        trainer_config=metadata_config,
+                        stage="analytics_persist",
+                        exc=persist_exc,
+                    )
+                    logger.exception("analytics persistence failed after successful training")
+
+            return TrainTFTModelResult(
+                asset_id=asset_id,
+                version=version,
+                metrics=training_result.metrics,
+                artifacts_dir=artifacts_dir,
+            )
+
+        except Exception as exc:
+            metadata_config["duration_total_seconds"] = float((datetime.now(timezone.utc) - run_started_at).total_seconds())
+            persisted_run_id, _ = self._persist_dim_run(
+                asset_id=asset_id,
+                version=version,
+                artifacts_dir=artifacts_dir,
+                trainer_config=metadata_config,
+                feature_cols=feature_cols,
+                split_signature=split_signature,
+                config_signature=config_signature,
+                feature_set_hash=feature_set_hash,
+                created_at_utc=created_at_utc,
+                status="failed",
+            )
+            if persisted_run_id:
+                self._append_fact_failure(
+                    run_id=persisted_run_id,
+                    asset_id=asset_id,
+                    trainer_config=metadata_config,
+                    stage="train_execute",
+                    exc=exc,
+                )
+            raise
+
     @staticmethod
     def _build_trainer_config(training_config: dict | None) -> dict:
         config = dict(training_config or {})
-        allowed_extra = {"derived_feature_groups"}
+        allowed_extra = {"derived_feature_groups", "parent_sweep_id", "trial_number", "fold", "pipeline_version", "retries", "eta_recorded_seconds", "duration_total_seconds", "feature_set_name", "search_space", "objective_metric", "objective_name", "objective_direction", "entrypoint", "cmdline", "stdout_truncated", "stderr_truncated"}
         return {
             k: v
             for k, v in config.items()
