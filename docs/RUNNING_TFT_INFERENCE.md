@@ -13,7 +13,7 @@ Este guia cobre a etapa 10 da pipeline: inferencia com modelo TFT treinado em da
 - Dataset TFT existente para o ativo:
   - `data/processed/dataset_tft/{ASSET}/dataset_tft_{ASSET}.parquet`
 - Modelo treinado existente (diretorio de versao):
-  - `data/models/{ASSET}/{VERSION}/`
+  - `data/models/{ASSET}/runs/{VERSION}/`
 - Chaves de API no ambiente (somente quando precisar refresh de dados):
   - `ALPHAVANTAGE_API_KEY`
 
@@ -22,7 +22,7 @@ Este guia cobre a etapa 10 da pipeline: inferencia com modelo TFT treinado em da
 ```bash
 python -m src.main_infer_tft \
   --asset AAPL \
-  --model-path data/models/AAPL/20260302_010101_B \
+  --model-path data/models/AAPL/runs/20260302_010101_B \
   --start 20260101 \
   --end 20260228
 ```
@@ -100,7 +100,7 @@ Inferencia sem sobrescrever resultados ja calculados:
 ```bash
 python -m src.main_infer_tft \
   --asset AAPL \
-  --model-path data/models/AAPL/20260302_010101_B \
+  --model-path data/models/AAPL/runs/20260302_010101_B \
   --start 20260101 \
   --end 20260228
 ```
@@ -110,7 +110,7 @@ Inferencia com overwrite:
 ```bash
 python -m src.main_infer_tft \
   --asset AAPL \
-  --model-path data/models/AAPL/20260302_010101_B \
+  --model-path data/models/AAPL/runs/20260302_010101_B \
   --start 20260101 \
   --end 20260228 \
   --overwrite
