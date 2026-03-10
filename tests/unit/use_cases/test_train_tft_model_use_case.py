@@ -52,16 +52,108 @@ class FakeTrainer(ModelTrainer):
         return TrainingResult(
             model=object(),
             metrics={"rmse": 1.0},
-            history=[],
+            history=[{"epoch": 0.0, "train_loss": 0.9, "val_loss": 1.0, "epoch_time_seconds": 1.2, "best_epoch": 0.0, "stopped_epoch": 0.0, "early_stop_reason": "max_epochs"}],
             split_metrics={
-                "train": {"rmse": 0.9, "mae": 0.7},
-                "val": {"rmse": 1.0, "mae": 0.8},
-                "test": {"rmse": 1.1, "mae": 0.9},
+                "train": {"rmse": 0.9, "mae": 0.7, "directional_accuracy": 0.6},
+                "val": {"rmse": 1.0, "mae": 0.8, "directional_accuracy": 0.55},
+                "test": {"rmse": 1.1, "mae": 0.9, "directional_accuracy": 0.52},
+            },
+            split_predictions={
+                "train": {"y_true": [0.1], "y_pred": [0.1], "quantile_p10": [0.1], "quantile_p50": [0.1], "quantile_p90": [0.1], "horizon": [1.0]},
+                "val": {"y_true": [0.2], "y_pred": [0.2], "quantile_p10": [0.2], "quantile_p50": [0.2], "quantile_p90": [0.2], "horizon": [1.0]},
+                "test": {"y_true": [0.3], "y_pred": [0.3], "quantile_p10": [0.3], "quantile_p50": [0.3], "quantile_p90": [0.3], "horizon": [1.0]},
             },
         )
 
 
 @dataclass
+class FakeAnalyticsRunRepo:
+    rows: list[dict] | None = None
+    snapshots: list[dict] | None = None
+    split_refs: list[dict] | None = None
+    fact_configs: list[dict] | None = None
+    split_metric_rows: list[dict] | None = None
+    failures: list[dict] | None = None
+    epoch_rows: list[dict] | None = None
+    oos_rows: list[dict] | None = None
+    model_artifacts_rows: list[dict] | None = None
+    bridge_feature_rows: list[dict] | None = None
+    inference_rows: list[dict] | None = None
+
+    def upsert_dim_run(self, row: dict) -> None:
+        if self.rows is None:
+            self.rows = []
+        self.rows.append(row)
+
+    def append_fact_run_snapshot(self, row: dict) -> None:
+        if self.snapshots is None:
+            self.snapshots = []
+        self.snapshots.append(row)
+
+    def append_fact_split_timestamps_ref(self, rows: list[dict]) -> None:
+        if self.split_refs is None:
+            self.split_refs = []
+        self.split_refs.extend(rows)
+
+    def append_fact_config(self, row: dict) -> None:
+        if self.fact_configs is None:
+            self.fact_configs = []
+        self.fact_configs.append(row)
+
+    def append_fact_split_metrics(self, rows: list[dict]) -> None:
+        if self.split_metric_rows is None:
+            self.split_metric_rows = []
+        self.split_metric_rows.extend(rows)
+
+    def append_fact_epoch_metrics(self, rows: list[dict]) -> None:
+        if self.epoch_rows is None:
+            self.epoch_rows = []
+        self.epoch_rows.extend(rows)
+
+    def append_fact_oos_predictions(self, rows: list[dict]) -> None:
+        if self.oos_rows is None:
+            self.oos_rows = []
+        self.oos_rows.extend(rows)
+
+    def append_fact_model_artifacts(self, row: dict) -> None:
+        if self.model_artifacts_rows is None:
+            self.model_artifacts_rows = []
+        self.model_artifacts_rows.append(row)
+
+    def append_bridge_run_features(self, rows: list[dict]) -> None:
+        if self.bridge_feature_rows is None:
+            self.bridge_feature_rows = []
+        self.bridge_feature_rows.extend(rows)
+
+    def append_fact_inference_runs(self, row: dict) -> None:
+        if self.inference_rows is None:
+            self.inference_rows = []
+        self.inference_rows.append(row)
+
+    def append_fact_failures(self, row: dict) -> None:
+        if self.failures is None:
+            self.failures = []
+        self.failures.append(row)
+
+
+
+@dataclass
+class FailingTrainer(ModelTrainer):
+    def train(
+        self,
+        train_df: pd.DataFrame,
+        val_df: pd.DataFrame,
+        test_df: pd.DataFrame,
+        *,
+        feature_cols: list[str],
+        target_col: str,
+        time_idx_col: str,
+        group_col: str,
+        known_real_cols: list[str],
+        config: dict,
+    ) -> TrainingResult:
+        raise RuntimeError("boom training")
+
 class FakeModelRepo(ModelRepository):
     saved: bool = False
     last_ablation_results: list[dict[str, float | str]] | None = None
@@ -328,7 +420,10 @@ def test_warmup_strict_fail_raises_for_window_feature() -> None:
         "test_start": "20250102",
         "test_end": "20250102",
     }
-    with pytest.raises(ValueError, match="policy=strict_fail"):
+    with pytest.raises(
+        ValueError,
+        match=r"policy=strict_fail.*first_valid_train_start=20240102",
+    ):
         use_case.execute(
             "AAPL",
             features=["ema_200"],
@@ -724,3 +819,149 @@ def test_applies_split_normalization_for_technical_features_and_persists_scalers
     assert repo.last_dataset_parameters is not None
     assert "scalers" in repo.last_dataset_parameters
     assert "volatility_20d" in repo.last_dataset_parameters["scalers"]
+
+
+
+def test_persists_dim_run_identity_fields_when_analytics_repo_is_enabled() -> None:
+    trainer = FakeTrainer()
+    repo = FakeModelRepo()
+    analytics = FakeAnalyticsRunRepo()
+    use_case = TrainTFTModelUseCase(
+        dataset_repository=FakeDatasetRepository(_df()),
+        model_trainer=trainer,
+        model_repository=repo,
+        analytics_run_repository=analytics,
+    )
+
+    split_config = {
+        "train_start": "20240101",
+        "train_end": "20240101",
+        "val_start": "20240102",
+        "val_end": "20240102",
+        "test_start": "20250102",
+        "test_end": "20250102",
+    }
+    training_config = {
+        "seed": 7,
+        "parent_sweep_id": "sweep_x",
+        "trial_number": 3,
+        "fold": "wf_1",
+        "pipeline_version": "0.1",
+        "feature_set_name": "B",
+    }
+
+    use_case.execute("AAPL", features=["feature_a"], split_config=split_config, training_config=training_config)
+
+    assert analytics.rows is not None
+    assert len(analytics.rows) == 1
+    row = analytics.rows[0]
+    assert row["asset"] == "AAPL"
+    assert row["parent_sweep_id"] == "sweep_x"
+    assert row["trial_number"] == 3
+    assert row["fold"] == "wf_1"
+    assert row["seed"] == 7
+    assert row["feature_set_name"] == "C"
+    assert row["feature_set_hash"]
+    assert row["model_version"]
+    assert row["run_id"]
+    assert analytics.snapshots is not None
+    assert analytics.split_refs is None
+    assert analytics.fact_configs is not None
+    assert len(analytics.fact_configs) == 1
+    fact_config = analytics.fact_configs[0]
+    assert fact_config["run_id"] == row["run_id"]
+    assert fact_config["prediction_mode"] == "quantile"
+    assert fact_config["quantile_levels_json"]
+    assert analytics.split_metric_rows is not None
+    assert {r["split"] for r in analytics.split_metric_rows} == {"train", "val", "test"}
+    assert all(r["run_id"] == row["run_id"] for r in analytics.split_metric_rows)
+    assert analytics.epoch_rows is not None
+    assert len(analytics.epoch_rows) >= 1
+    assert analytics.epoch_rows[0]["run_id"] == row["run_id"]
+    assert "train_loss" in analytics.epoch_rows[0]
+    assert "val_loss" in analytics.epoch_rows[0]
+    assert analytics.oos_rows is not None
+    assert len(analytics.oos_rows) >= 1
+    oos = analytics.oos_rows[0]
+    assert oos["run_id"] == row["run_id"]
+    assert oos["asset"] == "AAPL"
+    assert oos["feature_set_name"] == row["feature_set_name"]
+    assert "y_true" in oos and "y_pred" in oos
+    assert "quantile_p10" in oos and "quantile_p90" in oos
+    assert analytics.model_artifacts_rows is not None
+    assert len(analytics.model_artifacts_rows) == 1
+    mar = analytics.model_artifacts_rows[0]
+    assert mar["run_id"] == row["run_id"]
+    assert mar["asset"] == "AAPL"
+    assert "feature_importance_json" in mar
+    assert "attention_summary_json" in mar
+    assert analytics.bridge_feature_rows is not None
+    assert len(analytics.bridge_feature_rows) >= 1
+
+
+def test_persists_split_timestamps_when_flag_enabled() -> None:
+    trainer = FakeTrainer()
+    repo = FakeModelRepo()
+    analytics = FakeAnalyticsRunRepo()
+    use_case = TrainTFTModelUseCase(
+        dataset_repository=FakeDatasetRepository(_df()),
+        model_trainer=trainer,
+        model_repository=repo,
+        analytics_run_repository=analytics,
+    )
+
+    split_config = {
+        "train_start": "20240101",
+        "train_end": "20240101",
+        "val_start": "20240102",
+        "val_end": "20240102",
+        "test_start": "20250102",
+        "test_end": "20250102",
+    }
+    training_config = {
+        "seed": 7,
+        "feature_set_name": "B",
+        "store_split_timestamps_ref": True,
+    }
+
+    use_case.execute(
+        "AAPL",
+        features=["feature_a"],
+        split_config=split_config,
+        training_config=training_config,
+    )
+
+    assert analytics.split_refs is not None
+    assert len(analytics.split_refs) == 3
+    assert analytics.bridge_feature_rows[0]["run_id"] == row["run_id"]
+
+
+def test_persists_failed_status_and_failure_fact_when_training_raises() -> None:
+    repo = FakeModelRepo()
+    analytics = FakeAnalyticsRunRepo()
+    use_case = TrainTFTModelUseCase(
+        dataset_repository=FakeDatasetRepository(_df()),
+        model_trainer=FailingTrainer(),
+        model_repository=repo,
+        analytics_run_repository=analytics,
+    )
+
+    split_config = {
+        "train_start": "20240101",
+        "train_end": "20240101",
+        "val_start": "20240102",
+        "val_end": "20240102",
+        "test_start": "20250102",
+        "test_end": "20250102",
+    }
+
+    with pytest.raises(RuntimeError, match="boom training"):
+        use_case.execute("AAPL", features=["feature_a"], split_config=split_config)
+
+    assert analytics.rows is not None
+    assert len(analytics.rows) == 1
+    assert analytics.rows[0]["status"] == "failed"
+    assert analytics.failures is not None
+    assert len(analytics.failures) == 1
+    assert analytics.failures[0]["stage"] == "train_execute"
+    assert "boom training" in analytics.failures[0]["error_message"]
