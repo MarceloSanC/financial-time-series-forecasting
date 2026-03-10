@@ -23,6 +23,8 @@ TFT_TRAINING_DEFAULTS = {
     "seed": 42,
     "early_stopping_patience": 5,
     "early_stopping_min_delta": 0.0,
+    "prediction_mode": "quantile",
+    "quantile_levels": [0.1, 0.5, 0.9],
     "warmup_policy": "strict_fail",
     "min_samples_train": 1,
     "min_samples_val": 1,
@@ -31,6 +33,9 @@ TFT_TRAINING_DEFAULTS = {
     "quality_gate_min_temporal_coverage_days": 1,
     "quality_gate_require_unique_timestamps": True,
     "quality_gate_require_monotonic_timestamps": True,
+    "store_split_timestamps_ref": False,
+    "evaluate_train_split": False,
+    "compute_feature_importance": False,
 }
 
 TFT_TRAINING_LIMITS = {
@@ -97,9 +102,37 @@ def validate_tft_training_config(config: dict) -> None:
         raise ValueError(
             "Invalid config: quality_gate_require_monotonic_timestamps must be boolean"
         )
+    if "store_split_timestamps_ref" in config and not isinstance(
+        config["store_split_timestamps_ref"], bool
+    ):
+        raise ValueError(
+            "Invalid config: store_split_timestamps_ref must be boolean"
+        )
+    if "evaluate_train_split" in config and not isinstance(
+        config["evaluate_train_split"], bool
+    ):
+        raise ValueError("Invalid config: evaluate_train_split must be boolean")
+    if "compute_feature_importance" in config and not isinstance(
+        config["compute_feature_importance"], bool
+    ):
+        raise ValueError("Invalid config: compute_feature_importance must be boolean")
 
     warmup_policy = str(config.get("warmup_policy", "strict_fail")).strip().lower()
     if warmup_policy not in TFT_WARMUP_POLICIES:
         raise ValueError(
             f"Invalid config: warmup_policy must be one of {sorted(TFT_WARMUP_POLICIES)}"
         )
+
+    prediction_mode = str(config.get("prediction_mode", "quantile")).strip().lower()
+    if prediction_mode not in {"point", "quantile"}:
+        raise ValueError("Invalid config: prediction_mode must be one of ['point', 'quantile']")
+
+    quantile_levels = config.get("quantile_levels", [0.1, 0.5, 0.9])
+    if quantile_levels is not None:
+        if not isinstance(quantile_levels, list) or not quantile_levels:
+            raise ValueError("Invalid config: quantile_levels must be a non-empty list")
+        for q in quantile_levels:
+            if not isinstance(q, (int, float)):
+                raise ValueError("Invalid config: quantile_levels values must be numeric")
+            if float(q) <= 0.0 or float(q) >= 1.0:
+                raise ValueError("Invalid config: quantile_levels must be in (0,1)")
