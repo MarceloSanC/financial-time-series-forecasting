@@ -8,6 +8,7 @@ import json
 
 import numpy as np
 import pandas as pd
+from src.utils.path_policy import to_project_relative
 
 
 class DataQualityReporter:
@@ -246,7 +247,7 @@ class DataQualityReporter:
             business_days=business_days,
             extra_sections=extra_sections,
         )
-        report["source_path"] = str(parquet_path.resolve())
+        report["source_path"] = str(to_project_relative(parquet_path))
         report["file_size_bytes"] = parquet_path.stat().st_size
         report["file_mtime_utc"] = (
             datetime.fromtimestamp(parquet_path.stat().st_mtime, tz=timezone.utc).isoformat()
