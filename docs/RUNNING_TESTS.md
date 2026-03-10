@@ -90,3 +90,23 @@ Validacao de registry e warmup canonical:
 ```bash
 .venv/bin/pytest -q tests/unit/infrastructure/schemas/test_feature_registry.py tests/unit/infrastructure/schemas/test_feature_validation_schema.py
 ```
+
+## Stage 6 (CI/CD) local
+
+Pipeline local equivalente ao CI (lint + type + unit + analytics):
+
+```bash
+make ci-local
+```
+
+Type-check focado no analytics store:
+
+```bash
+make type-check-analytics
+```
+
+Suite sintetica de contratos/qualidade do analytics store:
+
+```bash
+make test-analytics
+```
