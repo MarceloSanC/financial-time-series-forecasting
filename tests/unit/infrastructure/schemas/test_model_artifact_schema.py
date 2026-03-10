@@ -47,3 +47,10 @@ def test_validate_tft_training_config_rejects_non_boolean_monotonic_timestamp_ga
     cfg["quality_gate_require_monotonic_timestamps"] = "yes"
     with pytest.raises(ValueError, match="quality_gate_require_monotonic_timestamps"):
         validate_tft_training_config(cfg)
+
+
+def test_validate_tft_training_config_rejects_non_boolean_evaluate_train_split() -> None:
+    cfg = dict(TFT_TRAINING_DEFAULTS)
+    cfg["evaluate_train_split"] = "yes"
+    with pytest.raises(ValueError, match="evaluate_train_split"):
+        validate_tft_training_config(cfg)
