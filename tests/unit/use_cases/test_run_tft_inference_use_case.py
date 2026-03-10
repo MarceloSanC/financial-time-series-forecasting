@@ -112,6 +112,14 @@ class _FakeEngine:
         return out
 
 
+class _FakeAnalyticsRunRepo:
+    def __init__(self) -> None:
+        self.inference_rows: list[dict] = []
+
+    def append_fact_inference_runs(self, row: dict) -> None:
+        self.inference_rows.append(row)
+
+
 def _dataset(start: datetime, rows: int = 12) -> pd.DataFrame:
     data = []
     for i in range(rows):
@@ -298,3 +306,34 @@ def test_inference_logs_excess_dataset_features_but_runs(caplog) -> None:
 
     assert result.attempted_upserts > 0
     assert any("extra model feature columns not used" in r.message for r in caplog.records)
+
+
+def test_persists_fact_inference_runs_when_analytics_repo_is_configured() -> None:
+    start = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    dataset_repo = _FakeDatasetRepo(_dataset(start))
+    inference_repo = _FakeInferenceRepo()
+    loader = _FakeModelLoader(asset_id="AAPL")
+    engine = _FakeEngine()
+    analytics_repo = _FakeAnalyticsRunRepo()
+    use_case = RunTFTInferenceUseCase(
+        dataset_repository=dataset_repo,
+        inference_repository=inference_repo,
+        model_loader=loader,
+        inference_engine=engine,
+        analytics_run_repository=analytics_repo,
+    )
+
+    result = use_case.execute(
+        asset_id="AAPL",
+        model_path="/tmp/model",
+        start_date=start + timedelta(days=5),
+        end_date=start + timedelta(days=7),
+    )
+
+    assert result.attempted_upserts > 0
+    assert len(analytics_repo.inference_rows) == 1
+    row = analytics_repo.inference_rows[0]
+    assert row["asset"] == "AAPL"
+    assert row["model_version"] == "20260302_010101_B"
+    assert row["status"] == "ok"
+    assert row["upserts_count"] == result.attempted_upserts
