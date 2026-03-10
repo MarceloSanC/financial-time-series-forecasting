@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import sys
 from pathlib import Path
 
 import yaml
@@ -10,7 +11,10 @@ import yaml
 from src.adapters.parquet_tft_dataset_repository import ParquetTFTDatasetRepository
 from src.adapters.pytorch_forecasting_tft_trainer import PytorchForecastingTFTTrainer
 from src.adapters.local_tft_model_repository import LocalTFTModelRepository
+from src.adapters.parquet_analytics_run_repository import ParquetAnalyticsRunRepository
 from src.use_cases.train_tft_model_use_case import TrainTFTModelUseCase
+from src.utils.asset_periods import resolve_training_split
+from src.utils.feature_token_parser import normalize_feature_tokens, parse_feature_tokens
 from src.infrastructure.schemas.model_artifact_schema import (
     TFT_TRAINING_DEFAULTS,
     TFT_SPLIT_DEFAULTS,
@@ -20,6 +24,34 @@ from src.utils.logging_config import setup_logging
 from src.utils.path_resolver import load_data_paths
 
 logger = logging.getLogger(__name__)
+
+
+def _parse_bool(value: str | bool) -> bool:
+    if isinstance(value, bool):
+        return value
+    v = str(value).strip().lower()
+    if v in {"1", "true", "t", "yes", "y"}:
+        return True
+    if v in {"0", "false", "f", "no", "n"}:
+        return False
+    raise argparse.ArgumentTypeError(f"Invalid boolean value: {value}")
+
+
+def _parse_quantile_levels(value: str) -> list[float]:
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise argparse.ArgumentTypeError(
+            "quantile-levels must be a JSON list (e.g. '[0.1, 0.5, 0.9]')"
+        ) from exc
+    if not isinstance(parsed, list) or not parsed:
+        raise argparse.ArgumentTypeError("quantile-levels must be a non-empty list")
+    out: list[float] = []
+    for q in parsed:
+        if not isinstance(q, (int, float)):
+            raise argparse.ArgumentTypeError("quantile-levels values must be numeric")
+        out.append(float(q))
+    return out
 
 
 def parse_args() -> argparse.Namespace:
@@ -129,6 +161,97 @@ def parse_args() -> argparse.Namespace:
             f"Default: {TFT_TRAINING_DEFAULTS['early_stopping_min_delta']}"
         ),
     )
+    parser.add_argument(
+        "--prediction-mode",
+        type=str,
+        choices=["point", "quantile"],
+        help=f"Prediction mode. Default: {TFT_TRAINING_DEFAULTS['prediction_mode']}",
+    )
+    parser.add_argument(
+        "--quantile-levels",
+        type=_parse_quantile_levels,
+        help=(
+            "Quantile levels as JSON list. "
+            f"Default: {TFT_TRAINING_DEFAULTS['quantile_levels']}"
+        ),
+    )
+    parser.add_argument(
+        "--warmup-policy",
+        type=str,
+        choices=["strict_fail", "drop_leading"],
+        help=f"Warmup policy. Default: {TFT_TRAINING_DEFAULTS['warmup_policy']}",
+    )
+    parser.add_argument(
+        "--min-samples-train",
+        type=int,
+        help=f"Minimum train samples. Default: {TFT_TRAINING_DEFAULTS['min_samples_train']}",
+    )
+    parser.add_argument(
+        "--min-samples-val",
+        type=int,
+        help=f"Minimum validation samples. Default: {TFT_TRAINING_DEFAULTS['min_samples_val']}",
+    )
+    parser.add_argument(
+        "--min-samples-test",
+        type=int,
+        help=f"Minimum test samples. Default: {TFT_TRAINING_DEFAULTS['min_samples_test']}",
+    )
+    parser.add_argument(
+        "--quality-gate-max-nan-ratio-per-feature",
+        type=float,
+        help=(
+            "Max NaN ratio per feature allowed in quality gate. "
+            f"Default: {TFT_TRAINING_DEFAULTS['quality_gate_max_nan_ratio_per_feature']}"
+        ),
+    )
+    parser.add_argument(
+        "--quality-gate-min-temporal-coverage-days",
+        type=int,
+        help=(
+            "Minimum temporal coverage (days) for quality gate. "
+            f"Default: {TFT_TRAINING_DEFAULTS['quality_gate_min_temporal_coverage_days']}"
+        ),
+    )
+    parser.add_argument(
+        "--quality-gate-require-unique-timestamps",
+        type=_parse_bool,
+        help=(
+            "Require unique timestamps in quality gate. "
+            f"Default: {TFT_TRAINING_DEFAULTS['quality_gate_require_unique_timestamps']}"
+        ),
+    )
+    parser.add_argument(
+        "--quality-gate-require-monotonic-timestamps",
+        type=_parse_bool,
+        help=(
+            "Require monotonic timestamps in quality gate. "
+            f"Default: {TFT_TRAINING_DEFAULTS['quality_gate_require_monotonic_timestamps']}"
+        ),
+    )
+    parser.add_argument(
+        "--store-split-timestamps-ref",
+        type=_parse_bool,
+        help=(
+            "Persist compact split timestamp references in analytics. "
+            f"Default: {TFT_TRAINING_DEFAULTS['store_split_timestamps_ref']}"
+        ),
+    )
+    parser.add_argument(
+        "--evaluate-train-split",
+        type=_parse_bool,
+        help=(
+            "Run post-train prediction/metrics for train split. "
+            f"Default: {TFT_TRAINING_DEFAULTS['evaluate_train_split']}"
+        ),
+    )
+    parser.add_argument(
+        "--compute-feature-importance",
+        type=_parse_bool,
+        help=(
+            "Compute permutation feature importance after training. "
+            f"Default: {TFT_TRAINING_DEFAULTS['compute_feature_importance']}"
+        ),
+    )
     parser.add_argument("--train-start", type=str, help="Train start date (yyyymmdd)")
     parser.add_argument("--train-end", type=str, help="Train end date (yyyymmdd)")
     parser.add_argument("--val-start", type=str, help="Validation start date (yyyymmdd)")
@@ -183,6 +306,24 @@ def _load_train_quality_gate_defaults() -> dict:
     }
 
 
+def _load_asset_training_split_defaults(asset_id: str) -> dict:
+    config_path = Path(__file__).parent.parent / "config" / "data_sources.yaml"
+    if not config_path.exists():
+        return {}
+    with open(config_path, encoding="utf-8") as f:
+        payload = yaml.safe_load(f) or {}
+    assets = payload.get("assets", [])
+    if not isinstance(assets, list):
+        return {}
+    asset_cfg = next(
+        (a for a in assets if str(a.get("symbol", "")).strip().upper() == asset_id),
+        None,
+    )
+    if not isinstance(asset_cfg, dict):
+        return {}
+    return resolve_training_split(asset_cfg) or {}
+
+
 def main() -> None:
     setup_logging(logging.INFO)
     args = parse_args()
@@ -193,24 +334,29 @@ def main() -> None:
     config_features = file_config.get("features")
     features: list[str] | None = None
     if args.features:
-        features = [c.strip() for c in args.features.split(",") if c.strip()]
+        features = parse_feature_tokens(args.features)
     elif isinstance(config_features, str):
-        features = [c.strip() for c in config_features.split(",") if c.strip()]
+        features = parse_feature_tokens(config_features)
     elif isinstance(config_features, list):
-        features = [str(c).strip() for c in config_features if str(c).strip()]
+        features = normalize_feature_tokens([str(c) for c in config_features])
 
     paths = load_data_paths()
     dataset_dir = paths["dataset_tft"]
     models_dir = Path(args.models_dir) if args.models_dir else paths["models"]
 
     dataset_repo = ParquetTFTDatasetRepository(output_dir=dataset_dir)
-    model_repo = LocalTFTModelRepository(base_dir=models_dir)
+    model_repo = LocalTFTModelRepository(
+        base_dir=models_dir,
+        run_subdir=None if args.models_dir else "runs",
+    )
+    analytics_repo = ParquetAnalyticsRunRepository(output_dir=paths.get("analytics_silver", Path("data/analytics/silver")))
     trainer = PytorchForecastingTFTTrainer()
 
     use_case = TrainTFTModelUseCase(
         dataset_repository=dataset_repo,
         model_trainer=trainer,
         model_repository=model_repo,
+        analytics_run_repository=analytics_repo,
     )
 
     training_config = dict(TFT_TRAINING_DEFAULTS)
@@ -246,13 +392,30 @@ def main() -> None:
         "seed": args.seed,
         "early_stopping_patience": args.early_stopping_patience,
         "early_stopping_min_delta": args.early_stopping_min_delta,
+        "prediction_mode": args.prediction_mode,
+        "quantile_levels": args.quantile_levels,
+        "warmup_policy": args.warmup_policy,
+        "min_samples_train": args.min_samples_train,
+        "min_samples_val": args.min_samples_val,
+        "min_samples_test": args.min_samples_test,
+        "quality_gate_max_nan_ratio_per_feature": args.quality_gate_max_nan_ratio_per_feature,
+        "quality_gate_min_temporal_coverage_days": args.quality_gate_min_temporal_coverage_days,
+        "quality_gate_require_unique_timestamps": args.quality_gate_require_unique_timestamps,
+        "quality_gate_require_monotonic_timestamps": args.quality_gate_require_monotonic_timestamps,
+        "store_split_timestamps_ref": args.store_split_timestamps_ref,
+        "evaluate_train_split": args.evaluate_train_split,
+        "compute_feature_importance": args.compute_feature_importance,
     }
     for key, value in overrides.items():
         if value is not None:
             training_config[key] = value
     validate_tft_training_config(training_config)
 
+    training_config["entrypoint"] = "src.main_train_tft"
+    training_config["cmdline"] = " ".join(sys.argv)
+
     split_config = dict(TFT_SPLIT_DEFAULTS)
+    split_config.update(_load_asset_training_split_defaults(asset_id))
     json_split = file_config.get("split_config")
     if isinstance(json_split, dict):
         for key, value in json_split.items():
