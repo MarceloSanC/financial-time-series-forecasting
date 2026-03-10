@@ -11,9 +11,9 @@ from pathlib import Path
 
 import yaml
 import pandas as pd
-import pandas as pd
 
 from src.domain.time.utc import parse_iso_utc
+from src.utils.asset_periods import resolve_data_period
 from src.adapters.alpha_vantage_news_fetcher import AlphaVantageNewsFetcher
 from src.adapters.parquet_news_repository import ParquetNewsRepository
 from src.use_cases.fetch_news_use_case import FetchNewsUseCase
@@ -103,8 +103,12 @@ def main() -> None:
     if provider != "alpha_vantage":
         raise RuntimeError(f"Unsupported news provider: {provider!r}")
 
-    dataset_start = parse_iso_utc(news_cfg["dataset_start"])
-    dataset_end = parse_iso_utc(news_cfg["dataset_end"])
+    dataset_start_raw = news_cfg.get("dataset_start")
+    dataset_end_raw = news_cfg.get("dataset_end")
+    global_dataset_start = (
+        parse_iso_utc(dataset_start_raw) if dataset_start_raw else None
+    )
+    global_dataset_end = parse_iso_utc(dataset_end_raw) if dataset_end_raw else None
     safety_margin = int(news_cfg.get("safety_margin", 950))
 
     api_key = os.getenv("ALPHAVANTAGE_API_KEY")
@@ -150,8 +154,12 @@ def main() -> None:
         "Starting news dataset pipeline",
         extra={
             "assets": [a.get("symbol") for a in assets],
-            "dataset_start": dataset_start.isoformat(),
-            "dataset_end": dataset_end.isoformat(),
+            "dataset_start": global_dataset_start.isoformat()
+            if global_dataset_start is not None
+            else "asset.data_period.start_date",
+            "dataset_end": global_dataset_end.isoformat()
+            if global_dataset_end is not None
+            else "asset.data_period.end_date",
             "raw_news_dir": str(raw_news_dir.resolve()),
             "provider": provider,
             "safety_margin": safety_margin,
@@ -160,6 +168,9 @@ def main() -> None:
 
     for asset in assets:
         symbol = str(asset["symbol"]).strip().upper()
+        asset_start, asset_end = resolve_data_period(asset)
+        dataset_start = global_dataset_start or asset_start
+        dataset_end = global_dataset_end or asset_end
         news_path = raw_news_dir / symbol / f"news_{symbol}.parquet"
         existing_rows = 0
         if news_path.exists():
