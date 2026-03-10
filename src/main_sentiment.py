@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 from src.adapters.finbert_sentiment_model import FinBERTSentimentModel
 from src.adapters.parquet_news_repository import ParquetNewsRepository
 from src.adapters.parquet_scored_news_repository import ParquetScoredNewsRepository
-from src.domain.time.utc import parse_iso_utc
+from src.utils.asset_periods import resolve_data_period
 from src.use_cases.infer_sentiment_use_case import InferSentimentUseCase
 from src.domain.services.data_quality_reporter import DataQualityReporter
 from src.domain.services.data_quality_profiles import get_profile
@@ -49,10 +49,7 @@ def main() -> None:
     if not asset_cfg:
         raise RuntimeError(f"Asset not found in config/data_sources.yaml: {asset_id}")
 
-    start_date = parse_iso_utc(asset_cfg["start_date"])
-    end_date = parse_iso_utc(asset_cfg["end_date"])
-    if start_date > end_date:
-        raise ValueError("start_date must be <= end_date")
+    start_date, end_date = resolve_data_period(asset_cfg)
 
     paths = load_data_paths()
     raw_news_dir = paths.get("news_dataset")
