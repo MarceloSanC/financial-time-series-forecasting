@@ -11,6 +11,7 @@ from src.interfaces.tft_inference_model_loader import (
     LoadedTFTInferenceModel,
     TFTInferenceModelLoader,
 )
+from src.utils.path_policy import to_project_relative
 
 
 class LocalTFTInferenceModelLoader(TFTInferenceModelLoader):
@@ -187,7 +188,7 @@ class LocalTFTInferenceModelLoader(TFTInferenceModelLoader):
         return LoadedTFTInferenceModel(
             asset_id=asset_id,
             version=version,
-            model_dir=model_path.resolve(),
+            model_dir=Path(to_project_relative(model_path) or str(model_path)),
             model=model,
             feature_cols=[c.strip() for c in features_used if c.strip()],
             feature_set_name=feature_set_name,
