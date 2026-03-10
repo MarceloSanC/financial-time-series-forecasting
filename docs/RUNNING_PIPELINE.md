@@ -35,6 +35,16 @@ Exemplo:
 assets:
   - symbol: "AAPL"
     name: "Apple Inc"
+    data_period:
+      start_date: "2024-01-01"
+      end_date: "2024-12-31"
+    training_period:
+      train_start: "2010-01-01"
+      train_end: "2020-12-31"
+      val_start: "2021-01-01"
+      val_end: "2022-12-31"
+      test_start: "2023-01-01"
+      test_end: "2025-12-31"
     start_date: "2024-01-01"
     end_date: "2024-12-31"
 
@@ -48,6 +58,10 @@ data_sources:
     provider: "finnhub"
     aggregation: "daily"
 ```
+
+Regra de períodos:
+- Pipelines de dados (`candles`, `news`, `sentiment`, `sentiment_features`, `fundamentals`, `dataset_tft`) usam obrigatoriamente `assets[].data_period.start_date/end_date`.
+- Treino (`main_train_tft`) usa `assets[].training_period.{train_start,train_end,val_start,val_end,test_start,test_end}` como split default quando não houver override via CLI/JSON.
 
 
 ## 1) Coletar Candles (OHLCV)
@@ -161,7 +175,7 @@ python -m src.main_dataset_tft --asset AAPL
 
 ## 8) Treinar Modelo TFT
 
-Treina o modelo e salva artefatos em `data/models/tft/{ASSET}/{VERSION}/`.
+Treina o modelo e salva artefatos em `data/models/{ASSET}/runs/{VERSION}/`.
 Referencia completa de parametros: `docs/TRAIN_TFT_PARAMS.md`.
 
 Executar:
@@ -233,7 +247,7 @@ Executa previsoes com um modelo treinado e persiste resultados em:
 Executar:
 
 ```bash
-python -m src.main_infer_tft --asset AAPL --model-path data/models/AAPL/20260302_010101_B --start 20260101 --end 20260228
+python -m src.main_infer_tft --asset AAPL --model-path data/models/AAPL/runs/20260302_010101_B --start 20260101 --end 20260228
 ```
 
 Referencia completa:
