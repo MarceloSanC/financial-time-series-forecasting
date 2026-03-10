@@ -7,7 +7,7 @@ Este documento centraliza os parametros do `src.main_infer_tft`.
 | Parametro | Tipo | Obrigatorio | Exemplo | Impacto |
 |---|---|---|---|---|
 | `--asset` | `str` | Sim* | `--asset AAPL` | Define ativo alvo |
-| `--model-path` | `str` | Sim* | `--model-path data/models/AAPL/20260302_010101_B` | Seleciona artefato do modelo |
+| `--model-path` | `str` | Sim* | `--model-path data/models/AAPL/runs/20260302_010101_B` | Seleciona artefato do modelo |
 | `--start` | `str yyyymmdd` | Nao | `--start 20260101` | Inicio do periodo explicito |
 | `--end` | `str yyyymmdd` | Nao | `--end 20260228` | Fim do periodo explicito |
 
@@ -36,7 +36,7 @@ Este documento centraliza os parametros do `src.main_infer_tft`.
 ```json
 {
   "asset": "AAPL",
-  "model_path": "data/models/AAPL/20260302_010101_B",
+  "model_path": "data/models/AAPL/runs/20260302_010101_B",
   "start": "20260101",
   "end": "20260228",
   "overwrite": false,
