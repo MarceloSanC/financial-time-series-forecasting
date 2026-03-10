@@ -3,6 +3,7 @@
 import json
 import logging
 import math
+import shutil
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
@@ -11,8 +12,10 @@ from typing import Any
 import pandas as pd
 
 from src.domain.services.sweep_eta_estimator import SweepEtaEstimator
+from src.infrastructure.schemas.model_artifact_schema import TFT_TRAINING_DEFAULTS
 from src.use_cases.run_tft_model_analysis_use_case import RunTFTModelAnalysisUseCase
 from src.use_cases.test_pipeline_common import validate_train_runner_contract
+from src.utils.path_policy import to_project_relative
 
 logger = logging.getLogger(__name__)
 
@@ -56,6 +59,18 @@ class RunTFTOptunaSearchUseCase:
         self.objective_lambda = float(objective_lambda)
 
     @staticmethod
+    def _normalize_training_config_for_merge(cfg: dict[str, Any] | None) -> dict[str, Any]:
+        """
+        Normalize training configs for merge compatibility checks.
+        Fills missing keys with current defaults so older summaries remain
+        merge-compatible after additive config fields are introduced.
+        """
+        normalized = dict(TFT_TRAINING_DEFAULTS)
+        if isinstance(cfg, dict):
+            normalized.update(cfg)
+        return normalized
+
+    @staticmethod
     def _feature_label(features: str | None) -> str:
         if not features:
             return "default"
@@ -70,6 +85,45 @@ class RunTFTOptunaSearchUseCase:
             return float(value)
         except Exception:
             return None
+
+    @staticmethod
+    def _is_completed_trial(trial: Any) -> bool:
+        try:
+            state_name = str(getattr(getattr(trial, "state", None), "name", "")).upper()
+        except Exception:
+            state_name = ""
+        if state_name != "COMPLETE":
+            return False
+        value = RunTFTOptunaSearchUseCase._to_float(getattr(trial, "value", None))
+        return value is not None and math.isfinite(value)
+
+    @classmethod
+    def _count_completed_trials(cls, study: Any) -> int:
+        return int(sum(1 for t in getattr(study, "trials", []) if cls._is_completed_trial(t)))
+
+    @staticmethod
+    def _cleanup_latest_incomplete_trial_artifacts(run_output_dir: Path, study: Any) -> int | None:
+        incomplete_numbers: list[int] = []
+        for t in getattr(study, "trials", []):
+            try:
+                state_name = str(getattr(getattr(t, "state", None), "name", "")).upper()
+            except Exception:
+                state_name = ""
+            if state_name == "COMPLETE":
+                continue
+            try:
+                incomplete_numbers.append(int(getattr(t, "number", -1)))
+            except Exception:
+                continue
+
+        if not incomplete_numbers:
+            return None
+
+        last_incomplete = max(incomplete_numbers)
+        sweep_dir = run_output_dir / "sweeps" / f"trial_{last_incomplete:04d}"
+        if sweep_dir.exists() and sweep_dir.is_dir():
+            shutil.rmtree(sweep_dir, ignore_errors=True)
+        return last_incomplete
 
     def _suggest_param(self, trial: Any, name: str, spec: Any) -> Any:
         if isinstance(spec, list):
@@ -238,7 +292,7 @@ class RunTFTOptunaSearchUseCase:
         if has_any_metric:
             fig.savefig(plot_path, dpi=180, bbox_inches="tight")
             plt.close(fig)
-            return str(plot_path.resolve())
+            return to_project_relative(plot_path)
 
         plt.close(fig)
         return None
@@ -308,9 +362,13 @@ class RunTFTOptunaSearchUseCase:
             # Older summaries may not store search_space. If present, enforce equality.
             if "search_space" in existing_summary:
                 raise ValueError("merge_tests requires same search_space.")
-        if dict(existing_summary.get("base_training_config") or base_training_config) != dict(
-            base_training_config
-        ):
+        existing_base_cfg = cls._normalize_training_config_for_merge(
+            dict(existing_summary.get("base_training_config") or {})
+        )
+        current_base_cfg = cls._normalize_training_config_for_merge(
+            dict(base_training_config or {})
+        )
+        if existing_base_cfg != current_base_cfg:
             if "base_training_config" in existing_summary:
                 raise ValueError("merge_tests requires same base training_config.")
 
@@ -381,8 +439,9 @@ class RunTFTOptunaSearchUseCase:
                     replica_seeds=self.replica_seeds,
                 )
 
-        storage_path = (run_output_dir / "optuna_study.db").resolve()
-        storage = f"sqlite:///{str(storage_path).replace('\\', '/')}"
+        storage_path = run_output_dir / "optuna_study.db"
+        storage_rel = to_project_relative(storage_path) or str(storage_path)
+        storage = f"sqlite:///{storage_rel.replace('\\', '/')}"
 
         trials_log: list[dict[str, Any]] = []
 
@@ -475,8 +534,35 @@ class RunTFTOptunaSearchUseCase:
             direction="minimize",
         )
 
+        requested_total_trials = int(n_trials)
+        if self.merge_tests:
+            completed_before_merge = self._count_completed_trials(study)
+            remaining_trials = max(0, requested_total_trials - completed_before_merge)
+            cleaned_trial = self._cleanup_latest_incomplete_trial_artifacts(run_output_dir, study)
+            if cleaned_trial is not None:
+                logger.warning(
+                    "Removed latest incomplete trial artifacts before merge resume",
+                    extra={
+                        "study_name": effective_study_name,
+                        "trial_number": cleaned_trial,
+                        "sweep_dir": str(run_output_dir / "sweeps" / f"trial_{cleaned_trial:04d}"),
+                    },
+                )
+            logger.info(
+                "Merge resume computed remaining trials",
+                extra={
+                    "study_name": effective_study_name,
+                    "requested_total_trials": requested_total_trials,
+                    "completed_trials_before_resume": completed_before_merge,
+                    "remaining_trials_to_run": remaining_trials,
+                },
+            )
+            n_trials_to_run = remaining_trials
+        else:
+            n_trials_to_run = requested_total_trials
+
         finished_before = len([t for t in study.trials if t.state.is_finished()])
-        eta_estimator = SweepEtaEstimator(total_trials=int(n_trials))
+        eta_estimator = SweepEtaEstimator(total_trials=int(n_trials_to_run))
 
         def on_trial_complete(study_obj: Any, trial_obj: Any) -> None:
             duration_seconds = None
@@ -492,7 +578,11 @@ class RunTFTOptunaSearchUseCase:
             completed_current = max(0, finished_now - finished_before)
             avg_seconds = eta_estimator.avg_seconds
             eta_seconds = eta_estimator.estimate_remaining_seconds(completed_current)
-            progress_pct = (completed_current / float(n_trials)) * 100.0 if n_trials > 0 else 100.0
+            progress_pct = (
+                (completed_current / float(n_trials_to_run)) * 100.0
+                if n_trials_to_run > 0
+                else 100.0
+            )
             message = f"{_PINK}Optuna sweep progress{_RESET}"
             logger.info(
                 message,
@@ -500,7 +590,7 @@ class RunTFTOptunaSearchUseCase:
                     "study_name": effective_study_name,
                     "features": features or "(default)",
                     "completed_trials": completed_current,
-                    "total_trials": int(n_trials),
+                    "total_trials": int(n_trials_to_run),
                     "progress_pct": round(progress_pct, 2),
                     "avg_trial_seconds": round(avg_seconds, 2) if avg_seconds is not None else None,
                     "eta_sweep": SweepEtaEstimator.format_seconds(eta_seconds),
@@ -508,12 +598,21 @@ class RunTFTOptunaSearchUseCase:
                 },
             )
 
-        study.optimize(
-            objective,
-            n_trials=n_trials,
-            timeout=timeout_seconds,
-            callbacks=[on_trial_complete],
-        )
+        if n_trials_to_run > 0:
+            study.optimize(
+                objective,
+                n_trials=n_trials_to_run,
+                timeout=timeout_seconds,
+                callbacks=[on_trial_complete],
+            )
+        else:
+            logger.info(
+                "No remaining trials to run for merge resume",
+                extra={
+                    "study_name": effective_study_name,
+                    "requested_total_trials": requested_total_trials,
+                },
+            )
 
         completed = [t for t in study.trials if t.value is not None]
         completed_sorted = sorted(completed, key=lambda t: float(t.value))
@@ -576,7 +675,7 @@ class RunTFTOptunaSearchUseCase:
             "generated_at": generated_at,
             "objective_metric": self.objective_metric,
             "objective_lambda": self.objective_lambda,
-            "n_trials_requested": int(n_trials),
+            "n_trials_requested": int(requested_total_trials),
             "n_trials_completed": int(len(completed_sorted)),
             "top_k": int(top_k),
             "best_value": best_value,
@@ -589,12 +688,12 @@ class RunTFTOptunaSearchUseCase:
             "merge_tests": self.merge_tests,
             "storage": storage,
             "artifacts": {
-                "study_db": str(storage_path),
-                "trials_csv": str((run_output_dir / "optuna_trials.csv").resolve()),
-                "trials_json": str((run_output_dir / "optuna_trials.json").resolve()),
-                "top_k_json": str((run_output_dir / "optuna_top_k_configs.json").resolve()),
-                "best_json": str((run_output_dir / "optuna_best_trial.json").resolve()),
-                "summary_json": str((run_output_dir / "optuna_summary.json").resolve()),
+                "study_db": to_project_relative(storage_path),
+                "trials_csv": to_project_relative(run_output_dir / "optuna_trials.csv"),
+                "trials_json": to_project_relative(run_output_dir / "optuna_trials.json"),
+                "top_k_json": to_project_relative(run_output_dir / "optuna_top_k_configs.json"),
+                "best_json": to_project_relative(run_output_dir / "optuna_best_trial.json"),
+                "summary_json": to_project_relative(run_output_dir / "optuna_summary.json"),
                 "top_k_val_test_metrics_plot_png": top_k_metrics_plot_path,
                 "all_trials_val_test_metrics_plot_png": all_trials_metrics_plot_path,
             },
