@@ -142,7 +142,8 @@ def _install_fake_training_modules(
             self._state = dict(state_dict)
 
     class _FakeQuantileLoss:
-        pass
+        def __init__(self, quantiles=None):
+            self.quantiles = list(quantiles or [0.1, 0.5, 0.9])
 
     class _FakeCallback:
         pass
@@ -215,10 +216,10 @@ def test_trainer_flow_split_metrics_and_feature_importance(monkeypatch, tmp_path
         time_idx_col="time_idx",
         group_col="asset_id",
         known_real_cols=["time_idx", "day_of_week", "month"],
-        config={},
+        config={"compute_feature_importance": True},
     )
 
-    assert set(result.split_metrics.keys()) == {"train", "val", "test"}
+    assert set(result.split_metrics.keys()) == {"val", "test"}
     assert "rmse" in result.split_metrics["test"]
     assert "mae" in result.split_metrics["test"]
     assert result.metrics == result.split_metrics["val"]
@@ -227,6 +228,68 @@ def test_trainer_flow_split_metrics_and_feature_importance(monkeypatch, tmp_path
     assert result.dataset_parameters is not None
     assert len(result.feature_importance) == 2
     assert result.feature_importance[0]["delta_rmse"] >= result.feature_importance[1]["delta_rmse"]
+
+
+def test_trainer_skips_feature_importance_by_default(monkeypatch, tmp_path: Path) -> None:
+    _install_fake_training_modules(monkeypatch, tmp_path)
+
+    df = pd.DataFrame(
+        {
+            "asset_id": ["AAPL", "AAPL"],
+            "time_idx": [0, 1],
+            "target_return": [0.1, 0.2],
+            "close": [10.0, 11.0],
+            "volume": [1000, 1100],
+            "day_of_week": [0, 1],
+            "month": [1, 1],
+        }
+    )
+
+    trainer = PytorchForecastingTFTTrainer()
+    result = trainer.train(
+        df,
+        df.copy(),
+        df.copy(),
+        feature_cols=["close", "volume"],
+        target_col="target_return",
+        time_idx_col="time_idx",
+        group_col="asset_id",
+        known_real_cols=["time_idx", "day_of_week", "month"],
+        config={},
+    )
+
+    assert result.feature_importance == []
+
+
+def test_trainer_can_evaluate_train_split_when_enabled(monkeypatch, tmp_path: Path) -> None:
+    _install_fake_training_modules(monkeypatch, tmp_path)
+
+    df = pd.DataFrame(
+        {
+            "asset_id": ["AAPL", "AAPL"],
+            "time_idx": [0, 1],
+            "target_return": [0.1, 0.2],
+            "close": [10.0, 11.0],
+            "volume": [1000, 1100],
+            "day_of_week": [0, 1],
+            "month": [1, 1],
+        }
+    )
+
+    trainer = PytorchForecastingTFTTrainer()
+    result = trainer.train(
+        df,
+        df.copy(),
+        df.copy(),
+        feature_cols=["close", "volume"],
+        target_col="target_return",
+        time_idx_col="time_idx",
+        group_col="asset_id",
+        known_real_cols=["time_idx", "day_of_week", "month"],
+        config={"evaluate_train_split": True},
+    )
+
+    assert set(result.split_metrics.keys()) == {"train", "val", "test"}
 
 
 def test_trainer_reproducibility_with_fixed_seed(monkeypatch, tmp_path: Path) -> None:
