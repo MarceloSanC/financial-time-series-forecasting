@@ -5,9 +5,10 @@ import logging
 import os
 import shutil
 import time
+
 from copy import deepcopy
 from dataclasses import asdict, dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -16,11 +17,11 @@ import pandas as pd
 
 from src.adapters.parquet_tft_dataset_repository import ParquetTFTDatasetRepository
 from src.domain.services.data_drift_analyzer import DataDriftAnalyzer
-from src.domain.services.training_progress_estimator import TrainingProgressEstimator
 from src.domain.services.tft_sweep_experiment_builder import (
     SweepExperiment,
     build_one_at_a_time_experiments,
 )
+from src.domain.services.training_progress_estimator import TrainingProgressEstimator
 from src.infrastructure.schemas.tft_dataset_parquet_schema import (
     BASELINE_FEATURES,
     DEFAULT_TFT_FEATURES,
@@ -166,7 +167,7 @@ class RunTFTModelAnalysisUseCase:
 
     @staticmethod
     def _parse_yyyymmdd(value: str) -> datetime:
-        return datetime.strptime(value, "%Y%m%d").replace(tzinfo=timezone.utc)
+        return datetime.strptime(value, "%Y%m%d").replace(tzinfo=UTC)
 
     @staticmethod
     def _apply_time_split_for_drift(
@@ -489,6 +490,7 @@ class RunTFTModelAnalysisUseCase:
     ) -> list[str]:
         try:
             import matplotlib.pyplot as plt
+
             from matplotlib.ticker import MaxNLocator
         except ImportError as exc:
             raise RuntimeError(
@@ -1550,7 +1552,7 @@ class RunTFTModelAnalysisUseCase:
     ) -> RunTFTModelAnalysisResult:
         asset = asset.strip().upper()
         models_asset_dir.mkdir(parents=True, exist_ok=True)
-        sweep_ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        sweep_ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         sweep_name = output_subdir or f"sweep_{sweep_ts}"
         sweep_dir = models_asset_dir / "sweeps" / sweep_name
         sweep_dir.mkdir(parents=True, exist_ok=True)
