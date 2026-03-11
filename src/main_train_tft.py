@@ -4,21 +4,25 @@ import argparse
 import json
 import logging
 import sys
+
 from pathlib import Path
 
 import yaml
 
-from src.adapters.parquet_tft_dataset_repository import ParquetTFTDatasetRepository
-from src.adapters.pytorch_forecasting_tft_trainer import PytorchForecastingTFTTrainer
 from src.adapters.local_tft_model_repository import LocalTFTModelRepository
 from src.adapters.parquet_analytics_run_repository import ParquetAnalyticsRunRepository
+from src.adapters.parquet_tft_dataset_repository import ParquetTFTDatasetRepository
+from src.adapters.pytorch_forecasting_tft_trainer import PytorchForecastingTFTTrainer
+from src.infrastructure.schemas.model_artifact_schema import (
+    TFT_SPLIT_DEFAULTS,
+    TFT_TRAINING_DEFAULTS,
+    validate_tft_training_config,
+)
 from src.use_cases.train_tft_model_use_case import TrainTFTModelUseCase
 from src.utils.asset_periods import resolve_training_split
-from src.utils.feature_token_parser import normalize_feature_tokens, parse_feature_tokens
-from src.infrastructure.schemas.model_artifact_schema import (
-    TFT_TRAINING_DEFAULTS,
-    TFT_SPLIT_DEFAULTS,
-    validate_tft_training_config,
+from src.utils.feature_token_parser import (
+    normalize_feature_tokens,
+    parse_feature_tokens,
 )
 from src.utils.logging_config import setup_logging
 from src.utils.path_resolver import load_data_paths
