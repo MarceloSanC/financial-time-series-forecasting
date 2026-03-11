@@ -1,25 +1,24 @@
 import argparse
 import logging
+
 from pathlib import Path
 
 import pandas as pd
 import yaml
-
-from src.utils.path_resolver import load_data_paths
-from src.utils.logging_config import setup_logging
-from src.utils.asset_periods import resolve_data_period
 
 from src.adapters.parquet_candle_repository import ParquetCandleRepository
 from src.adapters.parquet_technical_indicator_repository import (
     ParquetTechnicalIndicatorRepository,
 )
 from src.adapters.technical_indicator_calculator import TechnicalIndicatorCalculator
+from src.domain.services.data_quality_profiles import get_profile
+from src.domain.services.data_quality_reporter import DataQualityReporter
 from src.use_cases.technical_indicator_engineering_use_case import (
     TechnicalIndicatorEngineeringUseCase,
 )
-from src.domain.services.data_quality_reporter import DataQualityReporter
-from src.domain.services.data_quality_profiles import get_profile
-
+from src.utils.asset_periods import resolve_data_period
+from src.utils.logging_config import setup_logging
+from src.utils.path_resolver import load_data_paths
 
 logger = logging.getLogger(__name__)
 
