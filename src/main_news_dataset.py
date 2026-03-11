@@ -3,22 +3,24 @@
 from __future__ import annotations
 
 import argparse
-from datetime import datetime
 import logging
 import os
-from dotenv import load_dotenv
+
+from datetime import datetime
 from pathlib import Path
 
-import yaml
 import pandas as pd
+import yaml
 
-from src.domain.time.utc import parse_iso_utc
-from src.utils.asset_periods import resolve_data_period
+from dotenv import load_dotenv
+
 from src.adapters.alpha_vantage_news_fetcher import AlphaVantageNewsFetcher
 from src.adapters.parquet_news_repository import ParquetNewsRepository
-from src.use_cases.fetch_news_use_case import FetchNewsUseCase
-from src.domain.services.data_quality_reporter import DataQualityReporter
 from src.domain.services.data_quality_profiles import get_profile
+from src.domain.services.data_quality_reporter import DataQualityReporter
+from src.domain.time.utc import parse_iso_utc
+from src.use_cases.fetch_news_use_case import FetchNewsUseCase
+from src.utils.asset_periods import resolve_data_period
 from src.utils.logging_config import setup_logging
 from src.utils.path_resolver import load_data_paths
 
@@ -77,7 +79,6 @@ def _is_period_covered(
     ts = pd.to_datetime(df_existing["published_at"], utc=True, errors="coerce")
     if ts.isna().all():
         return False, None, None
-    ts_min = ts.min().date()
     ts_max = ts.max().date()
 
     # Tolerance: same-day coverage (ignore time component)
