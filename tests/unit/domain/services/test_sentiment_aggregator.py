@@ -1,13 +1,13 @@
 # tests/unit/domain/services/test_sentiment_aggregator.py
 
-from datetime import datetime, date, timezone
+from datetime import UTC, date, datetime
 from statistics import pstdev
 
 import pytest
 
 from src.domain.services.sentiment_aggregator import SentimentAggregator
-from src.entities.scored_news_article import ScoredNewsArticle
 from src.entities.daily_sentiment import DailySentiment
+from src.entities.scored_news_article import ScoredNewsArticle
 
 
 def _article(
@@ -38,8 +38,8 @@ def test_aggregate_daily_single_article_per_day():
     aggregator = SentimentAggregator()
 
     articles = [
-        _article(published_at=datetime(2024, 1, 1, 10, tzinfo=timezone.utc), score=0.5),
-        _article(published_at=datetime(2024, 1, 2, 9, tzinfo=timezone.utc), score=-0.2),
+        _article(published_at=datetime(2024, 1, 1, 10, tzinfo=UTC), score=0.5),
+        _article(published_at=datetime(2024, 1, 2, 9, tzinfo=UTC), score=-0.2),
     ]
 
     result = aggregator.aggregate_daily("AAPL", articles)
@@ -66,9 +66,9 @@ def test_aggregate_daily_multiple_articles_same_day():
     aggregator = SentimentAggregator()
 
     articles = [
-        _article(published_at=datetime(2024, 1, 1, 8, tzinfo=timezone.utc), score=0.2),
-        _article(published_at=datetime(2024, 1, 1, 12, tzinfo=timezone.utc), score=0.6),
-        _article(published_at=datetime(2024, 1, 1, 18, tzinfo=timezone.utc), score=0.4),
+        _article(published_at=datetime(2024, 1, 1, 8, tzinfo=UTC), score=0.2),
+        _article(published_at=datetime(2024, 1, 1, 12, tzinfo=UTC), score=0.6),
+        _article(published_at=datetime(2024, 1, 1, 18, tzinfo=UTC), score=0.4),
     ]
 
     result = aggregator.aggregate_daily("AAPL", articles)
@@ -91,9 +91,9 @@ def test_aggregate_daily_temporal_ordering_is_enforced():
     aggregator = SentimentAggregator()
 
     articles = [
-        _article(published_at=datetime(2024, 1, 3, 10, tzinfo=timezone.utc), score=0.1),
-        _article(published_at=datetime(2024, 1, 1, 10, tzinfo=timezone.utc), score=0.3),
-        _article(published_at=datetime(2024, 1, 2, 10, tzinfo=timezone.utc), score=-0.1),
+        _article(published_at=datetime(2024, 1, 3, 10, tzinfo=UTC), score=0.1),
+        _article(published_at=datetime(2024, 1, 1, 10, tzinfo=UTC), score=0.3),
+        _article(published_at=datetime(2024, 1, 2, 10, tzinfo=UTC), score=-0.1),
     ]
 
     result = aggregator.aggregate_daily("AAPL", articles)
@@ -126,8 +126,8 @@ def test_aggregate_daily_rejects_mixed_asset_ids():
     aggregator = SentimentAggregator()
 
     articles = [
-        _article(asset_id="AAPL", published_at=datetime(2024, 1, 1, tzinfo=timezone.utc), score=0.2),
-        _article(asset_id="MSFT", published_at=datetime(2024, 1, 1, tzinfo=timezone.utc), score=0.4),
+        _article(asset_id="AAPL", published_at=datetime(2024, 1, 1, tzinfo=UTC), score=0.2),
+        _article(asset_id="MSFT", published_at=datetime(2024, 1, 1, tzinfo=UTC), score=0.4),
     ]
 
     with pytest.raises(ValueError):
@@ -145,12 +145,12 @@ def test_aggregate_daily_ignores_confidence_for_now():
 
     articles = [
         _article(
-            published_at=datetime(2024, 1, 1, 9, tzinfo=timezone.utc),
+            published_at=datetime(2024, 1, 1, 9, tzinfo=UTC),
             score=1.0,
             confidence=0.1,
         ),
         _article(
-            published_at=datetime(2024, 1, 1, 18, tzinfo=timezone.utc),
+            published_at=datetime(2024, 1, 1, 18, tzinfo=UTC),
             score=-1.0,
             confidence=0.9,
         ),
