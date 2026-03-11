@@ -1,31 +1,32 @@
 from __future__ import annotations
 
 import logging
+
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 import numpy as np
 import pandas as pd
 
-from src.domain.time.trading_calendar import (
-    TradingDayPolicy,
-    trading_day_from_timestamp,
-)
 from src.domain.services.dataset_quality_gate import (
     DatasetQualityGate,
     DatasetQualityGateConfig,
 )
+from src.domain.time.trading_calendar import (
+    TradingDayPolicy,
+    trading_day_from_timestamp,
+)
 from src.domain.time.utc import require_tz_aware, to_utc
 from src.entities.candle import Candle
-from src.entities.technical_indicator_set import TechnicalIndicatorSet
 from src.entities.daily_sentiment import DailySentiment
 from src.entities.fundamental_report import FundamentalReport
+from src.entities.technical_indicator_set import TechnicalIndicatorSet
+from src.infrastructure.schemas.feature_validation_schema import FEATURE_WARMUP_BARS
 from src.interfaces.candle_repository import CandleRepository
-from src.interfaces.technical_indicator_repository import TechnicalIndicatorRepository
 from src.interfaces.daily_sentiment_repository import DailySentimentRepository
 from src.interfaces.fundamental_repository import FundamentalRepository
+from src.interfaces.technical_indicator_repository import TechnicalIndicatorRepository
 from src.interfaces.tft_dataset_repository import TFTDatasetRepository
-from src.infrastructure.schemas.feature_validation_schema import FEATURE_WARMUP_BARS
 
 logger = logging.getLogger(__name__)
 
@@ -118,7 +119,7 @@ class BuildTFTDatasetUseCase:
             effective_ts = datetime.combine(
                 reported_date,
                 self.trading_day_policy.close_hour,
-                tzinfo=timezone.utc,
+                tzinfo=UTC,
             )
             effective_day = trading_day_from_timestamp(
                 effective_ts,
