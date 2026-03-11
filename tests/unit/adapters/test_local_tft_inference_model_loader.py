@@ -4,6 +4,7 @@ import json
 import pickle
 import sys
 import types
+
 from pathlib import Path
 
 import pytest
@@ -12,7 +13,7 @@ from src.adapters.local_tft_inference_model_loader import LocalTFTInferenceModel
 
 
 class _FakeTFTModel:
-    def eval(self) -> "_FakeTFTModel":
+    def eval(self) -> _FakeTFTModel:
         return self
 
 
