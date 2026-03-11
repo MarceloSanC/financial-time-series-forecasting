@@ -4,24 +4,29 @@ import argparse
 import json
 import logging
 import os
-from datetime import datetime, timezone
+
+from datetime import UTC, datetime
 from pathlib import Path
 
 from dotenv import load_dotenv
 
-from src.adapters.alpha_vantage_fundamental_fetcher import AlphaVantageFundamentalFetcher
+from src.adapters.alpha_vantage_fundamental_fetcher import (
+    AlphaVantageFundamentalFetcher,
+)
 from src.adapters.alpha_vantage_news_fetcher import AlphaVantageNewsFetcher
 from src.adapters.finbert_sentiment_model import FinBERTSentimentModel
 from src.adapters.local_tft_inference_model_loader import LocalTFTInferenceModelLoader
+from src.adapters.parquet_analytics_run_repository import ParquetAnalyticsRunRepository
 from src.adapters.parquet_candle_repository import ParquetCandleRepository
-from src.adapters.parquet_daily_sentiment_repository import ParquetDailySentimentRepository
+from src.adapters.parquet_daily_sentiment_repository import (
+    ParquetDailySentimentRepository,
+)
 from src.adapters.parquet_fundamental_repository import ParquetFundamentalRepository
 from src.adapters.parquet_news_repository import ParquetNewsRepository
 from src.adapters.parquet_scored_news_repository import ParquetScoredNewsRepository
 from src.adapters.parquet_technical_indicator_repository import (
     ParquetTechnicalIndicatorRepository,
 )
-from src.adapters.parquet_analytics_run_repository import ParquetAnalyticsRunRepository
 from src.adapters.parquet_tft_dataset_repository import ParquetTFTDatasetRepository
 from src.adapters.parquet_tft_inference_repository import ParquetTFTInferenceRepository
 from src.adapters.pytorch_forecasting_tft_inference_engine import (
@@ -95,6 +100,14 @@ def parse_args() -> argparse.Namespace:
             "pipelines automatically before inference."
         ),
     )
+    parser.add_argument(
+        "--allow-missing-quantiles",
+        action="store_true",
+        help=(
+            "Allow inference to complete even when quantile outputs (p10/p50/p90) are missing "
+            "for models configured with prediction_mode=quantile."
+        ),
+    )
     return parser.parse_args()
 
 
@@ -117,7 +130,7 @@ def _parse_yyyymmdd(value: str | None) -> datetime | None:
     if value is None:
         return None
     try:
-        return datetime.strptime(value, "%Y%m%d").replace(tzinfo=timezone.utc)
+        return datetime.strptime(value, "%Y%m%d").replace(tzinfo=UTC)
     except ValueError as exc:
         raise ValueError(f"Invalid date format: {value}. Expected yyyymmdd.") from exc
 
@@ -264,6 +277,9 @@ def main() -> None:
     end = _parse_yyyymmdd(args.end or file_config.get("end"))
     overwrite = bool(file_config.get("overwrite", False)) or bool(args.overwrite)
     auto_refresh = bool(file_config.get("auto_refresh", False)) or bool(args.auto_refresh)
+    strict_quantiles = bool(file_config.get("strict_quantiles", True)) and not bool(
+        args.allow_missing_quantiles
+    )
     batch_size = (
         int(args.batch_size)
         if args.batch_size is not None
@@ -299,6 +315,7 @@ def main() -> None:
         overwrite=overwrite,
         batch_size=batch_size,
         default_end_date=ensure_utc(datetime.now()),
+        strict_quantiles=strict_quantiles,
     )
 
     logger.info(
@@ -313,6 +330,7 @@ def main() -> None:
             "attempted_upserts": result.attempted_upserts,
             "refreshed_dataset": result.refreshed_dataset,
             "auto_refresh": auto_refresh,
+            "strict_quantiles": strict_quantiles,
             "inference_dir": str(inference_dir.resolve()),
         },
     )
