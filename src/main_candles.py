@@ -1,19 +1,19 @@
 # src/main_candles.py
 import argparse
 import logging
+
 from pathlib import Path
 
 import yaml
 
-from src.utils.path_resolver import load_data_paths
-from src.utils.logging_config import setup_logging
-from src.utils.asset_periods import resolve_data_period
 from src.adapters.parquet_candle_repository import ParquetCandleRepository
 from src.adapters.yfinance_candle_fetcher import YFinanceCandleFetcher
-from src.use_cases.fetch_candles_use_case import FetchCandlesUseCase
-from src.domain.services.data_quality_reporter import DataQualityReporter
 from src.domain.services.data_quality_profiles import get_profile
-
+from src.domain.services.data_quality_reporter import DataQualityReporter
+from src.use_cases.fetch_candles_use_case import FetchCandlesUseCase
+from src.utils.asset_periods import resolve_data_period
+from src.utils.logging_config import setup_logging
+from src.utils.path_resolver import load_data_paths
 
 logger = logging.getLogger(__name__)
 
