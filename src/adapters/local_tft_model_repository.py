@@ -3,9 +3,10 @@ from __future__ import annotations
 import json
 import pickle
 import shutil
+
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from datetime import datetime, timezone
 
 import pandas as pd
 
@@ -189,7 +190,7 @@ class LocalTFTModelRepository(ModelRepository):
             "model_type": "TemporalFusionTransformer",
             "asset_id": asset_id,
             "version": version,
-            "created_at": datetime.now(timezone.utc).isoformat(),
+            "created_at": datetime.now(UTC).isoformat(),
             "training_window": training_window,
             "split_window": split_window,
             "features_used": features_used,
