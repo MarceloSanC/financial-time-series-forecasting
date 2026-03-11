@@ -1,6 +1,7 @@
 import os
 import sys
 
+
 def find_src_root(start_path="."):
     """Sobe até encontrar 'src' na árvore de diretórios."""
     current = os.path.abspath(start_path)
@@ -12,6 +13,7 @@ def find_src_root(start_path="."):
             return None
         current = parent
 
+
 def should_ignore(name: str) -> bool:
     """Define quais arquivos/pastas devem ser ignorados."""
     return (
@@ -19,6 +21,7 @@ def should_ignore(name: str) -> bool:
         name == "__pycache__" or
         name.endswith('.pyc')
     )
+
 
 def build_tree_lines(root_dir):
     """
