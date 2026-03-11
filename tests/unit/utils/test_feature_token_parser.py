@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from src.utils.feature_token_parser import normalize_feature_tokens, parse_feature_tokens
+from src.utils.feature_token_parser import (
+    normalize_feature_tokens,
+    parse_feature_tokens,
+)
 
 
 def test_parse_feature_tokens_splits_csv_and_plus() -> None:
