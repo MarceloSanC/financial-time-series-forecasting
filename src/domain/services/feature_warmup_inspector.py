@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pandas as pd
 
@@ -19,7 +19,7 @@ class WarmupNullSegment:
 class FeatureWarmupInspector:
     @staticmethod
     def _parse_yyyymmdd(value: str) -> datetime:
-        return datetime.strptime(value, "%Y%m%d").replace(tzinfo=timezone.utc)
+        return datetime.strptime(value, "%Y%m%d").replace(tzinfo=UTC)
 
     @staticmethod
     def detect_leading_null_warmups(
