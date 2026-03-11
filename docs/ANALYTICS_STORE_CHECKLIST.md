@@ -190,16 +190,16 @@ Legenda de prioridade para implementacao:
   1. Execute um treino real: `python -m src.main_train_tft --asset AAPL --features BASELINE_FEATURES,TECHNICAL_FEATURES`.
   2. Valide existencia de parquet com linhas em `dim_run`, `fact_config`, `fact_run_snapshot`, `fact_split_metrics`, `fact_epoch_metrics`, `fact_oos_predictions`, `fact_model_artifacts`, `bridge_run_features`.
   3. Aceite: todas as tabelas acima possuem ao menos 1 `run_id` do treino executado.
-- [ ] `[P0]` Configuracao, dataset snapshot e artefatos permitem reproducao auditavel.
+- [x] `[P0]` Configuracao, dataset snapshot e artefatos permitem reproducao auditavel.
   1. No `run_id` do treino, valide preenchimento de: `training_config_json`, `dataset_parameters_json`, `dataset_fingerprint`, `split_fingerprint`, `feature_set_hash`, `model_version`, `checkpoint_path_best/final`.
   2. Rode inferencia com o mesmo modelo: `python -m src.main_infer_tft --asset AAPL --model-path <MODEL_DIR> --start 20260101 --end 20260228`.
   3. Aceite: inferencia executa sem erro de contrato de dataset/feature e gera previsoes para o mesmo `asset`.
-- [ ] `[P0]` OOS alinhado permite DM/MCS e comparacoes pareadas sem retrain.
+- [x] `[P0]` OOS alinhado permite DM/MCS e comparacoes pareadas sem retrain.
   1. Garanta pelo menos 2 `run_id` com mesmo `asset/split/horizon`.
   2. Execute refresh: `python -m src.main_refresh_analytics_store --fail-on-quality`.
   3. Valide no `gold_oos_consolidated.parquet` que existe intersecao por `asset + split + horizon + target_timestamp`.
   4. Aceite: para cada par de modelos comparados, existem pares completos (sem faltantes) apos alinhamento temporal.
-- [ ] `[P1]` Tabelas pre-prontas para ranking, robustez, consistencia e IC95 estao disponiveis.
+- [x] `[P1]` Tabelas pre-prontas para ranking, robustez, consistencia e IC95 estao disponiveis.
   1. Execute refresh: `python -m src.main_refresh_analytics_store`.
   2. Valide existencia dos arquivos: `gold_ranking_by_config.parquet`, `gold_consistency_topk.parquet`, `gold_ic95_by_config_metric.parquet`, `gold_runs_long.parquet`, `gold_oos_consolidated.parquet`.
   3. Aceite: todos os arquivos existem e possuem pelo menos 1 linha.
