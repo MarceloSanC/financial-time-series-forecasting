@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 import logging
+
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -112,12 +113,41 @@ class _FakeEngine:
         return out
 
 
+class _FakeEngineMissingQuantiles(_FakeEngine):
+    def infer(self, **kwargs) -> list[TFTInferenceRecord]:
+        base = super().infer(**kwargs)
+        out: list[TFTInferenceRecord] = []
+        for r in base:
+            out.append(
+                TFTInferenceRecord(
+                    asset_id=r.asset_id,
+                    timestamp=r.timestamp,
+                    model_version=r.model_version,
+                    model_path=r.model_path,
+                    feature_set_name=r.feature_set_name,
+                    features_used_csv=r.features_used_csv,
+                    prediction=r.prediction,
+                    quantile_p10=None,
+                    quantile_p50=None,
+                    quantile_p90=None,
+                    inference_run_id=r.inference_run_id,
+                )
+            )
+        return out
+
+
 class _FakeAnalyticsRunRepo:
     def __init__(self) -> None:
         self.inference_rows: list[dict] = []
 
     def append_fact_inference_runs(self, row: dict) -> None:
         self.inference_rows.append(row)
+
+
+class _FakeScaler:
+    def transform(self, x):
+        arr = pd.DataFrame(x).to_numpy(dtype="float64")
+        return arr + 1000.0
 
 
 def _dataset(start: datetime, rows: int = 12) -> pd.DataFrame:
@@ -139,7 +169,7 @@ def _dataset(start: datetime, rows: int = 12) -> pd.DataFrame:
 
 
 def test_use_case_skips_existing_when_not_overwrite() -> None:
-    start = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    start = datetime(2025, 1, 1, tzinfo=UTC)
     dataset_repo = _FakeDatasetRepo(_dataset(start))
     inference_repo = _FakeInferenceRepo()
     loader = _FakeModelLoader(asset_id="AAPL")
@@ -179,7 +209,7 @@ def test_use_case_skips_existing_when_not_overwrite() -> None:
 
 
 def test_use_case_requires_explicit_period_without_history() -> None:
-    start = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    start = datetime(2025, 1, 1, tzinfo=UTC)
     dataset_repo = _FakeDatasetRepo(_dataset(start))
     inference_repo = _FakeInferenceRepo()
     loader = _FakeModelLoader(asset_id="AAPL")
@@ -202,7 +232,7 @@ def test_use_case_requires_explicit_period_without_history() -> None:
 
 
 def test_use_case_triggers_refresh_when_end_exceeds_dataset() -> None:
-    start = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    start = datetime(2025, 1, 1, tzinfo=UTC)
     dataset_repo = _FakeDatasetRepo(_dataset(start, rows=8))
     inference_repo = _FakeInferenceRepo()
     loader = _FakeModelLoader(asset_id="AAPL")
@@ -235,7 +265,7 @@ def test_use_case_triggers_refresh_when_end_exceeds_dataset() -> None:
 
 
 def test_use_case_fail_fast_when_end_exceeds_dataset_and_auto_refresh_disabled() -> None:
-    start = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    start = datetime(2025, 1, 1, tzinfo=UTC)
     dataset_repo = _FakeDatasetRepo(_dataset(start, rows=8))
     inference_repo = _FakeInferenceRepo()
     loader = _FakeModelLoader(asset_id="AAPL")
@@ -259,7 +289,7 @@ def test_use_case_fail_fast_when_end_exceeds_dataset_and_auto_refresh_disabled()
 
 
 def test_inference_fails_with_clear_diagnostic_when_model_feature_is_missing() -> None:
-    start = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    start = datetime(2025, 1, 1, tzinfo=UTC)
     df = _dataset(start).drop(columns=["close"])
     dataset_repo = _FakeDatasetRepo(df)
     inference_repo = _FakeInferenceRepo()
@@ -283,7 +313,7 @@ def test_inference_fails_with_clear_diagnostic_when_model_feature_is_missing() -
 
 def test_inference_logs_excess_dataset_features_but_runs(caplog) -> None:
     caplog.set_level(logging.INFO)
-    start = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    start = datetime(2025, 1, 1, tzinfo=UTC)
     df = _dataset(start)
     df["open"] = df["close"] - 1.0  # feature implemented but unused by model
     dataset_repo = _FakeDatasetRepo(df)
@@ -309,7 +339,7 @@ def test_inference_logs_excess_dataset_features_but_runs(caplog) -> None:
 
 
 def test_persists_fact_inference_runs_when_analytics_repo_is_configured() -> None:
-    start = datetime(2025, 1, 1, tzinfo=timezone.utc)
+    start = datetime(2025, 1, 1, tzinfo=UTC)
     dataset_repo = _FakeDatasetRepo(_dataset(start))
     inference_repo = _FakeInferenceRepo()
     loader = _FakeModelLoader(asset_id="AAPL")
@@ -337,3 +367,43 @@ def test_persists_fact_inference_runs_when_analytics_repo_is_configured() -> Non
     assert row["model_version"] == "20260302_010101_B"
     assert row["status"] == "ok"
     assert row["upserts_count"] == result.attempted_upserts
+
+
+def test_apply_scalers_keeps_time_idx_unscaled() -> None:
+    start = datetime(2025, 1, 1, tzinfo=UTC)
+    df = _dataset(start, rows=5)
+    original_time_idx = df["time_idx"].copy()
+
+    out = RunTFTInferenceUseCase._apply_scalers(
+        df,
+        {
+            "time_idx": _FakeScaler(),  # must be ignored
+            "close": _FakeScaler(),     # must be transformed
+        },
+    )
+
+    assert out["time_idx"].tolist() == original_time_idx.tolist()
+    assert (out["close"] > df["close"]).all()
+
+
+def test_strict_quantiles_fails_when_prediction_mode_is_quantile_and_outputs_are_missing() -> None:
+    start = datetime(2025, 1, 1, tzinfo=UTC)
+    dataset_repo = _FakeDatasetRepo(_dataset(start))
+    inference_repo = _FakeInferenceRepo()
+    loader = _FakeModelLoader(asset_id="AAPL")
+    engine = _FakeEngineMissingQuantiles()
+    use_case = RunTFTInferenceUseCase(
+        dataset_repository=dataset_repo,
+        inference_repository=inference_repo,
+        model_loader=loader,
+        inference_engine=engine,
+    )
+
+    with pytest.raises(ValueError, match="Strict quantile validation failed"):
+        use_case.execute(
+            asset_id="AAPL",
+            model_path="/tmp/model",
+            start_date=start + timedelta(days=5),
+            end_date=start + timedelta(days=7),
+            strict_quantiles=True,
+        )
