@@ -1,6 +1,6 @@
 # tests/unit/adapters/repositories/test_parquet_tft_dataset_repository.py
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -10,7 +10,7 @@ from src.adapters.parquet_tft_dataset_repository import ParquetTFTDatasetReposit
 
 
 def _dt_utc(y: int, m: int, d: int) -> datetime:
-    return datetime(y, m, d, tzinfo=timezone.utc)
+    return datetime(y, m, d, tzinfo=UTC)
 
 
 def _sample_df() -> pd.DataFrame:
