@@ -1,11 +1,13 @@
 from __future__ import annotations
 
 import json
+import logging
 import pickle
 import re
+import warnings
+
 from pathlib import Path
 from typing import Any
-import logging
 
 from src.interfaces.tft_inference_model_loader import (
     LoadedTFTInferenceModel,
@@ -61,6 +63,9 @@ class LocalTFTInferenceModelLoader(TFTInferenceModelLoader):
         except Exception:
             return
 
+        if not hasattr(model, "modules"):
+            return
+
         for module in model.modules():
             if isinstance(module, Metric):
                 try:
@@ -111,7 +116,18 @@ class LocalTFTInferenceModelLoader(TFTInferenceModelLoader):
             ) from exc
 
         try:
-            model = TemporalFusionTransformer.load_from_checkpoint(str(checkpoint_path))
+            with warnings.catch_warnings():
+                warnings.filterwarnings(
+                    "ignore",
+                    message=r"Attribute 'loss' is an instance of `nn.Module`.*",
+                    category=UserWarning,
+                )
+                warnings.filterwarnings(
+                    "ignore",
+                    message=r"Attribute 'logging_metrics' is an instance of `nn.Module`.*",
+                    category=UserWarning,
+                )
+                model = TemporalFusionTransformer.load_from_checkpoint(str(checkpoint_path))
         except Exception as exc:
             message = str(exc)
             if any(token in message for token in self._GPU_DESERIALIZE_TOKENS):
