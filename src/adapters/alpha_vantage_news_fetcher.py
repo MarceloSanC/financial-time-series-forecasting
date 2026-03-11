@@ -5,8 +5,8 @@ import logging
 import re
 import threading
 import time
-from datetime import datetime, timezone
-from typing import List, Optional
+
+from datetime import UTC, datetime
 
 import requests
 
@@ -35,7 +35,7 @@ class AlphaVantageNewsFetcher(NewsFetcher):
         self,
         api_key: str,
         timeout_seconds: int = 30,
-        session: Optional[requests.Session] = None,
+        session: requests.Session | None = None,
         user_agent: str = "tcc-sentiment-analysis/1.0",
     ) -> None:
         self.api_key = api_key
@@ -72,11 +72,11 @@ class AlphaVantageNewsFetcher(NewsFetcher):
 
         if len(v) == 13:  # YYYYMMDDTHHMM
             dt = datetime.strptime(v, "%Y%m%dT%H%M")
-            return dt.replace(tzinfo=timezone.utc)
+            return dt.replace(tzinfo=UTC)
 
         if len(v) == 15:  # YYYYMMDDTHHMMSS
             dt = datetime.strptime(v, "%Y%m%dT%H%M%S")
-            return dt.replace(tzinfo=timezone.utc)
+            return dt.replace(tzinfo=UTC)
 
         # (por segurança, embora regex + len já cubram)
         raise ValueError(f"Unsupported time_published length: {value!r}")
@@ -86,12 +86,12 @@ class AlphaVantageNewsFetcher(NewsFetcher):
         ticker: str,
         start_date: datetime,
         end_date: datetime,
-    ) -> List[NewsArticle]:
+    ) -> list[NewsArticle]:
         require_tz_aware(start_date, "start_date")
         require_tz_aware(end_date, "end_date")
 
-        start_utc = start_date.astimezone(timezone.utc)
-        end_utc = end_date.astimezone(timezone.utc)
+        start_utc = start_date.astimezone(UTC)
+        end_utc = end_date.astimezone(UTC)
 
         if start_utc > end_utc:
             raise ValueError("start_date must be <= end_date")
@@ -114,7 +114,7 @@ class AlphaVantageNewsFetcher(NewsFetcher):
             "Accept": "application/json",
             "User-Agent": self._user_agent,
         }
-        
+
         self._throttle()
         response = self._session.get(
             self.BASE_URL,
@@ -140,7 +140,7 @@ class AlphaVantageNewsFetcher(NewsFetcher):
         if not isinstance(feed, list):
             raise ValueError("Unexpected Alpha Vantage response: 'feed' is not a list")
 
-        articles: List[NewsArticle] = []
+        articles: list[NewsArticle] = []
 
         for item in feed:
             if not isinstance(item, dict):
