@@ -3,8 +3,8 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
-from typing import List, Optional
+
+from datetime import UTC, datetime
 
 import requests
 
@@ -31,7 +31,7 @@ class FinnhubNewsFetcher(NewsFetcher):
         self,
         api_key: str,
         timeout_seconds: int = 10,
-        session: Optional[requests.Session] = None,
+        session: requests.Session | None = None,
     ) -> None:
         self.api_key = api_key
         self.timeout_seconds = timeout_seconds
@@ -42,8 +42,8 @@ class FinnhubNewsFetcher(NewsFetcher):
         asset_id: str,
         start_date: datetime,
         end_date: datetime,
-        limit: Optional[int] = None,
-    ) -> List[NewsArticle]:
+        limit: int | None = None,
+    ) -> list[NewsArticle]:
         """
         Busca notícias relacionadas a um ativo em um intervalo de datas.
 
@@ -59,8 +59,8 @@ class FinnhubNewsFetcher(NewsFetcher):
         require_tz_aware(start_date, "start_date")
         require_tz_aware(end_date, "end_date")
 
-        start_utc = start_date.astimezone(timezone.utc)
-        end_utc = end_date.astimezone(timezone.utc)
+        start_utc = start_date.astimezone(UTC)
+        end_utc = end_date.astimezone(UTC)
 
         if start_utc > end_utc:
             raise ValueError("start_date must be <= end_date")
@@ -96,14 +96,14 @@ class FinnhubNewsFetcher(NewsFetcher):
         if limit is not None:
             raw_articles = raw_articles[: max(0, int(limit))]
 
-        articles: List[NewsArticle] = []
+        articles: list[NewsArticle] = []
 
         for raw in raw_articles:
             ts = raw.get("datetime")
             if ts is None:
                 continue
 
-            published_at = datetime.fromtimestamp(int(ts), tz=timezone.utc)
+            published_at = datetime.fromtimestamp(int(ts), tz=UTC)
 
             headline = (raw.get("headline") or "").strip()
             summary = (raw.get("summary") or "").strip()
