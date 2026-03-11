@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 
 import pandas as pd
 import pytest
 
-from src.interfaces.model_trainer import ModelTrainer, TrainingResult
 from src.interfaces.model_repository import ModelRepository
+from src.interfaces.model_trainer import ModelTrainer, TrainingResult
 from src.interfaces.tft_dataset_repository import TFTDatasetRepository
 from src.use_cases.train_tft_model_use_case import TrainTFTModelUseCase
 
@@ -933,7 +932,8 @@ def test_persists_split_timestamps_when_flag_enabled() -> None:
 
     assert analytics.split_refs is not None
     assert len(analytics.split_refs) == 3
-    assert analytics.bridge_feature_rows[0]["run_id"] == row["run_id"]
+    assert analytics.rows is not None
+    assert analytics.bridge_feature_rows[0]["run_id"] == analytics.rows[0]["run_id"]
 
 
 def test_persists_failed_status_and_failure_fact_when_training_raises() -> None:
