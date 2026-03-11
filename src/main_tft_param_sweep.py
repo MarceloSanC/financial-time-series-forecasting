@@ -3,10 +3,11 @@ from __future__ import annotations
 import argparse
 import json
 import logging
-from datetime import datetime, timezone
+import re
+
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-import re
 
 from src.adapters.cli_tft_train_runner import CLITFTTrainRunner
 from src.infrastructure.schemas.model_artifact_schema import (
@@ -247,7 +248,7 @@ def main() -> None:
             if base_output_subdir:
                 run_output_subdir = f"{base_output_subdir}__{label}"
             else:
-                run_output_subdir = f"sweep_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}_{idx:02d}_{label}"
+                run_output_subdir = f"sweep_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}_{idx:02d}_{label}"
         else:
             run_output_subdir = base_output_subdir
 
