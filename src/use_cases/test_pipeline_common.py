@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from typing import Any
 
-
 TEST_TYPE_OFAT = "ofat"
 TEST_TYPE_OPTUNA = "optuna"
 TEST_TYPE_EXPLICIT_CONFIGS = "explicit_configs"
