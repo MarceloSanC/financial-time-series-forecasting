@@ -2,6 +2,7 @@
 from collections import defaultdict
 
 import numpy as np
+
 from sklearn.preprocessing import StandardScaler
 
 from src.entities.technical_indicator_set import TechnicalIndicatorSet
