@@ -3,17 +3,19 @@
 from __future__ import annotations
 
 import os
-from datetime import datetime, timezone
+
+from datetime import UTC, datetime
+
+import pytest
 
 from dotenv import load_dotenv
-import pytest
 
 from src.adapters.alpha_vantage_news_fetcher import AlphaVantageNewsFetcher
 
 load_dotenv()
 
 def _dt_utc(y, m, d, hh=0, mm=0):
-    return datetime(y, m, d, hh, mm, tzinfo=timezone.utc)
+    return datetime(y, m, d, hh, mm, tzinfo=UTC)
 
 
 pytestmark = pytest.mark.integration
