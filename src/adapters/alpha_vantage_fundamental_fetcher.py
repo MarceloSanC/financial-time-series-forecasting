@@ -3,8 +3,9 @@ from __future__ import annotations
 import logging
 import threading
 import time
+
 from datetime import date, datetime
-from typing import Any, Optional
+from typing import Any
 
 import requests
 
@@ -32,7 +33,7 @@ class AlphaVantageFundamentalFetcher(FundamentalFetcher):
         self,
         api_key: str,
         timeout_seconds: int = 30,
-        session: Optional[requests.Session] = None,
+        session: requests.Session | None = None,
         user_agent: str = "tcc-sentiment-analysis/1.0",
     ) -> None:
         self.api_key = api_key
