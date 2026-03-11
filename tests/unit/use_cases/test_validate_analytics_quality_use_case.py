@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import pandas as pd
 
-from src.use_cases.validate_analytics_quality_use_case import ValidateAnalyticsQualityUseCase
+from src.use_cases.validate_analytics_quality_use_case import (
+    ValidateAnalyticsQualityUseCase,
+)
 
 
 def _write_table(base, table_name: str, rows: list[dict], parts: dict[str, str] | None = None) -> None:
