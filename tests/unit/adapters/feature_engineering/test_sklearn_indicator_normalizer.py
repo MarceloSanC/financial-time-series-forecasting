@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from src.adapters.sklearn_indicator_normalizer import SklearnTechnicalIndicatorNormalizer
+from src.adapters.sklearn_indicator_normalizer import (
+    SklearnTechnicalIndicatorNormalizer,
+)
 from src.entities.technical_indicator_set import TechnicalIndicatorSet
 
 
