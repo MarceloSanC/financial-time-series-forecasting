@@ -1,7 +1,7 @@
 # src/entities/technical_indicator_set.py
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Mapping
 
 
 @dataclass(frozen=True)
