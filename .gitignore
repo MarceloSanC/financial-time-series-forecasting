@@ -33,6 +33,7 @@ dist/
 # NÃO devem ser versionados
 
 data/**
+text/**
 
 # Exceção opcional: manter estrutura vazia
 !data/**/.gitkeep
