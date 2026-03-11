@@ -3,16 +3,16 @@
 from __future__ import annotations
 
 from collections import defaultdict
+from collections.abc import Iterable
 from datetime import date
 from statistics import mean, pstdev
-from typing import Iterable, List
 
 from src.domain.time.trading_calendar import (
     TradingDayPolicy,
     trading_day_from_timestamp,
 )
-from src.entities.scored_news_article import ScoredNewsArticle
 from src.entities.daily_sentiment import DailySentiment
+from src.entities.scored_news_article import ScoredNewsArticle
 
 
 class SentimentAggregator:
@@ -33,7 +33,7 @@ class SentimentAggregator:
         self,
         asset_id: str,
         articles: Iterable[ScoredNewsArticle],
-    ) -> List[DailySentiment]:
+    ) -> list[DailySentiment]:
         """
         Agrega sentimento diário via média simples.
 
