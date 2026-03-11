@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import csv
 import json
+
 from pathlib import Path
 from typing import Any
-import csv
 
 import pytest
 
