@@ -1,209 +1,123 @@
-# TCC: Sentiment Analysis for Financial News and Market Features
+# Financial Time Series Forecasting
 
-> Student: Marcelo Santos  
-> Program: Engenharia Mecatronica - UFSC  
-> Advisor: Dr. Pedro Paulo 
-> Year: 2025
+End-to-end machine learning project for financial time series forecasting with:
+- data ingestion (market/news/fundamentals),
+- feature engineering (technical, sentiment, derived features),
+- TFT model training and inference,
+- analytics storage for reproducible model evaluation without retraining.
 
-This project builds a data pipeline that collects market and news data, scores sentiment with FinBERT, aggregates daily sentiment, computes technical indicators, fetches fundamentals, and produces datasets for modeling (TFT-ready).
+The project is structured with Clean Architecture (adapters, interfaces, use cases, domain services), with emphasis on traceability, reproducibility, and academic-grade evaluation.
 
-The codebase follows Clean Architecture to keep fetchers, repositories, domain logic, and use cases decoupled and testable.
+## Project Scope
+- **Primary goal**: generate robust, reproducible evidence for model comparison and decision support in financial assets.
+- **Model family**: Temporal Fusion Transformer (TFT), including quantile outputs for uncertainty-aware analysis.
+- **Data stack**: Parquet + DuckDB for analytics persistence and interactive querying.
 
----
+## Main Capabilities
+- Historical data pipelines:
+  - candles (market OHLCV),
+  - news ingestion,
+  - FinBERT sentiment scoring,
+  - daily sentiment aggregation,
+  - technical indicators,
+  - fundamentals.
+- Dataset builder for TFT (`dataset_tft`).
+- Training pipeline with split/warmup validation and quality gates.
+- Inference pipeline with feature compatibility checks and quantile support.
+- Analytics Store (silver/gold) for run/epoch/OOS artifacts and statistical post-analysis.
 
-## Current Stage (Feb 2026)
-The pipeline is operational end-to-end with structured outputs in `data/processed/`:
-- Raw market candles (parquet + report)
-- Raw news (parquet + report)
-- Scored news (FinBERT)
-- Daily sentiment aggregates
-- Technical indicators
-- Fundamentals (Alpha Vantage)
-- TFT dataset (feature set)
-
-Legacy experiments live under `data/legacy/` and are not part of the current pipeline.
-
----
-
-## Project Structure (high level)
+## High-Level Architecture
 ```
-config/
-  data_paths.yaml
-  data_sources.yaml
-data/
-  raw/                 # candles + raw news
-  processed/           # scored_news, sentiment_daily, indicators, fundamentals, tft dataset
-  reports/             # experiments (ablation, feature selection, stability)
-docs/                  # guides and checklists
-notebooks/             # research and experiments
 src/
-  adapters/            # fetchers, repositories, model adapters
-  domain/              # services and time utilities
-  entities/            # core entities
-  infrastructure/      # parquet schemas
-  interfaces/          # ports (interfaces)
-  use_cases/           # application logic
-  main_*.py            # orchestration entrypoints
-tests/                 # unit + integration tests
+  adapters/         # external integrations and IO adapters
+  interfaces/       # ports
+  use_cases/        # application orchestration
+  domain/           # business rules/services
+  entities/         # core entities
+  infrastructure/   # schemas and storage contracts
 ```
 
-For the full structure see `docs/PROJECT_STRUCTURE.md`.
+For the full structure, see `docs/PROJECT_STRUCTURE.md`.
 
----
+## Repository Structure
+```
+config/             # runtime and source configuration
+data/               # raw, processed, analytics outputs
+docs/               # checklists, runbooks, guides
+src/                # source code
+tests/              # unit/integration tests
+```
 
-## Requirements
-- Windows 10/11
+## Environment Setup
+### Requirements
 - Python 3.12+
-- Git (optional)
-- Make (via GnuWin32 or similar)
+- GNU Make
+- Git
 
----
-
-## Setup
-```powershell
-git clone https://github.com/MarceloSanC/tcc-sentiment-analysis.git
-cd tcc-sentiment-analysis
-```
-
-Install Make:
-```
-winget install GnuWin32.Make
-```
-
-Create and activate a venv:
-```
+### Quick start
+```bash
+git clone git@github.com:MarceloSanC/financial-time-series-forecasting.git
+cd financial-time-series-forecasting
 python -m venv .venv
-.\setup.ps1
-```
-
-Install dependencies:
-```
+source .venv/bin/activate
 make install
 ```
 
----
-
 ## Configuration
-Pipeline configuration is centralized in:
-- `config/data_sources.yaml` (API providers, symbols, time ranges)
-- `config/data_paths.yaml` (raw/processed output paths)
+Main configuration files:
+- `config/data_sources.yaml` (providers, assets, periods, source-specific settings)
+- `config/data_paths.yaml` (local storage layout)
 
-Do not store API keys in this repository. Use environment variables or `.env`.
+Set API keys via environment variables / `.env` (never commit secrets).
 
----
-
-## How to Run
-Orchestrators live under `src/` and are exposed via Make targets.
-
-For the complete step-by-step instructions (including training), see `docs/RUNNING_PIPELINE.md`.
-
-Run a single step:
-
-## Configuration
-Pipeline configuration is centralized in:
-- `config/data_sources.yaml` (API providers, symbols, time ranges)
-- `config/data_paths.yaml` (raw/processed output paths)
-
-Do not store API keys in this repository. Use environment variables or `.env`.
-
----
-
-## How to Run
-Orchestrators live under `src/` and are exposed via Make targets.
-
-Run a single step:
-```
+## Running Pipelines
+### Core data steps (example asset: AAPL)
+```bash
 make run-candles ASSET=AAPL
 make run-news-raw ASSET=AAPL
 make run-sentiment ASSET=AAPL
 make run-sentiment-feat ASSET=AAPL
 make run-indicators ASSET=AAPL
-```
-
-Run the full pipeline (candles -> news -> sentiment -> daily sentiment -> indicators):
-make run-candles ASSET=AAPL
-make run-news-raw ASSET=AAPL
-make run-sentiment ASSET=AAPL
-make run-sentiment-feat ASSET=AAPL
-make run-indicators ASSET=AAPL
-
-Run the full pipeline (candles -> news -> sentiment -> daily sentiment -> indicators):
-```
-make run-all ASSET=AAPL
-```
-
-Other entrypoints:
-```
 python -m src.main_fundamentals --asset AAPL
-python -m src.main_dataset_tft --asset AAPL
+python -m src.main_dataset_tft --asset AAPL --overwrite
 ```
 
-Logs are written to `logs/pipeline.log`.
-
----
-
-## Outputs
-Example output paths (per asset):
-- `data/raw/market/candles/<ASSET>/`
-- `data/raw/news/<ASSET>/`
-- `data/processed/scored_news/<ASSET>/`
-- `data/processed/sentiment_daily/<ASSET>/`
-- `data/processed/technical_indicators/<ASSET>/`
-- `data/processed/fundamentals/<ASSET>/`
-- `data/processed/dataset_tft/<ASSET>/`
-
-Each step also writes a JSON report under a `reports/` subfolder.
-
----
-
-## Tests
-Unit tests only (no external APIs):
-```
-make run-all ASSET=AAPL
+### Training
+```bash
+python -m src.main_train_tft --asset AAPL --features BASELINE_FEATURES,TECHNICAL_FEATURES
 ```
 
-Other entrypoints:
+### Inference
+```bash
+python -m src.main_infer_tft --asset AAPL --model-path <MODEL_VERSION> --start 20250101 --end 20250228
 ```
-python -m src.main_fundamentals --asset AAPL
-python -m src.main_dataset_tft --asset AAPL
+
+### Analytics refresh + validation
+```bash
+python -m src.main_refresh_analytics_store --fail-on-quality
 ```
 
-Logs are written to `logs/pipeline.log`.
+## Quality and CI
+- Local quality gate:
+```bash
+make ci-local
+```
+- CI workflows are defined in `.github/workflows/ci.yml`.
 
----
-
-## Outputs
-Example output paths (per asset):
-- `data/raw/market/candles/<ASSET>/`
-- `data/raw/news/<ASSET>/`
-- `data/processed/scored_news/<ASSET>/`
-- `data/processed/sentiment_daily/<ASSET>/`
-- `data/processed/technical_indicators/<ASSET>/`
-- `data/processed/fundamentals/<ASSET>/`
-- `data/processed/dataset_tft/<ASSET>/`
-
-Each step also writes a JSON report under a `reports/` subfolder.
-
----
-
-## Docs
-Recommended starting points:
-- `docs/GETTING_STARTED.md`
+## Documentation Index
 - `docs/RUNNING_PIPELINE.md`
+- `docs/RUNNING_TESTS.md`
 - `docs/RUNNING_TFT_INFERENCE.md`
-- `docs/INFER_TFT_PARAMS.md`
-- `docs/TROUBLESHOOTING.md`
+- `docs/ANALYTICS_STORE_CHECKLIST.md`
+- `docs/PREDICTIONS_AND_METRICS_CHECKLIST.md`
+- `docs/FEATURES_SET_CHECKLIST.md`
 
----
+## Academic Context
+This repository supports TCC research focused on:
+- financial forecasting with structured feature sets,
+- uncertainty-aware predictions (quantiles),
+- reproducible model comparison across folds/seeds/configurations.
 
-## References
-- Bollen, J., Mao, H., & Zeng, X. (2011). Twitter mood predicts the stock market.
-- Araci, D. (2019). FinBERT: Financial Sentiment Analysis with Pre-trained Language Models.
-- Martin, R. C. (2017). Clean Architecture.
-
----
-
-## Contact
+## Author
 Marcelo Santos  
-marcelo.santos.c@grad.ufsc.br  
-Engenharia Mecatronica - UFSC
+UFSC - Engenharia Mecatrônica
