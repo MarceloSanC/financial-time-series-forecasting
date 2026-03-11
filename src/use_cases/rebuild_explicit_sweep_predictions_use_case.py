@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timezone
 import logging
+
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -42,7 +43,7 @@ class RebuildExplicitSweepPredictionsUseCase:
 
     @staticmethod
     def _parse_yyyymmdd(value: str) -> datetime:
-        return datetime.strptime(value, "%Y%m%d").replace(tzinfo=timezone.utc)
+        return datetime.strptime(value, "%Y%m%d").replace(tzinfo=UTC)
 
     @staticmethod
     def _resolve_fold_split_map(analysis_config: dict[str, Any]) -> dict[str, dict[str, str]]:
@@ -221,7 +222,7 @@ class RebuildExplicitSweepPredictionsUseCase:
                     max_encoder_length=max_encoder_length,
                     max_prediction_length=max_prediction_length,
                     batch_size=256,
-                    run_id=f"rebuild_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}",
+                    run_id=f"rebuild_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}",
                 )
                 records = [
                     r
