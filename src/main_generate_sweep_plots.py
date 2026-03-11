@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+
 from pathlib import Path
 from typing import Any
 
@@ -549,14 +550,11 @@ def _build_reports_for_analysis_dir(
 
     baseline_rmse = None
     baseline_mae = None
-    baseline_da = None
     if not run_df.empty:
         baseline_rows = run_df[(run_df["status"] == "ok") & (run_df["varied_param"].isna())].copy()
         if not baseline_rows.empty:
             baseline_rmse = float(pd.to_numeric(baseline_rows["test_rmse"], errors="coerce").mean())
             baseline_mae = float(pd.to_numeric(baseline_rows["test_mae"], errors="coerce").mean())
-            if "test_da" in baseline_rows.columns:
-                baseline_da = float(pd.to_numeric(baseline_rows["test_da"], errors="coerce").mean())
 
     impact_detail = pd.DataFrame()
     impact_summary = pd.DataFrame()
@@ -666,8 +664,6 @@ def _bootstrap_fold_reports_if_missing(
         if not baseline_rows.empty:
             baseline_rmse = float(pd.to_numeric(baseline_rows["test_rmse"], errors="coerce").mean())
             baseline_mae = float(pd.to_numeric(baseline_rows["test_mae"], errors="coerce").mean())
-            if "test_da" in baseline_rows.columns:
-                baseline_da = float(pd.to_numeric(baseline_rows["test_da"], errors="coerce").mean())
 
         impact_detail = pd.DataFrame()
         impact_summary = pd.DataFrame()
