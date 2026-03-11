@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Dict, Set
-
-NEWS_PARQUET_COLUMNS: Set[str] = {
+NEWS_PARQUET_COLUMNS: set[str] = {
     "asset_id",
     "article_id",
     "published_at",
@@ -17,7 +15,7 @@ NEWS_PARQUET_COLUMNS: Set[str] = {
 
 # pandas dtypes for stable parquet writing
 # NOTE: published_at handled separately as datetime64[ns, UTC]
-NEWS_PARQUET_DTYPES: Dict[str, str] = {
+NEWS_PARQUET_DTYPES: dict[str, str] = {
     "asset_id": "string",
     "article_id": "string",
     "headline": "string",
