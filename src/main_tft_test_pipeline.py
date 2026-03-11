@@ -3,11 +3,15 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+
 from pathlib import Path
 from typing import Any
 
 from src.adapters.cli_tft_train_runner import CLITFTTrainRunner
-from src.infrastructure.schemas.model_artifact_schema import TFT_SPLIT_DEFAULTS, TFT_TRAINING_DEFAULTS
+from src.infrastructure.schemas.model_artifact_schema import (
+    TFT_SPLIT_DEFAULTS,
+    TFT_TRAINING_DEFAULTS,
+)
 from src.use_cases.run_tft_test_pipeline_use_case import RunTFTTestPipelineUseCase
 from src.use_cases.test_pipeline_common import (
     TEST_TYPE_EXPLICIT_CONFIGS,
