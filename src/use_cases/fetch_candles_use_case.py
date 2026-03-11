@@ -1,7 +1,7 @@
 # src/use_cases/fetch_candles_use_case.py
 from __future__ import annotations
 
-from datetime import datetime, timedelta, time, timezone
+from datetime import UTC, datetime, time, timedelta
 
 from domain.time.utc import require_tz_aware, to_utc
 from src.interfaces.candle_fetcher import CandleFetcher
@@ -27,7 +27,7 @@ class FetchCandlesUseCase:
         if end_utc.time() == time(0, 0):
             return end_utc + timedelta(days=1)
         # mesmo se vier com hora, incluir o dia do end
-        return datetime.combine(end_utc.date() + timedelta(days=1), time(0, 0), tzinfo=timezone.utc)
+        return datetime.combine(end_utc.date() + timedelta(days=1), time(0, 0), tzinfo=UTC)
 
     def execute(self, symbol: str, start: datetime, end: datetime) -> tuple[int, int]:
         require_tz_aware(start, "start")
