@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+
 from datetime import datetime
 from pathlib import Path
 
@@ -74,7 +75,7 @@ class ParquetScoredNewsRepository(ScoredNewsRepository):
             )
 
         latest = published.max()
-        return latest.to_pydatetime() 
+        return latest.to_pydatetime()
 
     def upsert_scored_news_batch(self, articles: list[ScoredNewsArticle]) -> None:
         if not articles:
