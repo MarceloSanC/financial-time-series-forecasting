@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 import logging
+
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Iterable
 
 from src.domain.time.utc import require_tz_aware, to_utc
 from src.entities.news_article import NewsArticle
