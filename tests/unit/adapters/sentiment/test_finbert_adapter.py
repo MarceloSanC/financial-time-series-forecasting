@@ -1,6 +1,6 @@
 # tests/unit/adapters/sentiment/test_finbert_adapter.py
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
@@ -9,14 +9,13 @@ from src.adapters.finbert_sentiment_model import FinBERTSentimentModel
 from src.entities.news_article import NewsArticle
 from src.entities.scored_news_article import ScoredNewsArticle
 
-
 # Helpers / Fakes
 
 def make_article(article_id: str, text: str) -> NewsArticle:
     return NewsArticle(
         article_id=article_id,
         asset_id="AAPL",
-        published_at=datetime(2024, 1, 10, tzinfo=timezone.utc),
+        published_at=datetime(2024, 1, 10, tzinfo=UTC),
         headline=text or " ",
         summary=text or " ",
         source="unit-test",
