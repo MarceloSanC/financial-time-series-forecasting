@@ -2,7 +2,6 @@
 
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Optional
 
 
 @dataclass(frozen=True)
@@ -23,7 +22,7 @@ class DailySentiment:
     n_articles: int
 
     # Métricas auxiliares (opcionais, mas importantes p/ research)
-    sentiment_std: Optional[float] = None
+    sentiment_std: float | None = None
 
     def __post_init__(self) -> None:
         if isinstance(self.day, datetime):
