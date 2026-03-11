@@ -1,6 +1,6 @@
 # src/interfaces/technical_indicator_calculator.py
 from abc import ABC, abstractmethod
-from typing import Iterable
+from collections.abc import Iterable
 
 from src.entities.candle import Candle
 from src.entities.technical_indicator_set import TechnicalIndicatorSet
