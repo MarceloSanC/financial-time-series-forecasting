@@ -1,6 +1,6 @@
 # tests/unit/use_cases/test_fetch_candles_use_case.py
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import Mock
 
 from src.entities.candle import Candle
@@ -14,7 +14,7 @@ def test_fetch_candles_saves_data():
 
     candles = [
         Candle(
-            timestamp=datetime(2022, 1, 3, tzinfo=timezone.utc),
+            timestamp=datetime(2022, 1, 3, tzinfo=UTC),
             open=25.1,
             high=25.8,
             low=24.9,
@@ -27,8 +27,8 @@ def test_fetch_candles_saves_data():
 
     use_case = FetchCandlesUseCase(mock_fetcher, mock_repo)
 
-    start = datetime(2022, 1, 1, tzinfo=timezone.utc)
-    end = datetime(2022, 1, 5, tzinfo=timezone.utc)
+    start = datetime(2022, 1, 1, tzinfo=UTC)
+    end = datetime(2022, 1, 5, tzinfo=UTC)
 
     # Act
     fetched, existing = use_case.execute("AAPL", start, end)
@@ -38,7 +38,7 @@ def test_fetch_candles_saves_data():
     mock_fetcher.fetch_candles.assert_called_once_with(
         "AAPL",
         start,
-        datetime(2022, 1, 6, 0, 0, tzinfo=timezone.utc),
+        datetime(2022, 1, 6, 0, 0, tzinfo=UTC),
     )
 
     mock_repo.save_candles.assert_called_once_with("AAPL", candles)
@@ -55,8 +55,8 @@ def test_fetch_candles_normalizes_end_datetime_to_next_day_boundary():
 
     use_case = FetchCandlesUseCase(mock_fetcher, mock_repo)
 
-    start = datetime(2022, 1, 1, 0, 0, tzinfo=timezone.utc)
-    end = datetime(2022, 1, 5, 15, 30, tzinfo=timezone.utc)
+    start = datetime(2022, 1, 1, 0, 0, tzinfo=UTC)
+    end = datetime(2022, 1, 5, 15, 30, tzinfo=UTC)
 
     # Act
     use_case.execute("AAPL", start, end)
@@ -65,5 +65,5 @@ def test_fetch_candles_normalizes_end_datetime_to_next_day_boundary():
     mock_fetcher.fetch_candles.assert_called_once_with(
         "AAPL",
         start,
-        datetime(2022, 1, 6, 0, 0, tzinfo=timezone.utc),
+        datetime(2022, 1, 6, 0, 0, tzinfo=UTC),
     )
