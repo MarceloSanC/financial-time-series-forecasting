@@ -3,8 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
-from typing import Dict, List, Tuple
+from datetime import UTC, datetime, timedelta
 
 import pytest
 
@@ -13,7 +12,7 @@ from src.use_cases.fetch_news_use_case import FetchNewsUseCase
 
 
 def _dt_utc(y: int, m: int, d: int, hh: int = 0, mm: int = 0, ss: int = 0) -> datetime:
-    return datetime(y, m, d, hh, mm, ss, tzinfo=timezone.utc)
+    return datetime(y, m, d, hh, mm, ss, tzinfo=UTC)
 
 
 def _article(
@@ -45,11 +44,11 @@ class FakeNewsFetcher:
     Keyed by (start_iso, end_iso) to let us validate cursor behavior.
     """
 
-    def __init__(self, scripted: Dict[Tuple[str, str], List[NewsArticle]]) -> None:
+    def __init__(self, scripted: dict[tuple[str, str], list[NewsArticle]]) -> None:
         self.scripted = scripted
         self.calls: list[tuple[str, datetime, datetime]] = []
 
-    def fetch_company_news(self, asset_id: str, start_date: datetime, end_date: datetime) -> List[NewsArticle]:
+    def fetch_company_news(self, asset_id: str, start_date: datetime, end_date: datetime) -> list[NewsArticle]:
         self.calls.append((asset_id, start_date, end_date))
         key = (start_date.isoformat(), end_date.isoformat())
         return list(self.scripted.get(key, []))
