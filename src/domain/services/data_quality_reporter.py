@@ -1,13 +1,15 @@
 from __future__ import annotations
 
+import json
+import logging
+
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
-from datetime import datetime, timezone
-import logging
-import json
 
 import numpy as np
 import pandas as pd
+
 from src.utils.path_policy import to_project_relative
 
 
@@ -204,7 +206,7 @@ class DataQualityReporter:
         prefix: str,
     ) -> Path:
         output_dir.mkdir(parents=True, exist_ok=True)
-        ts = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        ts = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         path = output_dir / f"{prefix}_report_{ts}.json"
         path.write_text(json.dumps(report, ensure_ascii=False, indent=2), encoding="utf-8")
         return path
@@ -250,10 +252,10 @@ class DataQualityReporter:
         report["source_path"] = str(to_project_relative(parquet_path))
         report["file_size_bytes"] = parquet_path.stat().st_size
         report["file_mtime_utc"] = (
-            datetime.fromtimestamp(parquet_path.stat().st_mtime, tz=timezone.utc).isoformat()
+            datetime.fromtimestamp(parquet_path.stat().st_mtime, tz=UTC).isoformat()
         )
         report["file_hash_sha256"] = DataQualityReporter.file_hash(parquet_path)
-        report["generated_at"] = datetime.now(timezone.utc).isoformat()
+        report["generated_at"] = datetime.now(UTC).isoformat()
         return DataQualityReporter.write_report(
             report,
             parquet_path.parent / "reports",
