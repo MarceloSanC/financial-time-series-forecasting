@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List
-
-FUNDAMENTAL_PARQUET_COLUMNS: List[str] = [
+FUNDAMENTAL_PARQUET_COLUMNS: list[str] = [
     "asset_id",
     "report_type",
     "fiscal_date_end",
@@ -17,7 +15,7 @@ FUNDAMENTAL_PARQUET_COLUMNS: List[str] = [
 
 # pandas dtypes for stable parquet writing
 # NOTE: fiscal_date_end/reported_date handled separately as datetime64[ns, UTC]
-FUNDAMENTAL_PARQUET_DTYPES: Dict[str, str] = {
+FUNDAMENTAL_PARQUET_DTYPES: dict[str, str] = {
     "asset_id": "string",
     "report_type": "string",
     "revenue": "float64",
