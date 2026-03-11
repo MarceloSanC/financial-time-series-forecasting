@@ -5,13 +5,14 @@ from datetime import datetime, timedelta
 
 from src.entities.candle import Candle
 from src.entities.technical_indicator_set import TechnicalIndicatorSet
+from src.interfaces.candle_repository import CandleRepository
+from src.interfaces.technical_indicator_calculator import (
+    TechnicalIndicatorCalculatorPort,
+)
+from src.interfaces.technical_indicator_repository import TechnicalIndicatorRepository
 from src.use_cases.technical_indicator_engineering_use_case import (
     TechnicalIndicatorEngineeringUseCase,
 )
-from src.interfaces.candle_repository import CandleRepository
-from src.interfaces.technical_indicator_calculator import TechnicalIndicatorCalculatorPort
-from src.interfaces.technical_indicator_repository import TechnicalIndicatorRepository
-
 
 # ---------- Fakes (test doubles) ----------
 
