@@ -1,24 +1,39 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-import json
 import importlib.metadata
-from datetime import datetime, timezone
-from hashlib import sha256
+import json
+import logging
 import platform
 import subprocess
-import logging
 import traceback
+
+from dataclasses import dataclass
+from datetime import UTC, datetime
+from hashlib import sha256
 from pathlib import Path
 
 import numpy as np
 import pandas as pd
+
 from sklearn.preprocessing import StandardScaler
 
-from src.domain.services.feature_warmup_inspector import FeatureWarmupInspector
 from src.domain.services.dataset_quality_gate import (
     DatasetQualityGate,
     DatasetQualityGateConfig,
+)
+from src.domain.services.feature_warmup_inspector import FeatureWarmupInspector
+from src.infrastructure.schemas.analytics_store_schema import (
+    ANALYTICS_SCHEMA_VERSION,
+    compute_config_signature,
+    compute_dataset_fingerprint,
+    compute_feature_set_hash,
+    compute_run_id,
+    compute_split_fingerprint,
+)
+from src.infrastructure.schemas.feature_validation_schema import FEATURE_WARMUP_BARS
+from src.infrastructure.schemas.model_artifact_schema import (
+    TFT_SPLIT_DEFAULTS,
+    TFT_TRAINING_DEFAULTS,
 )
 from src.infrastructure.schemas.tft_dataset_parquet_schema import (
     BASELINE_FEATURES,
@@ -32,23 +47,11 @@ from src.infrastructure.schemas.tft_dataset_parquet_schema import (
     TECHNICAL_FEATURES,
     VOLATILITY_ROBUST_FEATURES,
 )
-from src.infrastructure.schemas.model_artifact_schema import TFT_SPLIT_DEFAULTS
-from src.infrastructure.schemas.model_artifact_schema import TFT_TRAINING_DEFAULTS
-from src.infrastructure.schemas.feature_validation_schema import FEATURE_WARMUP_BARS
-from src.infrastructure.schemas.analytics_store_schema import (
-    ANALYTICS_SCHEMA_VERSION,
-    compute_config_signature,
-    compute_feature_set_hash,
-    compute_dataset_fingerprint,
-    compute_run_id,
-    compute_split_fingerprint,
-)
-from src.utils.path_policy import to_project_relative
-
-from src.interfaces.tft_dataset_repository import TFTDatasetRepository
-from src.interfaces.model_trainer import ModelTrainer, TrainingResult
-from src.interfaces.model_repository import ModelRepository
 from src.interfaces.analytics_run_repository import AnalyticsRunRepository
+from src.interfaces.model_repository import ModelRepository
+from src.interfaces.model_trainer import ModelTrainer, TrainingResult
+from src.interfaces.tft_dataset_repository import TFTDatasetRepository
+from src.utils.path_policy import to_project_relative
 
 logger = logging.getLogger(__name__)
 
@@ -137,7 +140,7 @@ class TrainTFTModelUseCase:
                 letters.add("Y")
             if any(c in selected for c in FUNDAMENTAL_DERIVED_FEATURES):
                 letters.add("Q")
-            suffix = "".join([l for l in allowed_order if l in letters]) or "C"
+            suffix = "".join([letter for letter in allowed_order if letter in letters]) or "C"
             return selected, suffix
 
         selected: list[str] = []
@@ -191,13 +194,13 @@ class TrainTFTModelUseCase:
 
         if custom_requested:
             letters.add("C")
-        suffix = "".join([l for l in allowed_order if l in letters]) or "C"
+        suffix = "".join([letter for letter in allowed_order if letter in letters]) or "C"
         return selected, suffix
 
     @staticmethod
     def _parse_yyyymmdd(value: str) -> datetime:
         try:
-            return datetime.strptime(value, "%Y%m%d").replace(tzinfo=timezone.utc)
+            return datetime.strptime(value, "%Y%m%d").replace(tzinfo=UTC)
         except ValueError as exc:
             raise ValueError(f"Invalid date format: {value}. Expected yyyymmdd.") from exc
 
@@ -1032,7 +1035,7 @@ class TrainTFTModelUseCase:
             "run_id": run_id,
             "execution_id": None,
             "asset": str(asset_id),
-            "failed_at_utc": datetime.now(timezone.utc).isoformat(),
+            "failed_at_utc": datetime.now(UTC).isoformat(),
             "stage": str(stage),
             "error_type": type(exc).__name__,
             "error_message": str(exc)[:1000],
@@ -1054,7 +1057,7 @@ class TrainTFTModelUseCase:
         split_config: dict | None = None,
         run_ablation: bool = False,
     ) -> TrainTFTModelResult:
-        run_started_at = datetime.now(timezone.utc)
+        run_started_at = datetime.now(UTC)
 
         df = self.dataset_repository.load(asset_id)
         if df.empty:
@@ -1079,7 +1082,7 @@ class TrainTFTModelUseCase:
         feature_inputs = None if features is None and not requested_features else requested_features
         feature_cols, feature_tag = self._resolve_features(df, feature_inputs)
         feature_set_hash = compute_feature_set_hash(feature_cols)
-        version = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S") + f"_{feature_tag}"
+        version = datetime.now(UTC).strftime("%Y%m%d_%H%M%S") + f"_{feature_tag}"
         created_at_utc = run_started_at.isoformat()
 
         trainer_config.setdefault("prediction_mode", str(TFT_TRAINING_DEFAULTS.get("prediction_mode", "quantile")))
@@ -1213,7 +1216,7 @@ class TrainTFTModelUseCase:
                 dataset_parameters=dataset_parameters_payload,
             )
 
-            metadata_config["duration_total_seconds"] = float((datetime.now(timezone.utc) - run_started_at).total_seconds())
+            metadata_config["duration_total_seconds"] = float((datetime.now(UTC) - run_started_at).total_seconds())
 
             persisted_run_id, persisted_dim_row = self._persist_dim_run(
                 asset_id=asset_id,
@@ -1314,7 +1317,7 @@ class TrainTFTModelUseCase:
             )
 
         except Exception as exc:
-            metadata_config["duration_total_seconds"] = float((datetime.now(timezone.utc) - run_started_at).total_seconds())
+            metadata_config["duration_total_seconds"] = float((datetime.now(UTC) - run_started_at).total_seconds())
             persisted_run_id, _ = self._persist_dim_run(
                 asset_id=asset_id,
                 version=version,
