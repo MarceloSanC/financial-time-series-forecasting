@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date, datetime
-from typing import Optional
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,14 +20,14 @@ class FundamentalReport:
     fiscal_date_end: date
     report_type: str
 
-    revenue: Optional[float]
-    net_income: Optional[float]
-    operating_cash_flow: Optional[float]
-    total_shareholder_equity: Optional[float]
-    total_liabilities: Optional[float]
+    revenue: float | None
+    net_income: float | None
+    operating_cash_flow: float | None
+    total_shareholder_equity: float | None
+    total_liabilities: float | None
 
-    reported_date: Optional[date] = None
-    source: Optional[str] = None
+    reported_date: date | None = None
+    source: str | None = None
 
     def __post_init__(self) -> None:
         if not isinstance(self.asset_id, str) or not self.asset_id.strip():
