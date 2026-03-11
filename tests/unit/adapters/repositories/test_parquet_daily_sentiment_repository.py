@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -19,7 +19,7 @@ from src.infrastructure.schemas.daily_sentiment_parquet_schema import (
 
 
 def _dt_utc(y: int, m: int, d: int, hh: int = 0, mm: int = 0, ss: int = 0) -> datetime:
-    return datetime(y, m, d, hh, mm, ss, tzinfo=timezone.utc)
+    return datetime(y, m, d, hh, mm, ss, tzinfo=UTC)
 
 
 @pytest.fixture
