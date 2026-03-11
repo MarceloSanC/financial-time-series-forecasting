@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone, timedelta
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -13,7 +13,7 @@ from src.entities.news_article import NewsArticle
 
 
 def _dt_utc(y: int, m: int, d: int, hh: int = 0, mm: int = 0, ss: int = 0) -> datetime:
-    return datetime(y, m, d, hh, mm, ss, tzinfo=timezone.utc)
+    return datetime(y, m, d, hh, mm, ss, tzinfo=UTC)
 
 
 @pytest.fixture
