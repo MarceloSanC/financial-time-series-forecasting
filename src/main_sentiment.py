@@ -2,18 +2,20 @@ from __future__ import annotations
 
 import argparse
 import logging
+
 from pathlib import Path
 
 import yaml
+
 from dotenv import load_dotenv
 
 from src.adapters.finbert_sentiment_model import FinBERTSentimentModel
 from src.adapters.parquet_news_repository import ParquetNewsRepository
 from src.adapters.parquet_scored_news_repository import ParquetScoredNewsRepository
-from src.utils.asset_periods import resolve_data_period
-from src.use_cases.infer_sentiment_use_case import InferSentimentUseCase
-from src.domain.services.data_quality_reporter import DataQualityReporter
 from src.domain.services.data_quality_profiles import get_profile
+from src.domain.services.data_quality_reporter import DataQualityReporter
+from src.use_cases.infer_sentiment_use_case import InferSentimentUseCase
+from src.utils.asset_periods import resolve_data_period
 from src.utils.logging_config import setup_logging
 from src.utils.path_resolver import load_data_paths
 
