@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List
-
-TFT_DATASET_BASE_COLUMNS: List[str] = [
+TFT_DATASET_BASE_COLUMNS: list[str] = [
     "asset_id",
     "timestamp",
     "time_idx",
@@ -11,7 +9,7 @@ TFT_DATASET_BASE_COLUMNS: List[str] = [
     "target_return",
 ]
 
-TFT_DATASET_DTYPES: Dict[str, str] = {
+TFT_DATASET_DTYPES: dict[str, str] = {
     "asset_id": "string",
     "time_idx": "int64",
     "day_of_week": "int64",
@@ -19,7 +17,7 @@ TFT_DATASET_DTYPES: Dict[str, str] = {
     "target_return": "float64",
 }
 
-BASELINE_FEATURES: List[str] = [
+BASELINE_FEATURES: list[str] = [
     "open",
     "high",
     "low",
@@ -27,7 +25,7 @@ BASELINE_FEATURES: List[str] = [
     "volume",
 ]
 
-TECHNICAL_FEATURES: List[str] = [
+TECHNICAL_FEATURES: list[str] = [
     "volatility_20d",
     "rsi_14",
     "candle_body",
@@ -40,14 +38,14 @@ TECHNICAL_FEATURES: List[str] = [
     "candle_range",
 ]
 
-SENTIMENT_FEATURES: List[str] = [
+SENTIMENT_FEATURES: list[str] = [
     "sentiment_score",
     "news_volume",
     "sentiment_std",
     "has_news",
 ]
 
-FUNDAMENTAL_FEATURES: List[str] = [
+FUNDAMENTAL_FEATURES: list[str] = [
     "revenue",
     "net_income",
     "operating_cash_flow",
@@ -55,7 +53,7 @@ FUNDAMENTAL_FEATURES: List[str] = [
     "total_liabilities",
 ]
 
-FUNDAMENTAL_DERIVED_FEATURES: List[str] = [
+FUNDAMENTAL_DERIVED_FEATURES: list[str] = [
     "net_margin",
     "leverage_ratio",
     "cashflow_efficiency",
@@ -63,7 +61,7 @@ FUNDAMENTAL_DERIVED_FEATURES: List[str] = [
     "net_income_yoy_growth",
 ]
 
-MOMENTUM_LIQUIDITY_FEATURES: List[str] = [
+MOMENTUM_LIQUIDITY_FEATURES: list[str] = [
     "log_return_1d",
     "log_return_5d",
     "log_return_21d",
@@ -78,20 +76,20 @@ MOMENTUM_LIQUIDITY_FEATURES: List[str] = [
     "volume_spike_flag",
 ]
 
-VOLATILITY_ROBUST_FEATURES: List[str] = [
+VOLATILITY_ROBUST_FEATURES: list[str] = [
     "volatility_parkinson",
     "volatility_garman_klass",
     "downside_semivolatility",
     "vol_of_vol",
 ]
 
-REGIME_FEATURES: List[str] = [
+REGIME_FEATURES: list[str] = [
     "volatility_regime",
     "trend_regime",
     "stress_tail_return_flag",
 ]
 
-SENTIMENT_DYNAMICS_FEATURES: List[str] = [
+SENTIMENT_DYNAMICS_FEATURES: list[str] = [
     "sentiment_lag_1",
     "sentiment_lag_3",
     "sentiment_lag_5",
@@ -101,6 +99,6 @@ SENTIMENT_DYNAMICS_FEATURES: List[str] = [
     "sentiment_x_volume",
 ]
 
-DEFAULT_TFT_FEATURES: List[str] = [
+DEFAULT_TFT_FEATURES: list[str] = [
     *BASELINE_FEATURES
 ]
