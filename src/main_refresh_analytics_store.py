@@ -4,7 +4,9 @@ import argparse
 import logging
 
 from src.use_cases.refresh_analytics_store_use_case import RefreshAnalyticsStoreUseCase
-from src.use_cases.validate_analytics_quality_use_case import ValidateAnalyticsQualityUseCase
+from src.use_cases.validate_analytics_quality_use_case import (
+    ValidateAnalyticsQualityUseCase,
+)
 from src.utils.logging_config import setup_logging
 from src.utils.path_resolver import load_data_paths
 
