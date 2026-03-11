@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List
-
-DAILY_SENTIMENT_PARQUET_COLUMNS: List[str] = [
+DAILY_SENTIMENT_PARQUET_COLUMNS: list[str] = [
     "asset_id",
     "day",
     "sentiment_score",
@@ -12,7 +10,7 @@ DAILY_SENTIMENT_PARQUET_COLUMNS: List[str] = [
 
 # pandas dtypes for stable parquet writing
 # NOTE: day handled separately as datetime64[ns, UTC]
-DAILY_SENTIMENT_PARQUET_DTYPES: Dict[str, str] = {
+DAILY_SENTIMENT_PARQUET_DTYPES: dict[str, str] = {
     "asset_id": "string",
     "sentiment_score": "float64",
     "n_articles": "int64",
