@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 
 def require_tz_aware(dt: datetime, name: str = "datetime") -> None:
@@ -23,7 +23,7 @@ def to_utc(dt: datetime) -> datetime:
         ValueError if dt is naive.
     """
     require_tz_aware(dt, "dt")
-    return dt.astimezone(timezone.utc)
+    return dt.astimezone(UTC)
 
 
 def ensure_utc(dt: datetime) -> datetime:
@@ -36,8 +36,8 @@ def ensure_utc(dt: datetime) -> datetime:
     Intended for entry points (config/CLI parsing), NOT for domain/adapters.
     """
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
+        return dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
 
 
 def parse_iso_utc(value: str) -> datetime:
