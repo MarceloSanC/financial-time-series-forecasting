@@ -3,9 +3,10 @@
 from __future__ import annotations
 
 import logging
+
+from collections.abc import Iterable
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Iterable, Optional
 
 from src.domain.time.utc import require_tz_aware, to_utc
 from src.entities.news_article import NewsArticle
@@ -94,7 +95,7 @@ class FetchNewsUseCase:
         start_date: datetime,
         end_date: datetime,
         *,
-        seed_seen_urls: Optional[set[str]] = None,
+        seed_seen_urls: set[str] | None = None,
     ) -> FetchNewsResult:
         require_tz_aware(start_date, "start_date")
         require_tz_aware(end_date, "end_date")
