@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
 import tempfile
 import time
 import warnings
+
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
 import pandas as pd
+
 from tqdm.auto import tqdm
 
 from src.interfaces.model_trainer import ModelTrainer, TrainingResult
@@ -105,7 +107,8 @@ class PytorchForecastingTFTTrainer(ModelTrainer):
     ) -> TrainingResult:
         try:
             import torch
-            from pytorch_forecasting import TimeSeriesDataSet, TemporalFusionTransformer
+
+            from pytorch_forecasting import TemporalFusionTransformer, TimeSeriesDataSet
             from pytorch_forecasting.metrics import QuantileLoss
             try:
                 from lightning.pytorch import Trainer, seed_everything
@@ -288,7 +291,7 @@ class PytorchForecastingTFTTrainer(ModelTrainer):
 
                 state_dict = checkpoint.get("state_dict", checkpoint)
                 best_model.load_state_dict(state_dict)
-            except Exception as load_exc:
+            except Exception:
                 # Fallback for compatibility with mocked/unit environments.
                 try:
                     best_model = TemporalFusionTransformer.load_from_checkpoint(best_checkpoint_path)
