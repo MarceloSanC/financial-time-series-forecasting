@@ -4,8 +4,9 @@ import json
 import logging
 import math
 import shutil
+
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -397,6 +398,7 @@ class RunTFTOptunaSearchUseCase:
     ) -> RunTFTOptunaSearchResult:
         try:
             import optuna
+
             from optuna.samplers import TPESampler
         except Exception as exc:  # pragma: no cover
             raise RuntimeError(
@@ -667,7 +669,7 @@ class RunTFTOptunaSearchUseCase:
             x_axis_label="Trial ranking by objective value",
         )
 
-        generated_at = datetime.now(timezone.utc).isoformat()
+        generated_at = datetime.now(UTC).isoformat()
         summary_payload = {
             "asset": asset,
             "features": features,
