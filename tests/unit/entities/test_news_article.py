@@ -1,6 +1,6 @@
 # tests/unit/entities/test_news_article.py
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -10,7 +10,7 @@ from src.entities.news_article import NewsArticle
 def test_news_article_accepts_valid_minimal_entity_and_normalizes_language():
     a = NewsArticle(
         asset_id="AAPL",
-        published_at=datetime(2024, 1, 1, 12, 0, tzinfo=timezone.utc),
+        published_at=datetime(2024, 1, 1, 12, 0, tzinfo=UTC),
         headline="Earnings beat",
         summary="Company beats expectations",
         source="alpha_vantage",
@@ -29,7 +29,7 @@ def test_news_article_rejects_invalid_asset_id(bad_asset_id):
     with pytest.raises((ValueError, TypeError)):
         NewsArticle(
             asset_id=bad_asset_id,  # type: ignore[arg-type]
-            published_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            published_at=datetime(2024, 1, 1, tzinfo=UTC),
             headline="h",
             summary="s",
             source="src",
@@ -51,7 +51,7 @@ def test_news_article_requires_timezone_aware_published_at():
 def test_news_article_rejects_non_string_required_text_fields(field_name):
     kwargs = dict(
         asset_id="AAPL",
-        published_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+        published_at=datetime(2024, 1, 1, tzinfo=UTC),
         headline="h",
         summary="s",
         source="src",
@@ -65,7 +65,7 @@ def test_news_article_rejects_blank_source():
     with pytest.raises(ValueError, match="source must be a non-empty string"):
         NewsArticle(
             asset_id="AAPL",
-            published_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            published_at=datetime(2024, 1, 1, tzinfo=UTC),
             headline="h",
             summary="s",
             source="   ",
@@ -76,7 +76,7 @@ def test_news_article_rejects_invalid_url_scheme():
     with pytest.raises(ValueError, match="url must start with http"):
         NewsArticle(
             asset_id="AAPL",
-            published_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            published_at=datetime(2024, 1, 1, tzinfo=UTC),
             headline="h",
             summary="s",
             source="src",
@@ -88,7 +88,7 @@ def test_news_article_rejects_non_string_article_id_when_provided():
     with pytest.raises(TypeError, match="article_id must be a string"):
         NewsArticle(
             asset_id="AAPL",
-            published_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            published_at=datetime(2024, 1, 1, tzinfo=UTC),
             headline="h",
             summary="s",
             source="src",
@@ -101,7 +101,7 @@ def test_news_article_rejects_invalid_language(bad_language):
     with pytest.raises(ValueError):
         NewsArticle(
             asset_id="AAPL",
-            published_at=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            published_at=datetime(2024, 1, 1, tzinfo=UTC),
             headline="h",
             summary="s",
             source="src",
