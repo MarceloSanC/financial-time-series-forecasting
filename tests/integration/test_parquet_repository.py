@@ -1,13 +1,13 @@
 # tests/integration/test_parquet_repository.py
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 from pathlib import Path
 
-import pytest
 import pandas as pd
+import pytest
 
+from src.adapters.parquet_candle_repository import ParquetCandleRepository
 from src.entities.candle import Candle
 from src.entities.daily_sentiment import DailySentiment
-from src.adapters.parquet_candle_repository import ParquetCandleRepository
 
 
 @pytest.mark.integration
@@ -16,7 +16,7 @@ def test_parquet_repository_saves_file(tmp_path: Path):
 
     candles = [
         Candle(
-            timestamp=datetime(2024, 1, 1, tzinfo=timezone.utc),
+            timestamp=datetime(2024, 1, 1, tzinfo=UTC),
             open=10,
             high=12,
             low=9,
@@ -40,7 +40,7 @@ def test_sentiment_is_persisted_when_dates_overlap(tmp_path):
 
     candles = [
         Candle(
-            timestamp=datetime(2026, 1, 10, tzinfo=timezone.utc),
+            timestamp=datetime(2026, 1, 10, tzinfo=UTC),
             open=100,
             high=110,
             low=90,
