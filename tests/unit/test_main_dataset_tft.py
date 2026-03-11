@@ -45,7 +45,10 @@ def test_main_dataset_tft_skips_when_exists_without_overwrite(monkeypatch, tmp_p
         "load_config",
         lambda: {
             "assets": [
-                {"symbol": asset_id, "start_date": "2024-01-01", "end_date": "2024-12-31"}
+                {
+                    "symbol": asset_id,
+                    "data_period": {"start_date": "2024-01-01", "end_date": "2024-12-31"},
+                }
             ]
         },
     )
