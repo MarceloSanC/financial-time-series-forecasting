@@ -1,8 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List
-
-SCORED_NEWS_PARQUET_COLUMNS: List[str] = [
+SCORED_NEWS_PARQUET_COLUMNS: list[str] = [
     "asset_id",
     "article_id",
     "published_at",
@@ -13,7 +11,7 @@ SCORED_NEWS_PARQUET_COLUMNS: List[str] = [
 
 # pandas dtypes for stable parquet writing
 # NOTE: published_at handled separately as datetime64[ns, UTC]
-SCORED_NEWS_PARQUET_DTYPES: Dict[str, str] = {
+SCORED_NEWS_PARQUET_DTYPES: dict[str, str] = {
     "asset_id": "string",
     "article_id": "string",
     "sentiment_score": "float64",
