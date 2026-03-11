@@ -4,12 +4,12 @@ from pathlib import Path
 import pandas as pd
 
 from src.entities.technical_indicator_set import TechnicalIndicatorSet
-from src.interfaces.technical_indicator_repository import TechnicalIndicatorRepository
 from src.infrastructure.schemas.technical_indicator_parquet_schema import (
     TECHNICAL_INDICATOR_BASE_COLUMNS,
     TECHNICAL_INDICATOR_DTYPES,
     TECHNICAL_INDICATOR_INDEX,
 )
+from src.interfaces.technical_indicator_repository import TechnicalIndicatorRepository
 
 
 class ParquetTechnicalIndicatorRepository(TechnicalIndicatorRepository):
