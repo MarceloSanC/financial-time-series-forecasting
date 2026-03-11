@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -13,7 +13,7 @@ from src.use_cases.fetch_fundamentals_use_case import FetchFundamentalsUseCase
 
 
 def _dt_utc(y: int, m: int, d: int, hh: int = 0, mm: int = 0, ss: int = 0) -> datetime:
-    return datetime(y, m, d, hh, mm, ss, tzinfo=timezone.utc)
+    return datetime(y, m, d, hh, mm, ss, tzinfo=UTC)
 
 
 class FakeFundamentalFetcher(FundamentalFetcher):
