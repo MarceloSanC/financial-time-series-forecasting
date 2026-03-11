@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta
 
 
 @dataclass(frozen=True)
@@ -73,7 +73,7 @@ def trading_day_from_timestamp(ts: datetime, policy: TradingDayPolicy | None = N
         )
 
     p = policy or TradingDayPolicy()
-    ts_utc = ts.astimezone(timezone.utc)
+    ts_utc = ts.astimezone(UTC)
     day = ts_utc.date()
     if ts_utc.time() > p.close_hour:
         day = day + timedelta(days=1)
