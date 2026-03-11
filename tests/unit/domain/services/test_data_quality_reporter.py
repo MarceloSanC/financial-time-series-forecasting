@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
 
-from src.domain.services.data_quality_reporter import DataQualityReporter
 from src.domain.services.data_quality_profiles import get_profile
+from src.domain.services.data_quality_reporter import DataQualityReporter
 
 
 def _dt_utc(y: int, m: int, d: int) -> datetime:
-    return datetime(y, m, d, tzinfo=timezone.utc)
+    return datetime(y, m, d, tzinfo=UTC)
 
 
 def _profile_kwargs(profile) -> dict:
@@ -231,8 +232,6 @@ def test_business_days_flag_changes_missing_days() -> None:
             ]
         }
     )
-    profile = get_profile("candles")
-
     report_bd = DataQualityReporter.generate_report(
         df, date_col="timestamp", key_cols=["timestamp"], business_days=True
     )
