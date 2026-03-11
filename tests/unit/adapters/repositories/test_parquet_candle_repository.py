@@ -1,17 +1,16 @@
 # tests/unit/adapters/repositories/test_parquet_candle_repository.py
 
-import pytest
 from datetime import datetime, timedelta
 from pathlib import Path
 
 import pandas as pd
+import pytest
 
 from src.adapters.parquet_candle_repository import ParquetCandleRepository
 from src.entities.candle import Candle
 from src.infrastructure.schemas.candle_parquet_schema import (
     CANDLE_PARQUET_COLUMNS,
 )
-
 
 # Helpers / Fixtures
 
