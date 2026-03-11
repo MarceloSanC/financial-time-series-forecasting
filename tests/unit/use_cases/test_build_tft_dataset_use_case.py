@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, timedelta, timezone
+from datetime import UTC, date, datetime, timedelta
 from pathlib import Path
 
+import numpy as np
 import pandas as pd
 import pytest
-import numpy as np
 
+from src.domain.services.dataset_quality_gate import DatasetQualityGateConfig
 from src.entities.candle import Candle
 from src.entities.daily_sentiment import DailySentiment
 from src.entities.fundamental_report import FundamentalReport
@@ -19,12 +20,11 @@ from src.interfaces.daily_sentiment_repository import DailySentimentRepository
 from src.interfaces.fundamental_repository import FundamentalRepository
 from src.interfaces.technical_indicator_repository import TechnicalIndicatorRepository
 from src.interfaces.tft_dataset_repository import TFTDatasetRepository
-from src.domain.services.dataset_quality_gate import DatasetQualityGateConfig
 from src.use_cases.build_tft_dataset_use_case import BuildTFTDatasetUseCase
 
 
 def _dt_utc(y: int, m: int, d: int) -> datetime:
-    return datetime(y, m, d, tzinfo=timezone.utc)
+    return datetime(y, m, d, tzinfo=UTC)
 
 
 class FakeCandleRepository(CandleRepository):
