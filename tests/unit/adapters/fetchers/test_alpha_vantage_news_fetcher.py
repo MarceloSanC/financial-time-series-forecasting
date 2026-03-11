@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
-from typing import Any, Dict, Optional
+from datetime import UTC, datetime
+from typing import Any
 
 import pytest
 
@@ -27,12 +27,12 @@ class _FakeSession:
     def __init__(self, payload: Any, status_code: int = 200) -> None:
         self.payload = payload
         self.status_code = status_code
-        self.last_url: Optional[str] = None
-        self.last_params: Optional[Dict[str, Any]] = None
-        self.last_headers: Optional[Dict[str, Any]] = None
-        self.last_timeout: Optional[int] = None
+        self.last_url: str | None = None
+        self.last_params: dict[str, Any] | None = None
+        self.last_headers: dict[str, Any] | None = None
+        self.last_timeout: int | None = None
 
-    def get(self, url: str, params: Dict[str, Any], headers: Dict[str, Any], timeout: int):
+    def get(self, url: str, params: dict[str, Any], headers: dict[str, Any], timeout: int):
         self.last_url = url
         self.last_params = params
         self.last_headers = headers
@@ -41,7 +41,7 @@ class _FakeSession:
 
 
 def _dt_utc(y, m, d, hh=0, mm=0, ss=0):
-    return datetime(y, m, d, hh, mm, ss, tzinfo=timezone.utc)
+    return datetime(y, m, d, hh, mm, ss, tzinfo=UTC)
 
 
 def test_parse_time_published_supports_minute_and_second_formats():
