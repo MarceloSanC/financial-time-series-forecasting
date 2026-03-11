@@ -1,9 +1,10 @@
-from typing import Iterable
 
+from interfaces.candle_repository import CandleRepository
 from src.entities.candle import Candle
 from src.entities.technical_indicator_set import TechnicalIndicatorSet
-from interfaces.candle_repository import CandleRepository
-from src.interfaces.technical_indicator_calculator import TechnicalIndicatorCalculatorPort
+from src.interfaces.technical_indicator_calculator import (
+    TechnicalIndicatorCalculatorPort,
+)
 from src.interfaces.technical_indicator_repository import TechnicalIndicatorRepository
 
 
