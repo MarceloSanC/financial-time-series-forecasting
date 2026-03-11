@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import argparse
 import logging
+
 from pathlib import Path
 
 import pandas as pd
 import yaml
+
 from dotenv import load_dotenv
 
 from src.adapters.parquet_candle_repository import ParquetCandleRepository
@@ -17,14 +19,16 @@ from src.adapters.parquet_technical_indicator_repository import (
     ParquetTechnicalIndicatorRepository,
 )
 from src.adapters.parquet_tft_dataset_repository import ParquetTFTDatasetRepository
-from src.domain.time.trading_calendar import trading_policy_from_asset_config
-from src.utils.asset_periods import resolve_data_period
-from src.use_cases.build_tft_dataset_use_case import BuildTFTDatasetUseCase
-from src.domain.services.dataset_quality_gate import DatasetQualityGateConfig
-from src.domain.services.dataset_quality_gate import DatasetQualityGate
-from src.domain.services.data_quality_reporter import DataQualityReporter
 from src.domain.services.data_quality_profiles import get_profile
+from src.domain.services.data_quality_reporter import DataQualityReporter
+from src.domain.services.dataset_quality_gate import (
+    DatasetQualityGate,
+    DatasetQualityGateConfig,
+)
+from src.domain.time.trading_calendar import trading_policy_from_asset_config
 from src.infrastructure.schemas.feature_validation_schema import FEATURE_WARMUP_BARS
+from src.use_cases.build_tft_dataset_use_case import BuildTFTDatasetUseCase
+from src.utils.asset_periods import resolve_data_period
 from src.utils.logging_config import setup_logging
 from src.utils.path_resolver import load_data_paths
 
