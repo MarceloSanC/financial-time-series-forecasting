@@ -1,7 +1,8 @@
 # tests/unit/entities/test_scored_news_article.py
 
+from datetime import UTC, datetime
+
 import pytest
-from datetime import datetime, timezone
 
 from src.entities.scored_news_article import ScoredNewsArticle
 
@@ -24,7 +25,7 @@ class TestScoredNewsArticle:
         article = ScoredNewsArticle(
             article_id="news_001",
             asset_id="AAPL",
-            published_at=datetime(2024, 1, 10, tzinfo=timezone.utc),
+            published_at=datetime(2024, 1, 10, tzinfo=UTC),
             sentiment_score=0.42,
         )
 
@@ -42,7 +43,7 @@ class TestScoredNewsArticle:
         article = ScoredNewsArticle(
             article_id="news_boundary",
             asset_id="MSFT",
-            published_at=datetime.now(tz=timezone.utc),
+            published_at=datetime.now(tz=UTC),
             sentiment_score=score,
         )
 
@@ -57,7 +58,7 @@ class TestScoredNewsArticle:
             ScoredNewsArticle(
                 article_id="news_invalid",
                 asset_id="GOOGL",
-                published_at=datetime.now(tz=timezone.utc),
+                published_at=datetime.now(tz=UTC),
                 sentiment_score=score,
             )
 
@@ -69,7 +70,7 @@ class TestScoredNewsArticle:
         article = ScoredNewsArticle(
             article_id="news_confidence",
             asset_id="NVDA",
-            published_at=datetime.now(tz=timezone.utc),
+            published_at=datetime.now(tz=UTC),
             sentiment_score=0.1,
             confidence=confidence,
         )
@@ -85,7 +86,7 @@ class TestScoredNewsArticle:
             ScoredNewsArticle(
                 article_id="news_invalid_confidence",
                 asset_id="TSLA",
-                published_at=datetime.now(tz=timezone.utc),
+                published_at=datetime.now(tz=UTC),
                 sentiment_score=0.2,
                 confidence=confidence,
             )
@@ -97,7 +98,7 @@ class TestScoredNewsArticle:
         article = ScoredNewsArticle(
             article_id="news_immutable",
             asset_id="AMZN",
-            published_at=datetime.now(tz=timezone.utc),
+            published_at=datetime.now(tz=UTC),
             sentiment_score=0.3,
         )
 
