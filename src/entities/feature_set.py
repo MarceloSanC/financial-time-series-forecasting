@@ -1,7 +1,7 @@
 # src/entities/feature_set.py
+from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Mapping
 
 
 @dataclass(frozen=True)
@@ -23,7 +23,6 @@ class FeatureSet:
         # TODO(validation): validar tipos e valores finitos
         if not self.features:
             raise ValueError("FeatureSet cannot be empty")
-        
 
 # =========================
 # TODOs — melhorias futuras
