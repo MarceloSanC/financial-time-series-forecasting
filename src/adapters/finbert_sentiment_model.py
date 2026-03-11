@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from typing import Iterable, List
+from collections.abc import Iterable
 
 import torch
+
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 from src.domain.time.utc import require_tz_aware
@@ -51,7 +52,7 @@ class FinBERTSentimentModel(SentimentModel):
         self.model.eval()
 
     @torch.no_grad()
-    def infer(self, articles: List[NewsArticle]) -> List[ScoredNewsArticle]:
+    def infer(self, articles: list[NewsArticle]) -> list[ScoredNewsArticle]:
         if not articles:
             return []
 
@@ -96,7 +97,7 @@ class FinBERTSentimentModel(SentimentModel):
         text = " ".join(p for p in (headline, summary) if p)
         return text if text else " "
 
-    def _score_texts(self, texts: Iterable[str]) -> List[float]:
+    def _score_texts(self, texts: Iterable[str]) -> list[float]:
         batch_texts = list(texts)
         scores: list[float] = []
 
@@ -118,7 +119,7 @@ class FinBERTSentimentModel(SentimentModel):
 
         return scores
 
-    def _batch(self, texts: List[str]) -> Iterable[List[str]]:
+    def _batch(self, texts: list[str]) -> Iterable[list[str]]:
         for i in range(0, len(texts), self.batch_size):
             yield texts[i : i + self.batch_size]
 
