@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from datetime import datetime, date
+from datetime import date, datetime
 
 from src.entities.fundamental_report import FundamentalReport
 
