@@ -3,20 +3,23 @@ from __future__ import annotations
 import argparse
 import logging
 import os
+
+from datetime import datetime
 from pathlib import Path
 
-import yaml
 import pandas as pd
+import yaml
+
 from dotenv import load_dotenv
 
 from src.adapters.alpha_vantage_fundamental_fetcher import (
     AlphaVantageFundamentalFetcher,
 )
 from src.adapters.parquet_fundamental_repository import ParquetFundamentalRepository
-from src.utils.asset_periods import resolve_data_period
-from src.use_cases.fetch_fundamentals_use_case import FetchFundamentalsUseCase
-from src.domain.services.data_quality_reporter import DataQualityReporter
 from src.domain.services.data_quality_profiles import get_profile
+from src.domain.services.data_quality_reporter import DataQualityReporter
+from src.use_cases.fetch_fundamentals_use_case import FetchFundamentalsUseCase
+from src.utils.asset_periods import resolve_data_period
 from src.utils.logging_config import setup_logging
 from src.utils.path_resolver import load_data_paths
 
