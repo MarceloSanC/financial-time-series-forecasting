@@ -1,17 +1,18 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import datetime, timedelta, timezone
 import logging
-from typing import Callable
+
+from collections.abc import Callable
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
 
 import numpy as np
 import pandas as pd
 
 from src.domain.time.utc import require_tz_aware, to_utc
-from src.infrastructure.schemas.feature_validation_schema import IMPLEMENTED_FEATURES
 from src.entities.tft_inference_record import TFTInferenceRecord
 from src.infrastructure.schemas.analytics_store_schema import ANALYTICS_SCHEMA_VERSION
+from src.infrastructure.schemas.feature_validation_schema import IMPLEMENTED_FEATURES
 from src.interfaces.analytics_run_repository import AnalyticsRunRepository
 from src.interfaces.tft_dataset_repository import TFTDatasetRepository
 from src.interfaces.tft_inference_engine import TFTInferenceEngine
@@ -96,14 +97,22 @@ class RunTFTInferenceUseCase:
         if not scalers:
             return df
         out = df.copy()
+        # Structural columns must remain untouched for TimeSeriesDataSet compatibility.
+        protected_columns = {"time_idx", "timestamp", "asset_id", "target_return"}
         for col, scaler in scalers.items():
+            if col in protected_columns:
+                continue
             if col not in out.columns or scaler is None:
                 continue
             values = pd.to_numeric(out[col], errors="coerce")
             arr = np.array(values.to_numpy(dtype="float64"), copy=True)
             mask = np.isfinite(arr)
             if mask.any():
-                arr[mask] = scaler.transform(arr[mask].reshape(-1, 1)).reshape(-1)
+                if hasattr(scaler, "feature_names_in_"):
+                    valid_input = pd.DataFrame({col: arr[mask]})
+                else:
+                    valid_input = arr[mask].reshape(-1, 1)
+                arr[mask] = scaler.transform(valid_input).reshape(-1)
             out[col] = arr
         return out
 
@@ -165,10 +174,11 @@ class RunTFTInferenceUseCase:
         overwrite: bool = False,
         batch_size: int = 64,
         default_end_date: datetime | None = None,
+        strict_quantiles: bool = True,
     ) -> RunTFTInferenceResult:
-        run_started_at = datetime.now(timezone.utc)
+        run_started_at = datetime.now(UTC)
         asset = self._normalize_asset(asset_id)
-        default_end = default_end_date or datetime.now(timezone.utc)
+        default_end = default_end_date or datetime.now(UTC)
         require_tz_aware(default_end, "default_end_date")
 
         model_bundle = self.model_loader.load(model_path)
@@ -291,7 +301,7 @@ class RunTFTInferenceUseCase:
         inference_slice = dataset_df.iloc[first_target_idx - max_encoder_length : last_target_idx + 1].copy()
         inference_slice = self._apply_scalers(inference_slice, model_bundle.scalers)
 
-        run_id = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        run_id = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         features_used_csv = ",".join(model_bundle.feature_cols)
         records = self.inference_engine.infer(
             model=model_bundle.model,
@@ -316,6 +326,24 @@ class RunTFTInferenceUseCase:
         if not records:
             raise ValueError("Inference generated no rows for requested period.")
 
+        prediction_mode = str(
+            model_bundle.training_config.get("prediction_mode", "quantile")
+        ).strip().lower()
+        if strict_quantiles and prediction_mode == "quantile":
+            missing_q = [
+                r
+                for r in records
+                if r.quantile_p10 is None or r.quantile_p50 is None or r.quantile_p90 is None
+            ]
+            if missing_q:
+                first_ts = to_utc(missing_q[0].timestamp).isoformat()
+                raise ValueError(
+                    "Strict quantile validation failed: model configured with "
+                    "prediction_mode='quantile' but quantile outputs are missing. "
+                    f"missing_rows={len(missing_q)} first_missing_timestamp={first_ts} "
+                    f"asset={asset} model_version={model_bundle.version}"
+                )
+
         skipped_existing = 0
         if not overwrite:
             existing_ts = self.inference_repository.list_inference_timestamps(
@@ -335,7 +363,7 @@ class RunTFTInferenceUseCase:
 
         attempted_upserts = self.inference_repository.upsert_records(asset, records)
 
-        duration_seconds = float((datetime.now(timezone.utc) - run_started_at).total_seconds())
+        duration_seconds = float((datetime.now(UTC) - run_started_at).total_seconds())
         self._persist_fact_inference_run(
             asset=asset,
             model_version=model_bundle.version,
