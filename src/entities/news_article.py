@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
 
 
 @dataclass(frozen=True, slots=True)
@@ -26,9 +25,9 @@ class NewsArticle:
     source: str
 
     # Optional metadata
-    url: Optional[str] = None
-    article_id: Optional[str] = None
-    language: Optional[str] = "en"
+    url: str | None = None
+    article_id: str | None = None
+    language: str | None = "en"
 
     def __post_init__(self) -> None:
         # asset_id
