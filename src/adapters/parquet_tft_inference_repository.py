@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
 import logging
+
+from datetime import UTC, datetime
 from pathlib import Path
 
 import pandas as pd
@@ -120,7 +121,7 @@ class ParquetTFTInferenceRepository(TFTInferenceRepository):
             raise ValueError("All inference records must share the same asset_id.")
 
         rows: list[dict] = []
-        created_at = datetime.now(timezone.utc)
+        created_at = datetime.now(UTC)
         for r in records:
             require_tz_aware(r.timestamp, "timestamp")
             rows.append(
@@ -210,7 +211,12 @@ class ParquetTFTInferenceRepository(TFTInferenceRepository):
         if "__canonical_model_path" in df_new.columns:
             df_new = df_new.drop(columns=["__canonical_model_path"])
 
-        df = pd.concat([df_old, df_new], ignore_index=True)
+        if df_old.empty:
+            df = df_new.copy()
+        elif df_new.empty:
+            df = df_old.copy()
+        else:
+            df = pd.concat([df_old, df_new], ignore_index=True)
         df = df.drop_duplicates(
             subset=["asset_id", "timestamp", "model_version"],
             keep="last",
