@@ -1,6 +1,6 @@
 # src/interfaces/technical_indicator_normalizer.py
 from abc import ABC, abstractmethod
-from typing import Iterable
+from collections.abc import Iterable
 
 from src.entities.technical_indicator_set import TechnicalIndicatorSet
 
