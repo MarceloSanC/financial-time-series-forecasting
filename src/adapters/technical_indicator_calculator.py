@@ -4,10 +4,11 @@ import pandas_ta as ta
 
 from src.entities.candle import Candle
 from src.entities.technical_indicator_set import TechnicalIndicatorSet
-from src.interfaces.technical_indicator_calculator import TechnicalIndicatorCalculatorPort
-
 from src.infrastructure.schemas.technical_indicators_schema import (
     TECHNICAL_INDICATORS,
+)
+from src.interfaces.technical_indicator_calculator import (
+    TechnicalIndicatorCalculatorPort,
 )
 
 
