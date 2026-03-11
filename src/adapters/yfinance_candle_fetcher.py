@@ -3,8 +3,9 @@
 from __future__ import annotations
 
 import logging
-import time
-from datetime import datetime, timezone, time
+import time as sleep_time
+
+from datetime import UTC, datetime, time
 
 import yfinance as yf
 
@@ -80,11 +81,11 @@ class YFinanceCandleFetcher(CandleFetcher):
 
                     # idx pode vir naive dependendo do ambiente; padroniza para UTC
                     if ts.tzinfo is None:
-                        ts = datetime.combine(ts.date(), time(0, 0), tzinfo=timezone.utc)
+                        ts = datetime.combine(ts.date(), time(0, 0), tzinfo=UTC)
                     else:
                         # Converte pra UTC e normaliza para 00:00 UTC do dia (opcional, mas consistente p/ joins)
-                        ts_utc = ts.astimezone(timezone.utc)
-                        ts = datetime.combine(ts_utc.date(), time(0, 0), tzinfo=timezone.utc)
+                        ts_utc = ts.astimezone(UTC)
+                        ts = datetime.combine(ts_utc.date(), time(0, 0), tzinfo=UTC)
 
                     candles.append(
                         Candle(
@@ -112,7 +113,7 @@ class YFinanceCandleFetcher(CandleFetcher):
                 )
 
                 if attempt < self.max_retries:
-                    time.sleep(self.retry_delay * (2**attempt))
+                    sleep_time.sleep(self.retry_delay * (2**attempt))
                     continue
 
         logger.error(
