@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Optional
 
 
 @dataclass(frozen=True, slots=True)
@@ -28,8 +27,8 @@ class ScoredNewsArticle:
     sentiment_score: float
 
     # Optional metadata
-    confidence: Optional[float] = None
-    model_name: Optional[str] = None
+    confidence: float | None = None
+    model_name: str | None = None
 
     def __post_init__(self) -> None:
         # article_id
