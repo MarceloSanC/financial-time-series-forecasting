@@ -58,6 +58,26 @@ def _parse_quantile_levels(value: str) -> list[float]:
     return out
 
 
+def _parse_horizons(value: str) -> list[int]:
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise argparse.ArgumentTypeError(
+            "evaluation-horizons must be a JSON list (e.g. '[1, 7, 30]')"
+        ) from exc
+    if not isinstance(parsed, list) or not parsed:
+        raise argparse.ArgumentTypeError("evaluation-horizons must be a non-empty list")
+    out: list[int] = []
+    for h in parsed:
+        if not isinstance(h, (int, float)):
+            raise argparse.ArgumentTypeError("evaluation-horizons values must be numeric")
+        hv = int(h)
+        if hv < 1:
+            raise argparse.ArgumentTypeError("evaluation-horizons values must be >= 1")
+        out.append(hv)
+    return out
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Train TFT model from dataset_tft with configurable feature sets and split."
@@ -103,6 +123,14 @@ def parse_args() -> argparse.Namespace:
         help=(
             f"Prediction horizon (>=1, <= encoder). Default: "
             f"{TFT_TRAINING_DEFAULTS['max_prediction_length']}"
+        ),
+    )
+    parser.add_argument(
+        "--evaluation-horizons",
+        type=_parse_horizons,
+        help=(
+            "Horizons to persist/evaluate as JSON list. "
+            f"Default: {TFT_TRAINING_DEFAULTS['evaluation_horizons']}"
         ),
     )
     parser.add_argument(
@@ -386,6 +414,7 @@ def main() -> None:
     overrides = {
         "max_encoder_length": args.max_encoder_length,
         "max_prediction_length": args.max_prediction_length,
+        "evaluation_horizons": args.evaluation_horizons,
         "batch_size": args.batch_size,
         "max_epochs": args.max_epochs,
         "learning_rate": args.learning_rate,
