@@ -13,6 +13,7 @@ MODEL_METADATA_FIELDS = {
 TFT_TRAINING_DEFAULTS = {
     "max_encoder_length": 60,
     "max_prediction_length": 1,
+    "evaluation_horizons": [1, 7, 30],
     "batch_size": 64,
     "max_epochs": 20,
     "learning_rate": 5e-4,
@@ -136,3 +137,27 @@ def validate_tft_training_config(config: dict) -> None:
                 raise ValueError("Invalid config: quantile_levels values must be numeric")
             if float(q) <= 0.0 or float(q) >= 1.0:
                 raise ValueError("Invalid config: quantile_levels must be in (0,1)")
+
+    evaluation_horizons = config.get("evaluation_horizons", [1, 7, 30])
+    if evaluation_horizons is not None:
+        if not isinstance(evaluation_horizons, list) or not evaluation_horizons:
+            raise ValueError("Invalid config: evaluation_horizons must be a non-empty list")
+        normalized: list[int] = []
+        for h in evaluation_horizons:
+            if not isinstance(h, (int, float)):
+                raise ValueError("Invalid config: evaluation_horizons values must be numeric")
+            hv = int(h)
+            if hv < 1:
+                raise ValueError("Invalid config: evaluation_horizons must be >= 1")
+            normalized.append(hv)
+        max_prediction_length = int(
+            config.get("max_prediction_length", TFT_TRAINING_DEFAULTS["max_prediction_length"])
+        )
+        filtered = sorted({h for h in normalized if h <= max_prediction_length})
+        if not filtered:
+            raise ValueError(
+                "Invalid config: evaluation_horizons has no valid value <= max_prediction_length "
+                f"({max_prediction_length})"
+            )
+        # Keep normalized/compatible horizons in the validated payload.
+        config["evaluation_horizons"] = filtered
