@@ -17,6 +17,7 @@ from src.infrastructure.schemas.model_artifact_schema import TFT_TRAINING_DEFAUL
 from src.use_cases.run_tft_model_analysis_use_case import RunTFTModelAnalysisUseCase
 from src.use_cases.test_pipeline_common import validate_train_runner_contract
 from src.utils.path_policy import to_project_relative
+from src.utils.matplotlib_backend import ensure_non_interactive_matplotlib_backend
 
 logger = logging.getLogger(__name__)
 
@@ -202,6 +203,7 @@ class RunTFTOptunaSearchUseCase:
         x_axis_label: str,
     ) -> str | None:
         try:
+            ensure_non_interactive_matplotlib_backend()
             import matplotlib.pyplot as plt
         except Exception:
             return None
