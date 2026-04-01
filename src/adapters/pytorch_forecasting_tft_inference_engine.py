@@ -180,7 +180,7 @@ class PytorchForecastingTFTInferenceEngine(TFTInferenceEngine):
             inference_ds = TimeSeriesDataSet.from_parameters(
                 dataset_parameters,
                 prepared_df,
-                predict=True,
+                predict=False,
                 stop_randomization=True,
             )
         except Exception as exc:
@@ -205,6 +205,7 @@ class PytorchForecastingTFTInferenceEngine(TFTInferenceEngine):
             )
 
         decoder_time_idx: list[int] = []
+        encoder_lengths: list[int] = []
         loader_for_index = _build_loader()
         for x, _ in iter(loader_for_index):
             if "decoder_time_idx" not in x:
@@ -217,6 +218,16 @@ class PytorchForecastingTFTInferenceEngine(TFTInferenceEngine):
             if arr.ndim > 1:
                 arr = arr[:, 0]
             decoder_time_idx.extend([int(v) for v in arr.tolist()])
+
+            enc = x.get("encoder_lengths")
+            if enc is None:
+                encoder_lengths.extend([int(max_encoder_length)] * int(len(arr)))
+            else:
+                if hasattr(enc, "detach"):
+                    enc = enc.detach().cpu().numpy()
+                else:
+                    enc = np.asarray(enc)
+                encoder_lengths.extend([int(v) for v in np.asarray(enc).reshape(-1).tolist()])
 
         predict_kwargs = {
             "trainer_kwargs": {
@@ -239,6 +250,11 @@ class PytorchForecastingTFTInferenceEngine(TFTInferenceEngine):
             raise RuntimeError(
                 "Inference outputs mismatch sample count: "
                 f"preds={len(pred_point)} samples={len(decoder_time_idx)}."
+            )
+        if len(encoder_lengths) != len(decoder_time_idx):
+            raise RuntimeError(
+                "Inference outputs mismatch encoder/context sample count: "
+                f"encoder_lengths={len(encoder_lengths)} samples={len(decoder_time_idx)}."
             )
 
         q10: np.ndarray | None = None
@@ -340,13 +356,21 @@ class PytorchForecastingTFTInferenceEngine(TFTInferenceEngine):
 
         records: list[TFTInferenceRecord] = []
         for i, time_idx in enumerate(decoder_time_idx):
-            ts = timestamp_by_time_idx.get(int(time_idx))
-            if ts is None:
+            if int(encoder_lengths[i]) < int(max_encoder_length):
+                continue
+            target_ts = timestamp_by_time_idx.get(int(time_idx))
+            if target_ts is None:
+                continue
+            decision_ts = timestamp_by_time_idx.get(int(time_idx) - 1)
+            if decision_ts is None:
                 continue
             records.append(
                 TFTInferenceRecord(
                     asset_id=asset_id,
-                    timestamp=ts,
+                    timestamp=target_ts,
+                    target_timestamp=target_ts,
+                    decision_timestamp=decision_ts,
+                    horizon=1,
                     model_version=model_version,
                     model_path=model_path,
                     feature_set_name=feature_set_name,
