@@ -108,6 +108,12 @@ def parse_args() -> argparse.Namespace:
             "for models configured with prediction_mode=quantile."
         ),
     )
+    parser.add_argument(
+        "--inference-mode",
+        type=str,
+        choices=["rolling", "last_point"],
+        help="Inference output mode: rolling (default) or last_point (debug).",
+    )
     return parser.parse_args()
 
 
@@ -280,6 +286,11 @@ def main() -> None:
     strict_quantiles = bool(file_config.get("strict_quantiles", True)) and not bool(
         args.allow_missing_quantiles
     )
+    inference_mode = (
+        str(args.inference_mode)
+        if args.inference_mode is not None
+        else str(file_config.get("inference_mode", "rolling"))
+    ).strip().lower()
     batch_size = (
         int(args.batch_size)
         if args.batch_size is not None
@@ -316,6 +327,7 @@ def main() -> None:
         batch_size=batch_size,
         default_end_date=ensure_utc(datetime.now()),
         strict_quantiles=strict_quantiles,
+        inference_mode=inference_mode,
     )
 
     logger.info(
@@ -331,6 +343,7 @@ def main() -> None:
             "refreshed_dataset": result.refreshed_dataset,
             "auto_refresh": auto_refresh,
             "strict_quantiles": strict_quantiles,
+            "inference_mode": inference_mode,
             "inference_dir": str(inference_dir.resolve()),
         },
     )
