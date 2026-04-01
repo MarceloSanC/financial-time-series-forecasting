@@ -35,6 +35,7 @@ from src.use_cases.test_pipeline_common import (
 )
 from src.utils.feature_token_parser import parse_feature_tokens
 from src.utils.path_resolver import load_data_paths
+from src.utils.matplotlib_backend import ensure_non_interactive_matplotlib_backend
 
 logger = logging.getLogger(__name__)
 
@@ -489,6 +490,7 @@ class RunTFTModelAnalysisUseCase:
         baseline_config: dict[str, Any] | None = None,
     ) -> list[str]:
         try:
+            ensure_non_interactive_matplotlib_backend()
             import matplotlib.pyplot as plt
 
             from matplotlib.ticker import MaxNLocator
