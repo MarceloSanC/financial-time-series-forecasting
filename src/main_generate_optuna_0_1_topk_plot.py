@@ -6,6 +6,9 @@ import math
 
 from pathlib import Path, PureWindowsPath
 
+from src.utils.matplotlib_backend import ensure_non_interactive_matplotlib_backend
+
+ensure_non_interactive_matplotlib_backend()
 import matplotlib.pyplot as plt
 
 from src.utils.path_policy import to_project_relative
