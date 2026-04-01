@@ -54,7 +54,7 @@ def test_refresh_analytics_store_builds_gold_tables(tmp_path) -> None:
                 "asset": "AAPL",
                 "feature_set_name": "B",
                 "feature_set_hash": "fh1",
-                "config_signature": "cfg1",
+                "config_signature": "cfg2",
                 "model_version": "v2",
                 "parent_sweep_id": "sw1",
                 "trial_number": 2,
@@ -137,9 +137,199 @@ def test_refresh_analytics_store_builds_gold_tables(tmp_path) -> None:
                 "quantile_p50": 0.12,
                 "quantile_p90": 0.2,
                 "year": 2026,
+            },
+            {
+                "schema_version": 1,
+                "run_id": "r1",
+                "asset": "AAPL",
+                "feature_set_name": "B",
+                "config_signature": "cfg1",
+                "split": "test",
+                "fold": "wf_1",
+                "seed": 7,
+                "horizon": 7,
+                "timestamp_utc": "2026-01-04T00:00:00+00:00",
+                "target_timestamp_utc": "2026-01-10T00:00:00+00:00",
+                "y_true": -0.05,
+                "y_pred": -0.02,
+                "error": 0.03,
+                "abs_error": 0.03,
+                "sq_error": 0.0009,
+                "quantile_p10": -0.10,
+                "quantile_p50": -0.02,
+                "quantile_p90": 0.05,
+                "year": 2026,
+            },
+            {
+                "schema_version": 1,
+                "run_id": "r2",
+                "asset": "AAPL",
+                "feature_set_name": "B",
+                "config_signature": "cfg2",
+                "split": "test",
+                "fold": "wf_1",
+                "seed": 42,
+                "horizon": 1,
+                "timestamp_utc": "2026-01-03T00:00:00+00:00",
+                "target_timestamp_utc": "2026-01-03T00:00:00+00:00",
+                "y_true": 0.1,
+                "y_pred": 0.08,
+                "error": -0.02,
+                "abs_error": 0.02,
+                "sq_error": 0.0004,
+                "quantile_p10": 0.01,
+                "quantile_p50": 0.08,
+                "quantile_p90": 0.16,
+                "year": 2026,
+            },
+            {
+                "schema_version": 1,
+                "run_id": "r2",
+                "asset": "AAPL",
+                "feature_set_name": "B",
+                "config_signature": "cfg2",
+                "split": "test",
+                "fold": "wf_1",
+                "seed": 42,
+                "horizon": 7,
+                "timestamp_utc": "2026-01-04T00:00:00+00:00",
+                "target_timestamp_utc": "2026-01-10T00:00:00+00:00",
+                "y_true": -0.05,
+                "y_pred": -0.07,
+                "error": -0.02,
+                "abs_error": 0.02,
+                "sq_error": 0.0004,
+                "quantile_p10": -0.14,
+                "quantile_p50": -0.07,
+                "quantile_p90": 0.01,
+                "year": 2026,
             }
         ],
         {"asset": "AAPL", "feature_set_name": "B", "year": "2026"},
+    )
+
+    _write_table(
+        silver,
+        "fact_model_artifacts",
+        [
+            {
+                "schema_version": 1,
+                "run_id": "r1",
+                "asset": "AAPL",
+                "model_version": "v1",
+                "checkpoint_path_final": "/tmp/final.pt",
+                "checkpoint_path_best": "/tmp/best.ckpt",
+                "config_path": "/tmp/config.json",
+                "scaler_path": None,
+                "encoder_path": None,
+                "feature_importance_json": '[{"feature": "close", "delta_rmse": 0.01, "delta_mae": 0.02, "baseline_rmse": 0.10, "baseline_mae": 0.09}]',
+                "attention_summary_json": '{"available": false}',
+                "logs_ref_json": "{}",
+            },
+            {
+                "schema_version": 1,
+                "run_id": "r2",
+                "asset": "AAPL",
+                "model_version": "v2",
+                "checkpoint_path_final": "/tmp/final.pt",
+                "checkpoint_path_best": "/tmp/best.ckpt",
+                "config_path": "/tmp/config.json",
+                "scaler_path": None,
+                "encoder_path": None,
+                "feature_importance_json": '[{"feature": "close", "delta_rmse": 0.03, "delta_mae": 0.04, "baseline_rmse": 0.12, "baseline_mae": 0.10}]',
+                "attention_summary_json": '{"available": false}',
+                "logs_ref_json": "{}",
+            },
+        ],
+        {"asset": "AAPL"},
+    )
+
+    _write_table(
+        silver,
+        "fact_feature_contrib_local",
+        [
+            {
+                "schema_version": 1,
+                "inference_run_id": "inf_1",
+                "run_id": None,
+                "model_version": "v1",
+                "asset": "AAPL",
+                "feature_set_name": "B",
+                "split": "inference",
+                "horizon": 1,
+                "timestamp_utc": "2026-01-03T00:00:00+00:00",
+                "target_timestamp_utc": "2026-01-03T00:00:00+00:00",
+                "feature_name": "close",
+                "feature_rank": 1,
+                "contribution": 0.05,
+                "abs_contribution": 0.05,
+                "contribution_sign": "positive",
+                "method": "local_magnitude_signed_v1",
+                "year": 2026,
+                "created_at_utc": "2026-01-03T01:00:00+00:00",
+            },
+            {
+                "schema_version": 1,
+                "inference_run_id": "inf_1",
+                "run_id": None,
+                "model_version": "v1",
+                "asset": "AAPL",
+                "feature_set_name": "B",
+                "split": "inference",
+                "horizon": 1,
+                "timestamp_utc": "2026-01-03T00:00:00+00:00",
+                "target_timestamp_utc": "2026-01-03T00:00:00+00:00",
+                "feature_name": "volume",
+                "feature_rank": 2,
+                "contribution": -0.02,
+                "abs_contribution": 0.02,
+                "contribution_sign": "negative",
+                "method": "local_magnitude_signed_v1",
+                "year": 2026,
+                "created_at_utc": "2026-01-03T01:00:00+00:00",
+            },
+            {
+                "schema_version": 1,
+                "inference_run_id": "inf_2",
+                "run_id": None,
+                "model_version": "v1",
+                "asset": "AAPL",
+                "feature_set_name": "B",
+                "split": "inference",
+                "horizon": 1,
+                "timestamp_utc": "2026-01-04T00:00:00+00:00",
+                "target_timestamp_utc": "2026-01-04T00:00:00+00:00",
+                "feature_name": "close",
+                "feature_rank": 1,
+                "contribution": 0.03,
+                "abs_contribution": 0.03,
+                "contribution_sign": "positive",
+                "method": "local_magnitude_signed_v1",
+                "year": 2026,
+                "created_at_utc": "2026-01-04T01:00:00+00:00",
+            },
+            {
+                "schema_version": 1,
+                "inference_run_id": "inf_2",
+                "run_id": None,
+                "model_version": "v1",
+                "asset": "AAPL",
+                "feature_set_name": "B",
+                "split": "inference",
+                "horizon": 1,
+                "timestamp_utc": "2026-01-04T00:00:00+00:00",
+                "target_timestamp_utc": "2026-01-04T00:00:00+00:00",
+                "feature_name": "open",
+                "feature_rank": 2,
+                "contribution": -0.01,
+                "abs_contribution": 0.01,
+                "contribution_sign": "negative",
+                "method": "local_magnitude_signed_v1",
+                "year": 2026,
+                "created_at_utc": "2026-01-04T01:00:00+00:00",
+            },
+        ],
+        {"asset": "AAPL", "model_version": "v1", "year": "2026"},
     )
 
     use_case = RefreshAnalyticsStoreUseCase(
@@ -154,15 +344,186 @@ def test_refresh_analytics_store_builds_gold_tables(tmp_path) -> None:
     assert "gold_consistency_topk" in result.outputs
     assert "gold_ic95_by_config_metric" in result.outputs
     assert "gold_feature_set_impact" in result.outputs
+    assert "gold_prediction_metrics_by_run_split_horizon" in result.outputs
+    assert "gold_prediction_metrics_by_config" in result.outputs
+    assert "gold_prediction_metrics_by_horizon" in result.outputs
+    assert "gold_prediction_calibration" in result.outputs
+    assert "gold_prediction_risk" in result.outputs
+    assert "gold_prediction_generalization_gap" in result.outputs
+    assert "gold_prediction_robustness_by_horizon" in result.outputs
+    assert "gold_feature_impact_by_horizon" in result.outputs
+    assert "gold_feature_contrib_local_summary" in result.outputs
+    assert "gold_oos_quality_report" in result.outputs
+    assert "gold_dm_pairwise_results" in result.outputs
+    assert "gold_mcs_results" in result.outputs
+    assert "gold_win_rate_pairwise_results" in result.outputs
+    assert "gold_paired_oos_intersection_by_horizon" in result.outputs
+    assert "gold_model_decision_final" in result.outputs
+    assert "gold_quality_statistics_report" in result.outputs
+    assert "gold_quality_run_sweep_summary" in result.outputs
 
     ranking = pd.read_parquet(gold / "gold_ranking_by_config.parquet")
-    assert len(ranking) == 1
+    assert len(ranking) == 2
     assert ranking.iloc[0]["config_signature"] == "cfg1"
 
     oos = pd.read_parquet(gold / "gold_oos_consolidated.parquet")
-    assert len(oos) == 1
+    assert len(oos) == 4
     assert oos.iloc[0]["run_id"] == "r1"
 
     impact = pd.read_parquet(gold / "gold_feature_set_impact.parquet")
     assert not impact.empty
     assert "metric" in impact.columns
+
+
+    pred_run_h = pd.read_parquet(gold / "gold_prediction_metrics_by_run_split_horizon.parquet")
+    assert len(pred_run_h) == 4
+    h1 = pred_run_h[(pred_run_h["run_id"] == "r1") & (pred_run_h["horizon"] == 1)].iloc[0]
+    assert h1["n_samples"] == 1
+    assert abs(float(h1["bias"]) - 0.02) < 1e-12
+    assert abs(float(h1["rmse"]) - 0.02) < 1e-12
+    assert abs(float(h1["mae"]) - 0.02) < 1e-12
+    assert abs(float(h1["pinball_q10"]) - 0.005) < 1e-12
+    assert abs(float(h1["pinball_q50"]) - 0.01) < 1e-12
+    assert abs(float(h1["pinball_q90"]) - 0.01) < 1e-12
+    assert abs(float(h1["mean_pinball"]) - ((0.005 + 0.01 + 0.01) / 3.0)) < 1e-12
+    assert abs(float(h1["picp"]) - 1.0) < 1e-12
+    assert abs(float(h1["mpiw"]) - 0.15) < 1e-12
+    assert abs(float(h1["pred_interval_width"]) - 0.15) < 1e-12
+    assert abs(float(h1["coverage_error"]) - 0.2) < 1e-12
+    assert abs(float(h1["prob_down"]) - 0.0) < 1e-12
+    assert float(h1["confidence_calibrated"]) > 0.0
+
+    by_cfg = pd.read_parquet(gold / "gold_prediction_metrics_by_config.parquet")
+    assert not by_cfg.empty
+    assert {"n_oos", "mean_bias", "mean_mean_pinball", "mean_picp", "mean_mpiw", "mean_coverage_error", "mean_prob_down", "mean_confidence_calibrated", "iqr_rmse"}.issubset(set(by_cfg.columns))
+    assert int((pd.to_numeric(by_cfg["n_oos"], errors="coerce") <= 0).sum()) == 0
+
+    key_cols = ["asset", "feature_set_name", "config_signature", "split", "horizon"]
+    expected_n_oos = (
+        pred_run_h.groupby(key_cols, dropna=False)["n_samples"]
+        .sum()
+        .reset_index()
+        .rename(columns={"n_samples": "expected_n_oos"})
+    )
+    by_cfg_cmp = by_cfg.merge(expected_n_oos, on=key_cols, how="left")
+    assert int(
+        (
+            pd.to_numeric(by_cfg_cmp["n_oos"], errors="coerce").fillna(0).astype(int)
+            != pd.to_numeric(by_cfg_cmp["expected_n_oos"], errors="coerce").fillna(0).astype(int)
+        ).sum()
+    ) == 0
+
+    by_h = pd.read_parquet(gold / "gold_prediction_metrics_by_horizon.parquet")
+    assert not by_h.empty
+    assert "horizon" in by_h.columns
+
+    cal = pd.read_parquet(gold / "gold_prediction_calibration.parquet")
+    assert not cal.empty
+    assert {"run_id", "horizon", "pinball_q10", "pinball_q50", "pinball_q90", "mean_pinball", "picp", "mpiw", "coverage_error"}.issubset(set(cal.columns))
+
+    quality = pd.read_parquet(gold / "gold_oos_quality_report.parquet")
+    assert not quality.empty
+    assert {"scope", "passed"}.issubset(set(quality.columns))
+
+    dm = pd.read_parquet(gold / "gold_dm_pairwise_results.parquet")
+    mcs = pd.read_parquet(gold / "gold_mcs_results.parquet")
+    assert set(dm.columns).issuperset({"left_config", "right_config", "pvalue_two_sided", "pvalue_adj_holm", "significant_adj_0_05"}) or dm.empty
+    assert set(mcs.columns).issuperset({"config_label", "selected_in_mcs_alpha_0_05"}) or mcs.empty
+
+
+    wr = pd.read_parquet(gold / "gold_win_rate_pairwise_results.parquet")
+    assert set(wr.columns).issuperset({"left_config", "right_config", "left_win_rate", "right_win_rate"}) or wr.empty
+
+    qsr = pd.read_parquet(gold / "gold_quality_statistics_report.parquet")
+    assert set(qsr.columns).issuperset({"quality_passed_all", "dm_available", "mcs_available", "win_rate_available", "statistics_ready"}) or qsr.empty
+
+    paired = pd.read_parquet(gold / "gold_paired_oos_intersection_by_horizon.parquet")
+    assert not paired.empty
+    assert {"target_union_count", "target_intersection_count", "pairwise_ready_dm", "pairwise_ready_mcs"}.issubset(set(paired.columns))
+
+    decision = pd.read_parquet(gold / "gold_model_decision_final.parquet")
+    assert not decision.empty
+    assert {"mean_rmse", "mean_mae", "mean_directional_accuracy", "mean_mean_pinball", "mean_picp", "mean_mpiw", "academic_decision_ready"}.issubset(set(decision.columns))
+    if not dm.empty:
+        assert "dm_net_wins" in decision.columns
+    if not mcs.empty:
+        assert "mcs_selected_alpha_0_05" in decision.columns
+    if not wr.empty:
+        assert "win_rate_ex_ties_mean" in decision.columns
+
+    risk = pd.read_parquet(gold / "gold_prediction_risk.parquet")
+    assert not risk.empty
+    assert {"expected_move", "downside_risk", "var_10", "es_10_approx"}.issubset(set(risk.columns))
+    r1h1 = risk[(risk["run_id"] == "r1") & (risk["horizon"] == 1)].iloc[0]
+    assert abs(float(r1h1["expected_move"]) - 0.12) < 1e-12
+    assert abs(float(r1h1["downside_risk"]) - 0.0) < 1e-12
+    assert abs(float(r1h1["var_10"]) - 0.05) < 1e-12
+    assert abs(float(r1h1["es_10_approx"]) - (1.125 * 0.05 - 0.125 * 0.12)) < 1e-12
+
+
+    gap = pd.read_parquet(gold / "gold_prediction_generalization_gap.parquet")
+    assert set(gap.columns).issuperset({"gap_rmse_test_minus_val", "gap_mae_test_minus_val"}) or gap.empty
+
+    robust_h = pd.read_parquet(gold / "gold_prediction_robustness_by_horizon.parquet")
+    assert set(robust_h.columns).issuperset({"metric", "mean", "std", "median", "iqr", "ci95_low", "ci95_high"}) or robust_h.empty
+
+    fih = pd.read_parquet(gold / "gold_feature_impact_by_horizon.parquet")
+    assert not fih.empty
+    assert {"feature_name", "horizon", "mean_delta_rmse", "method"}.issubset(set(fih.columns))
+
+    local = pd.read_parquet(gold / "gold_feature_contrib_local_summary.parquet")
+    assert not local.empty
+    assert {"feature_name", "horizon", "mean_abs_contribution", "top3_frequency", "local_top3_jaccard_mean", "local_top3_jaccard_pairs"}.issubset(set(local.columns))
+    stab = local[(local["horizon"] == 1) & (local["method"] == "local_magnitude_signed_v1")]
+    assert not stab.empty
+    assert int(pd.to_numeric(stab["local_top3_jaccard_pairs"], errors="coerce").max()) >= 1
+    j = float(pd.to_numeric(stab["local_top3_jaccard_mean"], errors="coerce").dropna().iloc[0])
+    assert 0.0 <= j <= 1.0
+
+    qrun = pd.read_parquet(gold / "gold_quality_run_sweep_summary.parquet")
+    assert not qrun.empty
+    assert {"scope"}.issubset(set(qrun.columns))
+
+
+
+def test_build_gold_prediction_metrics_by_config_n_oos_is_idempotent_on_row_order() -> None:
+    rows = [
+        {
+            "run_id": "r1",
+            "asset": "AAPL",
+            "feature_set_name": "BT",
+            "config_signature": "cfg1",
+            "split": "test",
+            "horizon": 1,
+            "n_samples": 3,
+            "rmse": 0.10,
+            "mae": 0.08,
+            "directional_accuracy": 0.55,
+        },
+        {
+            "run_id": "r2",
+            "asset": "AAPL",
+            "feature_set_name": "BT",
+            "config_signature": "cfg1",
+            "split": "test",
+            "horizon": 1,
+            "n_samples": 5,
+            "rmse": 0.12,
+            "mae": 0.09,
+            "directional_accuracy": 0.53,
+        },
+    ]
+    df = pd.DataFrame(rows)
+    shuffled = df.sample(frac=1.0, random_state=42).reset_index(drop=True)
+
+    out_a = RefreshAnalyticsStoreUseCase._build_gold_prediction_metrics_by_config(df)
+    out_b = RefreshAnalyticsStoreUseCase._build_gold_prediction_metrics_by_config(shuffled)
+
+    assert "n_oos" in out_a.columns
+    assert int(out_a.iloc[0]["n_oos"]) == 8
+    assert int(out_b.iloc[0]["n_oos"]) == 8
+
+    sort_cols = ["asset", "feature_set_name", "config_signature", "split", "horizon"]
+    out_a = out_a.sort_values(sort_cols).reset_index(drop=True)
+    out_b = out_b.sort_values(sort_cols).reset_index(drop=True)
+    pd.testing.assert_frame_equal(out_a, out_b, check_like=True)
