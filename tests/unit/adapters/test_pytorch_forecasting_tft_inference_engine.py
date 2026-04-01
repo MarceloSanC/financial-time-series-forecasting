@@ -250,3 +250,92 @@ def test_to_numpy_prefers_output_when_prediction_is_empty() -> None:
 
     arr = PytorchForecastingTFTInferenceEngine._to_numpy(_Obj())
     assert arr.shape == (1, 1, 3)
+
+
+def _install_fake_pf_module_with_encoder_lengths(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    encoder_lengths: list[int],
+    decoder_time_idx: list[int],
+    capture: dict | None = None,
+) -> None:
+    fake_pf = types.ModuleType("pytorch_forecasting")
+
+    class _FakeDataset:
+        def __init__(self, df: pd.DataFrame, **kwargs):
+            self.df = df.copy()
+
+        @classmethod
+        def from_parameters(cls, params, df: pd.DataFrame, predict=True, stop_randomization=True):
+            if capture is not None:
+                capture["predict"] = bool(predict)
+            return cls(df)
+
+        def to_dataloader(self, train, batch_size, num_workers):
+            dec = np.asarray(decoder_time_idx, dtype=int).reshape(-1, 1)
+            enc = np.asarray(encoder_lengths, dtype=int).reshape(-1)
+            return [({"decoder_time_idx": dec, "encoder_lengths": enc}, None)]
+
+    fake_pf.TimeSeriesDataSet = _FakeDataset
+    monkeypatch.setitem(sys.modules, "pytorch_forecasting", fake_pf)
+
+
+def test_engine_rolling_inference_sets_target_and_decision_timestamps(monkeypatch: pytest.MonkeyPatch) -> None:
+    capture: dict = {}
+    _install_fake_pf_module_with_encoder_lengths(
+        monkeypatch,
+        encoder_lengths=[2, 2, 2, 2],
+        decoder_time_idx=[2, 3, 4, 5],
+        capture=capture,
+    )
+    engine = PytorchForecastingTFTInferenceEngine()
+    records = engine.infer(
+        model=_FakeModel(),
+        dataset_df=_sample_df(),
+        asset_id="AAPL",
+        model_version="20260303_120000_B",
+        model_path="/tmp/model",
+        feature_set_name="BASELINE_FEATURES",
+        features_used_csv="close",
+        feature_cols=["close"],
+        dataset_parameters={"time_idx": "time_idx"},
+        max_encoder_length=2,
+        max_prediction_length=1,
+        batch_size=8,
+        run_id="run_1",
+    )
+
+    assert capture.get("predict") is False
+    assert len(records) == 4
+    assert all(r.horizon == 1 for r in records)
+    assert all(r.target_timestamp is not None for r in records)
+    assert all(r.decision_timestamp is not None for r in records)
+    assert records[0].decision_timestamp < records[0].target_timestamp
+
+
+def test_engine_skips_samples_without_full_encoder_context(monkeypatch: pytest.MonkeyPatch) -> None:
+    # First sample has encoder_length=1 (< max_encoder_length=2) and must be skipped.
+    _install_fake_pf_module_with_encoder_lengths(
+        monkeypatch,
+        encoder_lengths=[1, 2, 2],
+        decoder_time_idx=[2, 3, 4],
+    )
+    engine = PytorchForecastingTFTInferenceEngine()
+    records = engine.infer(
+        model=_FakeModel(),
+        dataset_df=_sample_df(),
+        asset_id="AAPL",
+        model_version="20260303_120000_B",
+        model_path="/tmp/model",
+        feature_set_name="BASELINE_FEATURES",
+        features_used_csv="close",
+        feature_cols=["close"],
+        dataset_parameters={"time_idx": "time_idx"},
+        max_encoder_length=2,
+        max_prediction_length=1,
+        batch_size=8,
+        run_id="run_1",
+    )
+
+    assert len(records) == 2
+    assert records[0].target_timestamp == pd.Timestamp("2026-01-04", tz="UTC").to_pydatetime()
