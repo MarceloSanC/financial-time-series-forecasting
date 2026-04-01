@@ -33,10 +33,34 @@ dist/
 # NÃO devem ser versionados
 
 data/**
-text/**
 
 # Exceção opcional: manter estrutura vazia
 !data/**/.gitkeep
+
+# ======================================================
+# LaTeX (TCC em text/)
+# ======================================================
+# Versionar fontes em text/ (tex, bib, imagens), ignorar apenas gerados
+*.aux
+*.bbl
+*.bcf
+*.blg
+*.fdb_latexmk
+*.fls
+*.idx
+*.ilg
+*.ind
+*.lof
+*.lot
+*.nlo
+*.nls
+*.run.xml
+*.synctex.gz
+*.toc
+*.xdv
+
+# PDF final do LaTeX (opcional manter ignorado)
+text/Main.pdf
 
 # ======================================================
 # Notebooks (exploratórios / não determinísticos)
