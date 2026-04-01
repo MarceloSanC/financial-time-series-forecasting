@@ -54,3 +54,19 @@ def test_validate_tft_training_config_rejects_non_boolean_evaluate_train_split()
     cfg["evaluate_train_split"] = "yes"
     with pytest.raises(ValueError, match="evaluate_train_split"):
         validate_tft_training_config(cfg)
+
+
+def test_validate_tft_training_config_clamps_evaluation_horizons_to_prediction_length() -> None:
+    cfg = dict(TFT_TRAINING_DEFAULTS)
+    cfg["max_prediction_length"] = 7
+    cfg["evaluation_horizons"] = [1, 7, 30]
+    validate_tft_training_config(cfg)
+    assert cfg["evaluation_horizons"] == [1, 7]
+
+
+def test_validate_tft_training_config_rejects_horizons_without_compatible_value() -> None:
+    cfg = dict(TFT_TRAINING_DEFAULTS)
+    cfg["max_prediction_length"] = 1
+    cfg["evaluation_horizons"] = [7, 30]
+    with pytest.raises(ValueError, match="no valid value"):
+        validate_tft_training_config(cfg)
