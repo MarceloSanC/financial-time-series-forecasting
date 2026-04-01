@@ -9,6 +9,8 @@ from src.infrastructure.schemas.analytics_store_schema import (
     FACT_EPOCH_METRICS_SCHEMA,
     FACT_FAILURES_SCHEMA,
     FACT_INFERENCE_RUNS_SCHEMA,
+    FACT_INFERENCE_PREDICTIONS_SCHEMA,
+    FACT_FEATURE_CONTRIB_LOCAL_SCHEMA,
     FACT_MODEL_ARTIFACTS_SCHEMA,
     FACT_OOS_PREDICTIONS_SCHEMA,
     FACT_RUN_SNAPSHOT_SCHEMA,
@@ -152,12 +154,17 @@ def test_partitioning_and_pk_contracts() -> None:
     assert BRIDGE_RUN_FEATURES_SCHEMA.logical_pk == ("run_id", "feature_order")
     assert FACT_SPLIT_METRICS_SCHEMA.logical_pk == ("run_id", "split")
     assert FACT_INFERENCE_RUNS_SCHEMA.logical_pk == ("inference_run_id",)
+    assert FACT_INFERENCE_PREDICTIONS_SCHEMA.logical_pk == ("inference_run_id", "horizon", "timestamp_utc", "target_timestamp_utc")
+    assert FACT_INFERENCE_PREDICTIONS_SCHEMA.partition_by == ("asset", "model_version", "year")
+    assert FACT_FEATURE_CONTRIB_LOCAL_SCHEMA.partition_by == ("asset", "model_version", "year")
+    assert FACT_FEATURE_CONTRIB_LOCAL_SCHEMA.logical_pk == ("inference_run_id", "horizon", "timestamp_utc", "target_timestamp_utc", "feature_name")
     assert FACT_SPLIT_TIMESTAMPS_REF_SCHEMA.logical_pk == ("run_id", "split")
 
 
 def test_quantile_columns_are_mandatory_in_oos_schema() -> None:
     required = set(FACT_OOS_PREDICTIONS_SCHEMA.required_columns)
     assert {"quantile_p10", "quantile_p50", "quantile_p90"}.issubset(required)
+    assert "model_version" in required
 
 
 def test_analytics_table_coverage_matches_checklist_core_tables() -> None:
@@ -172,6 +179,8 @@ def test_analytics_table_coverage_matches_checklist_core_tables() -> None:
         "fact_model_artifacts",
         "fact_failures",
         "fact_inference_runs",
+        "fact_inference_predictions",
+        "fact_feature_contrib_local",
         "bridge_run_features",
         "fact_split_timestamps_ref",
     }
@@ -295,3 +304,55 @@ def test_validate_dim_run_requires_split_fingerprint() -> None:
         assert False, "expected ValueError"
     except ValueError as exc:
         assert "missing required columns" in str(exc)
+
+
+def test_validate_table_payload_accepts_fact_inference_predictions_minimal_row() -> None:
+    row = {
+        "schema_version": 1,
+        "inference_run_id": "inf_1",
+        "run_id": None,
+        "model_version": "20260308_010101_B",
+        "asset": "AAPL",
+        "feature_set_name": "BASELINE_FEATURES",
+        "features_used_csv": "open,close",
+        "model_path": "data/models/AAPL/runs/20260308_010101_B",
+        "split": "inference",
+        "horizon": 1,
+        "timestamp_utc": "2026-03-08T00:00:00+00:00",
+        "target_timestamp_utc": "2026-03-08T00:00:00+00:00",
+        "y_true": None,
+        "y_pred": 0.01,
+        "error": None,
+        "abs_error": None,
+        "sq_error": None,
+        "quantile_p10": -0.01,
+        "quantile_p50": 0.01,
+        "quantile_p90": 0.03,
+        "year": 2026,
+        "created_at_utc": "2026-03-08T00:00:01+00:00",
+    }
+    validate_table_payload("fact_inference_predictions", [row])
+
+
+def test_validate_table_payload_accepts_fact_feature_contrib_local_minimal_row() -> None:
+    row = {
+        "schema_version": 1,
+        "inference_run_id": "inf_1",
+        "run_id": None,
+        "model_version": "20260308_010101_B",
+        "asset": "AAPL",
+        "feature_set_name": "BASELINE_FEATURES",
+        "split": "inference",
+        "horizon": 1,
+        "timestamp_utc": "2026-03-08T00:00:00+00:00",
+        "target_timestamp_utc": "2026-03-08T00:00:00+00:00",
+        "feature_name": "close",
+        "feature_rank": 1,
+        "contribution": 0.01,
+        "abs_contribution": 0.01,
+        "contribution_sign": "positive",
+        "method": "local_magnitude_signed_v1",
+        "year": 2026,
+        "created_at_utc": "2026-03-08T00:00:01+00:00",
+    }
+    validate_table_payload("fact_feature_contrib_local", [row])
