@@ -17,3 +17,10 @@ class TFTInferenceRecord:
     quantile_p50: float | None = None
     quantile_p90: float | None = None
     inference_run_id: str | None = None
+    # Explicit temporal semantics for analytics:
+    # - decision_timestamp: instant when model made decision
+    # - target_timestamp: instant being predicted
+    # timestamp remains backwards-compatible (defaults to target timestamp in engine).
+    target_timestamp: datetime | None = None
+    decision_timestamp: datetime | None = None
+    horizon: int = 1
