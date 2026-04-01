@@ -224,6 +224,7 @@ def test_append_fact_oos_predictions(tmp_path) -> None:
         {
             "schema_version": 1,
             "run_id": "r1",
+            "model_version": "v1",
             "asset": "AAPL",
             "feature_set_name": "B",
             "config_signature": "cfg",
@@ -250,6 +251,7 @@ def test_append_fact_oos_predictions(tmp_path) -> None:
     df = pd.read_parquet(path)
     assert len(df) == 1
     assert df.iloc[0]["run_id"] == "r1"
+    assert df.iloc[0]["model_version"] == "v1"
     assert float(df.iloc[0]["quantile_p50"]) == 0.2
 
 
@@ -368,3 +370,88 @@ def test_append_bridge_run_features_and_fact_inference_runs(tmp_path) -> None:
     assert list(bdf.sort_values("feature_order")["feature_name"]) == ["close", "volume"]
     assert len(idf) == 1
     assert idf.iloc[0]["inference_run_id"] == "inf_1"
+
+
+def test_append_fact_inference_predictions(tmp_path) -> None:
+    repo = ParquetAnalyticsRunRepository(output_dir=tmp_path)
+
+    rows = [
+        {
+            "schema_version": 1,
+            "inference_run_id": "inf_1",
+            "run_id": None,
+            "model_version": "20260308_010101_B",
+            "asset": "AAPL",
+            "feature_set_name": "BASELINE_FEATURES",
+            "features_used_csv": "open,high,low,close,volume",
+            "model_path": "data/models/AAPL/runs/20260308_010101_B",
+            "split": "inference",
+            "horizon": 1,
+            "timestamp_utc": "2026-03-05T00:00:00+00:00",
+            "target_timestamp_utc": "2026-03-05T00:00:00+00:00",
+            "y_true": None,
+            "y_pred": 0.0123,
+            "error": None,
+            "abs_error": None,
+            "sq_error": None,
+            "quantile_p10": -0.01,
+            "quantile_p50": 0.0123,
+            "quantile_p90": 0.025,
+            "year": 2026,
+            "created_at_utc": "2026-03-05T01:00:00+00:00",
+        }
+    ]
+    repo.append_fact_inference_predictions(rows)
+
+    path = (
+        tmp_path
+        / "fact_inference_predictions"
+        / "asset=AAPL"
+        / "model_version=20260308_010101_B"
+        / "year=2026"
+        / "fact_inference_predictions.parquet"
+    )
+    df = pd.read_parquet(path)
+    assert len(df) == 1
+    assert df.iloc[0]["inference_run_id"] == "inf_1"
+    assert float(df.iloc[0]["y_pred"]) == 0.0123
+
+
+def test_append_fact_feature_contrib_local(tmp_path) -> None:
+    repo = ParquetAnalyticsRunRepository(output_dir=tmp_path)
+
+    rows = [
+        {
+            "schema_version": 1,
+            "inference_run_id": "inf_1",
+            "run_id": None,
+            "model_version": "20260308_010101_B",
+            "asset": "AAPL",
+            "feature_set_name": "BASELINE_FEATURES",
+            "split": "inference",
+            "horizon": 1,
+            "timestamp_utc": "2026-03-05T00:00:00+00:00",
+            "target_timestamp_utc": "2026-03-05T00:00:00+00:00",
+            "feature_name": "close",
+            "feature_rank": 1,
+            "contribution": 0.01,
+            "abs_contribution": 0.01,
+            "contribution_sign": "positive",
+            "method": "local_magnitude_signed_v1",
+            "year": 2026,
+            "created_at_utc": "2026-03-05T01:00:00+00:00",
+        }
+    ]
+    repo.append_fact_feature_contrib_local(rows)
+
+    path = (
+        tmp_path
+        / "fact_feature_contrib_local"
+        / "asset=AAPL"
+        / "model_version=20260308_010101_B"
+        / "year=2026"
+        / "fact_feature_contrib_local.parquet"
+    )
+    df = pd.read_parquet(path)
+    assert len(df) == 1
+    assert df.iloc[0]["feature_name"] == "close"
