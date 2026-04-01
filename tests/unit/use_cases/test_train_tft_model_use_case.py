@@ -871,6 +871,7 @@ def test_persists_dim_run_identity_fields_when_analytics_repo_is_enabled() -> No
     assert fact_config["run_id"] == row["run_id"]
     assert fact_config["prediction_mode"] == "quantile"
     assert fact_config["quantile_levels_json"]
+    assert fact_config["evaluation_horizons_json"] == "[1]"
     assert analytics.split_metric_rows is not None
     assert {r["split"] for r in analytics.split_metric_rows} == {"train", "val", "test"}
     assert all(r["run_id"] == row["run_id"] for r in analytics.split_metric_rows)
@@ -883,6 +884,7 @@ def test_persists_dim_run_identity_fields_when_analytics_repo_is_enabled() -> No
     assert len(analytics.oos_rows) >= 1
     oos = analytics.oos_rows[0]
     assert oos["run_id"] == row["run_id"]
+    assert oos["model_version"] == row["model_version"]
     assert oos["asset"] == "AAPL"
     assert oos["feature_set_name"] == row["feature_set_name"]
     assert "y_true" in oos and "y_pred" in oos
