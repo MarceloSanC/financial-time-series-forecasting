@@ -21,6 +21,7 @@ from src.interfaces.model_trainer import ModelTrainer, TrainingResult
 class TFTTrainingConfig:
     max_encoder_length: int = 60
     max_prediction_length: int = 1
+    evaluation_horizons: tuple[int, ...] = (1, 7, 30)
     batch_size: int = 64
     max_epochs: int = 20
     learning_rate: float = 1e-3
@@ -89,6 +90,17 @@ class PytorchForecastingTFTTrainer(ModelTrainer):
             filtered["quantile_levels"] = tuple(float(x) for x in raw_levels)
         else:
             filtered["quantile_levels"] = (0.1, 0.5, 0.9)
+
+        raw_horizons = filtered.get("evaluation_horizons", (1, 7, 30))
+        if isinstance(raw_horizons, (list, tuple)) and raw_horizons:
+            normalized_horizons = sorted({max(1, int(h)) for h in raw_horizons})
+        else:
+            normalized_horizons = [1]
+        max_prediction_length = int(filtered.get("max_prediction_length", 1))
+        selected_horizons = [h for h in normalized_horizons if h <= max_prediction_length]
+        if not selected_horizons:
+            selected_horizons = [1]
+        filtered["evaluation_horizons"] = tuple(selected_horizons)
         filtered["prediction_mode"] = str(filtered.get("prediction_mode", "quantile")).strip().lower()
         return TFTTrainingConfig(**filtered)
 
@@ -327,12 +339,12 @@ class PytorchForecastingTFTTrainer(ModelTrainer):
                     pred = torch.as_tensor(pred)
                 if pred.ndim == 3:
                     pred = pred[:, :, pred.shape[2] // 2]
-                if pred.ndim > 1:
-                    pred = pred[:, 0]
+                if pred.ndim == 1:
+                    pred = pred.reshape(-1, 1)
 
                 act = y[0]
-                if act.ndim > 1:
-                    act = act[:, 0]
+                if act.ndim == 1:
+                    act = act.reshape(-1, 1)
 
                 pred_batches.append(pred.detach().cpu())
                 actual_batches.append(act.detach().cpu())
@@ -346,24 +358,33 @@ class PytorchForecastingTFTTrainer(ModelTrainer):
             actuals_np = torch.cat(actual_batches, dim=0).numpy()
             return preds_np, actuals_np
 
-        def _extract_quantiles(raw_pred_np: np.ndarray) -> tuple[np.ndarray | None, np.ndarray | None, np.ndarray | None]:
+        def _extract_quantiles(
+            raw_pred_np: np.ndarray,
+        ) -> tuple[np.ndarray | None, np.ndarray | None, np.ndarray | None]:
             quantiles = getattr(getattr(best_model, "loss", None), "quantiles", None)
             if not isinstance(quantiles, (list, tuple)):
                 return None, None, None
             if raw_pred_np.ndim == 3:
-                qmat = raw_pred_np[:, 0, :]
+                # Expected shape: [batch, horizon, quantile]
+                qcube = raw_pred_np
             elif raw_pred_np.ndim == 2:
-                qmat = raw_pred_np
+                # Expected shape: [batch, quantile] => horizon=1
+                qcube = raw_pred_np[:, np.newaxis, :]
             else:
                 return None, None, None
-            if qmat.shape[1] != len(quantiles):
+            if qcube.shape[-1] != len(quantiles):
                 return None, None, None
 
             q_arr = np.asarray([float(q) for q in quantiles], dtype=float)
+
             def _idx(target: float) -> int:
                 return int(np.argmin(np.abs(q_arr - target)))
 
-            return qmat[:, _idx(0.1)], qmat[:, _idx(0.5)], qmat[:, _idx(0.9)]
+            return (
+                qcube[:, :, _idx(0.1)],
+                qcube[:, :, _idx(0.5)],
+                qcube[:, :, _idx(0.9)],
+            )
 
         def _predict_and_metrics(split_name: str, dataloader, *, collect_predictions: bool = False) -> tuple[dict[str, float], dict[str, list[float]] | None]:
             with self._suppress_lightning_predict_logs():
@@ -405,15 +426,37 @@ class PytorchForecastingTFTTrainer(ModelTrainer):
                     raise
                 preds_np, actuals_np = _manual_forward_arrays(dataloader, split_name)
 
-            if preds_np.ndim > 1:
-                preds_np = preds_np[:, 0]
-            if actuals_np.ndim > 1:
-                actuals_np = actuals_np[:, 0]
-            if preds_np.shape[0] != actuals_np.shape[0]:
+            if preds_np.ndim == 1:
+                preds_matrix = preds_np.reshape(-1, 1)
+            elif preds_np.ndim == 2:
+                preds_matrix = preds_np
+            elif preds_np.ndim == 3:
+                preds_matrix = preds_np[:, :, 0]
+            else:
+                raise RuntimeError(f"Unsupported prediction ndim: {preds_np.ndim}")
+
+            if actuals_np.ndim == 1:
+                actuals_matrix = actuals_np.reshape(-1, 1)
+            elif actuals_np.ndim == 2:
+                actuals_matrix = actuals_np
+            else:
+                raise RuntimeError(f"Unsupported target ndim: {actuals_np.ndim}")
+
+            if preds_matrix.shape[0] != actuals_matrix.shape[0]:
                 raise RuntimeError(
                     "Model predict output length does not match target length "
-                    f"(preds={preds_np.shape[0]}, actuals={actuals_np.shape[0]})."
+                    f"(preds={preds_matrix.shape[0]}, actuals={actuals_matrix.shape[0]})."
                 )
+            horizon_dim = min(preds_matrix.shape[1], actuals_matrix.shape[1])
+            preds_matrix = preds_matrix[:, :horizon_dim]
+            actuals_matrix = actuals_matrix[:, :horizon_dim]
+
+            selected_horizons = [
+                int(h) for h in cfg.evaluation_horizons if 1 <= int(h) <= horizon_dim
+            ] or [1]
+            selected_idx = [h - 1 for h in selected_horizons]
+            preds_sel = preds_matrix[:, selected_idx]
+            actuals_sel = actuals_matrix[:, selected_idx]
 
             q10_np: np.ndarray | None = None
             q50_np: np.ndarray | None = None
@@ -431,28 +474,37 @@ class PytorchForecastingTFTTrainer(ModelTrainer):
                     q10_np, q50_np, q90_np = None, None, None
 
             if q10_np is None:
-                q10_np = preds_np.copy()
+                q10_np = preds_matrix.copy()
             if q50_np is None:
-                q50_np = preds_np.copy()
+                q50_np = preds_matrix.copy()
             if q90_np is None:
-                q90_np = preds_np.copy()
+                q90_np = preds_matrix.copy()
 
-            direction_acc = float(np.mean(np.sign(preds_np) == np.sign(actuals_np)))
+            q10_sel = q10_np[:, selected_idx]
+            q50_sel = q50_np[:, selected_idx]
+            q90_sel = q90_np[:, selected_idx]
+
+            anchor_h = 1 if 1 in selected_horizons else selected_horizons[0]
+            anchor_idx = selected_horizons.index(anchor_h)
+            preds_eval = preds_sel[:, anchor_idx]
+            actuals_eval = actuals_sel[:, anchor_idx]
+
+            direction_acc = float(np.mean(np.sign(preds_eval) == np.sign(actuals_eval)))
             metrics_out = {
-                "rmse": float(np.sqrt(np.mean((preds_np - actuals_np) ** 2))),
-                "mae": float(np.mean(np.abs(preds_np - actuals_np))),
+                "rmse": float(np.sqrt(np.mean((preds_eval - actuals_eval) ** 2))),
+                "mae": float(np.mean(np.abs(preds_eval - actuals_eval))),
                 "directional_accuracy": direction_acc,
             }
             if not collect_predictions:
                 return metrics_out, None
 
             details = {
-                "y_true": actuals_np.astype(float).tolist(),
-                "y_pred": preds_np.astype(float).tolist(),
-                "quantile_p10": q10_np.astype(float).tolist(),
-                "quantile_p50": q50_np.astype(float).tolist(),
-                "quantile_p90": q90_np.astype(float).tolist(),
-                "horizon": [1.0] * int(preds_np.shape[0]),
+                "y_true_matrix": actuals_sel.astype(float).tolist(),
+                "y_pred_matrix": preds_sel.astype(float).tolist(),
+                "quantile_p10_matrix": q10_sel.astype(float).tolist(),
+                "quantile_p50_matrix": q50_sel.astype(float).tolist(),
+                "quantile_p90_matrix": q90_sel.astype(float).tolist(),
+                "horizons": [int(h) for h in selected_horizons],
             }
             return metrics_out, details
 
