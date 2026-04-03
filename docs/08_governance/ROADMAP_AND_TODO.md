@@ -4,6 +4,11 @@ Este documento define o padrão oficial para uso de TODOs no projeto.
 
 ## Objetivo dos TODOs
 
+### Atualizacoes recentes
+
+- [x] 2026-04-02: README alinhado com a nova arvore de documentacao (`docs/05_checklists`, `docs/06_runbooks`, `docs/INDEX.md`).
+- [x] 2026-04-02: remocao de referencias legadas de paths antigos no onboarding.
+
 Os TODOs servem para:
 - Registrar melhorias técnicas já identificadas
 - Preservar decisões arquiteturais para iterações futuras
