@@ -35,6 +35,16 @@ def apply_common_test_fields(
         out["continue_on_error"] = file_config["continue_on_error"]
     if isinstance(file_config.get("merge_tests"), bool):
         out["merge_tests"] = file_config["merge_tests"]
+    if isinstance(file_config.get("resume_policy"), str):
+        out["resume_policy"] = file_config["resume_policy"].strip()
+    if file_config.get("rewind_n") is not None:
+        out["rewind_n"] = int(file_config["rewind_n"])
+    if isinstance(file_config.get("reconcile_orphans"), bool):
+        out["reconcile_orphans"] = file_config["reconcile_orphans"]
+    if isinstance(file_config.get("cleanup_failed_or_incomplete"), bool):
+        out["cleanup_failed_or_incomplete"] = file_config["cleanup_failed_or_incomplete"]
+    if isinstance(file_config.get("dry_run_cleanup"), bool):
+        out["dry_run_cleanup"] = file_config["dry_run_cleanup"]
     if isinstance(file_config.get("output_subdir"), str):
         out["output_subdir"] = file_config["output_subdir"]
     if isinstance(file_config.get("replica_seeds"), list):
