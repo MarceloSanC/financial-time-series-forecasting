@@ -4,6 +4,8 @@ Data da revisao: 2026-03-30
 Projeto: `financial-time-series-forecasting`  
 Escopo: revisao end-to-end dos fluxos implementados no codigo, com foco em cobertura funcional, rastreabilidade, qualidade estatistica e riscos para v0.
 
+Atualizacao de registro (2026-04-02): a fragilidade de referencias legadas no README foi tratada; links de onboarding e indice documental foram alinhados com a arvore atual de docs.
+
 ---
 
 ## 1. Resumo Executivo
@@ -20,7 +22,7 @@ No estado atual, a arquitetura cobre os elementos centrais para defesa academica
 As principais fragilidades identificadas nao estao no "core" matematico, e sim em:
 - higiene operacional (mistura de coortes heterogeneas quando filtros nao sao aplicados),
 - qualidade/legibilidade de alguns graficos em cenarios degenerados,
-- consistencia documental em alguns pontos (README e guias legados).
+- consistencia documental agora alinhada no README e no indice de docs (paths legados removidos).
 
 ---
 
@@ -412,10 +414,10 @@ Inclui OFAT, Optuna e explicit configs.
 - guias de commit/versionamento.
 
 **Fragilidades**
-- `README.md` ainda referencia paths legados em alguns pontos; gera confusao para onboarding.
+- risco residual baixo de desatualizacao documental futura quando novos arquivos forem movidos sem atualizar o README/INDEX.
 
 **Sugestao v0**
-- alinhar README com a nova arvore de docs e comandos atuais de execucao.
+- manter checklist de revisao documental em PRs que alterem paths de docs (README + docs/INDEX.md + runbooks).
 
 ---
 
@@ -462,9 +464,9 @@ Inclui OFAT, Optuna e explicit configs.
 
 ### Baixa prioridade
 
-5. Inconsistencias documentais residuais (README vs nova estrutura de docs).
-- Impacto: onboarding mais lento.
-- Mitigacao: ajuste de docs de entrada.
+5. Governanca documental depende de disciplina de manutencao continua.
+- Impacto: se README/INDEX nao forem atualizados junto com mudancas de estrutura, onboarding volta a degradar.
+- Mitigacao: gate documental em PR com alteracao de paths e comandos.
 
 ---
 
@@ -476,7 +478,7 @@ Inclui OFAT, Optuna e explicit configs.
 - Analytics silver/gold: **Pronto**.
 - Qualidade estatistica automatizada: **Pronto**.
 - Artefatos de analise final (tabelas/plots): **Pronto com necessidade de filtro de coorte**.
-- Governanca documental: **Boa, com ajuste pontual no README**.
+- Governanca documental: **Boa (README ja alinhado com a estrutura atual de docs)**.
 
 Conclusao: o projeto esta em condicao de executar analise final academica, desde que o protocolo de selecao de coorte seja seguido rigorosamente e os graficos sejam interpretados com os checks de qualidade ativos.
 
@@ -502,7 +504,7 @@ Conclusao: o projeto esta em condicao de executar analise final academica, desde
 ## 8. Recomendacoes Objetivas de Melhorias (curto prazo)
 
 1. Tornar escopo de coorte obrigatorio para comandos de analise final (modo `--final-analysis`).
-2. Ajustar `README.md` para nova estrutura de docs e runbooks.
+2. Reforcar gate de manutencao do `README.md` e `docs/INDEX.md` em PRs de reorganizacao documental.
 3. Adicionar teste de regressao para graficos degenerados (1 ponto, sem pares DM).
 4. Reduzir warnings de scaler por padronizacao de feature names no pipeline inferencia.
 5. Criar um "quality snapshot" unico (JSON/MD) por refresh, com checks + contexto de coorte.
