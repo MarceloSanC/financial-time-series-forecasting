@@ -284,6 +284,11 @@ def parse_args() -> argparse.Namespace:
             f"Default: {TFT_TRAINING_DEFAULTS['compute_feature_importance']}"
         ),
     )
+    parser.add_argument(
+        "--parent-sweep-id",
+        type=str,
+        help="Optional sweep lineage identifier persisted in analytics (e.g. optuna_0_1_5_*).",
+    )
     parser.add_argument("--train-start", type=str, help="Train start date (yyyymmdd)")
     parser.add_argument("--train-end", type=str, help="Train end date (yyyymmdd)")
     parser.add_argument("--val-start", type=str, help="Validation start date (yyyymmdd)")
@@ -410,6 +415,8 @@ def main() -> None:
             training_config[key] = file_config[key]
     if "derived_feature_groups" in file_config:
         training_config["derived_feature_groups"] = file_config["derived_feature_groups"]
+    if "parent_sweep_id" in file_config and file_config["parent_sweep_id"] is not None:
+        training_config["parent_sweep_id"] = str(file_config["parent_sweep_id"])
 
     overrides = {
         "max_encoder_length": args.max_encoder_length,
@@ -442,6 +449,8 @@ def main() -> None:
     for key, value in overrides.items():
         if value is not None:
             training_config[key] = value
+    if args.parent_sweep_id is not None:
+        training_config["parent_sweep_id"] = str(args.parent_sweep_id)
     validate_tft_training_config(training_config)
 
     training_config["entrypoint"] = "src.main_train_tft"
