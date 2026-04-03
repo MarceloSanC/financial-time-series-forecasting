@@ -73,6 +73,23 @@ test(use_cases): adiciona testes para FetchNewsUseCase com mock
 - 100% cobertura em lógica de negócio
 ```
 
+
+### Regra operacional do projeto (obrigatória)
+- Quando for solicitado fazer commits, o padrão é **1 commit por arquivo**.
+- Exceção: agrupar múltiplos arquivos no mesmo commit somente quando o usuário pedir explicitamente.
+- A regra vale para arquivos de componentes, testes e documentação.
+
+### Template obrigatório da mensagem de commit
+```text
+<tipo>(<escopo>): <título curto>
+
+[descricao geral da alteracao/criacao]
+
+- [item1] detalhamento curto de uma alteracao particular
+- [item2] detalhamento curto de outra alteracao particular
+- [item3] adicionar conforme necessario (sem misturar escopo/responsabilidade)
+```
+
 ## Fluxo de trabalho recomendado
 
 ### 1. Atualizar main antes de começar
