@@ -9,9 +9,12 @@
 ## Commit Message Convention
 - Follow the existing project guide in:
   - `docs/08_governance/GIT_AND_VERSIONING_GUIDE.md`
+- Default policy when commits are requested: one commit per file (unless explicitly requested otherwise).
 
 ## Documentation Update Rule
 Any change in one of these requires docs update in the same PR:
+- AI workflow/skill updates (check `docs/ai/INDEX.md` and `docs/ai/AGENT_CORE.md`)
+- documentation path reorganization (must update `README.md` and `docs/INDEX.md`)
 - data schema/contract
 - metric/statistical method
 - run command/CLI flags
