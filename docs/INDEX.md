@@ -2,11 +2,20 @@
 
 This index is the single entrypoint for project documentation.
 
+README synchronization note:
+- `README.md` was aligned on 2026-04-02 to reference the current docs tree and canonical runbooks/checklists.
+
 ## How To Use This Docs Set
 - Start at `docs/00_overview/PROJECT_OVERVIEW.md` for scope and goals.
 - Use `docs/06_runbooks/*` for execution commands.
 - Use `docs/05_checklists/*` as implementation and validation gates.
 - Use `docs/04_evaluation/*` for metric/statistical definitions.
+- Use `docs/ai/*` for agent-specific workflow and reusable skills.
+
+## AI Playbook
+- AI index: `docs/ai/INDEX.md`
+- Agent core: `docs/ai/AGENT_CORE.md`
+- Agent workflow: `docs/ai/WORKFLOW.md`
 
 ## Sections
 - `00_overview/`: project scope, glossary, and high-level framing.
@@ -18,6 +27,7 @@ This index is the single entrypoint for project documentation.
 - `06_runbooks/`: operational commands, expected outputs, troubleshooting.
 - `07_reports/`: report templates and living-paper material.
 - `08_governance/`: contribution rules, versioning policy, roadmap.
+- `ai/`: agent-focused skills, context, and workflow guidance.
 
 ## Canonical Files In Current Project State
 - Analytics store checklist: `docs/05_checklists/ANALYTICS_STORE_CHECKLIST.md`
