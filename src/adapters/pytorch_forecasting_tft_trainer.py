@@ -358,6 +358,78 @@ class PytorchForecastingTFTTrainer(ModelTrainer):
             actuals_np = torch.cat(actual_batches, dim=0).numpy()
             return preds_np, actuals_np
 
+        def _manual_forward_quantiles_and_actuals(
+            dataloader, split_name: str
+        ) -> tuple[np.ndarray | None, np.ndarray | None, np.ndarray | None, np.ndarray | None]:
+            quantiles = getattr(getattr(best_model, "loss", None), "quantiles", None)
+            if not isinstance(quantiles, (list, tuple)):
+                return None, None, None, None
+            q_arr = np.asarray([float(q) for q in quantiles], dtype=float)
+
+            def _idx(target: float) -> int:
+                return int(np.argmin(np.abs(q_arr - target)))
+
+            q10_batches: list[np.ndarray] = []
+            q50_batches: list[np.ndarray] = []
+            q90_batches: list[np.ndarray] = []
+            actual_batches: list[np.ndarray] = []
+
+            for x, y in iter(dataloader):
+                with torch.no_grad():
+                    out = best_model(x)
+                if isinstance(out, dict):
+                    pred = out.get("prediction", out.get("output", out))
+                elif hasattr(out, "prediction"):
+                    pred = out.prediction
+                elif hasattr(out, "output"):
+                    pred = out.output
+                else:
+                    pred = out
+
+                if hasattr(pred, "detach"):
+                    pred_np = pred.detach().cpu().numpy()
+                else:
+                    pred_np = np.asarray(pred)
+
+                qcube: np.ndarray | None
+                if pred_np.ndim == 3:
+                    if pred_np.shape[2] == len(q_arr):
+                        qcube = pred_np
+                    elif pred_np.shape[1] == len(q_arr):
+                        qcube = np.swapaxes(pred_np, 1, 2)
+                    else:
+                        qcube = None
+                elif pred_np.ndim == 2 and pred_np.shape[1] == len(q_arr):
+                    qcube = pred_np[:, np.newaxis, :]
+                else:
+                    qcube = None
+
+                if qcube is None:
+                    return None, None, None, None
+
+                q10_batches.append(qcube[:, :, _idx(0.1)])
+                q50_batches.append(qcube[:, :, _idx(0.5)])
+                q90_batches.append(qcube[:, :, _idx(0.9)])
+
+                act = y[0]
+                if hasattr(act, "detach"):
+                    act_np = act.detach().cpu().numpy()
+                else:
+                    act_np = np.asarray(act)
+                if act_np.ndim == 1:
+                    act_np = act_np.reshape(-1, 1)
+                actual_batches.append(act_np)
+
+            if len(q10_batches) == 0:
+                return None, None, None, None
+
+            return (
+                np.concatenate(q10_batches, axis=0),
+                np.concatenate(q50_batches, axis=0),
+                np.concatenate(q90_batches, axis=0),
+                np.concatenate(actual_batches, axis=0),
+            )
+
         def _extract_quantiles(
             raw_pred_np: np.ndarray,
         ) -> tuple[np.ndarray | None, np.ndarray | None, np.ndarray | None]:
@@ -461,28 +533,41 @@ class PytorchForecastingTFTTrainer(ModelTrainer):
             q10_np: np.ndarray | None = None
             q50_np: np.ndarray | None = None
             q90_np: np.ndarray | None = None
-            if collect_predictions and cfg.prediction_mode == "quantile":
-                try:
-                    with self._suppress_lightning_predict_logs():
-                        try:
-                            raw_preds = best_model.predict(dataloader, mode="raw", **predict_kwargs)
-                        except TypeError:
-                            raw_preds = best_model.predict(dataloader, mode="raw")
-                    raw_np = _to_numpy(raw_preds)
-                    q10_np, q50_np, q90_np = _extract_quantiles(raw_np)
-                except Exception:
-                    q10_np, q50_np, q90_np = None, None, None
-
-            if q10_np is None:
-                q10_np = preds_matrix.copy()
-            if q50_np is None:
-                q50_np = preds_matrix.copy()
-            if q90_np is None:
-                q90_np = preds_matrix.copy()
-
-            q10_sel = q10_np[:, selected_idx]
-            q50_sel = q50_np[:, selected_idx]
-            q90_sel = q90_np[:, selected_idx]
+            if collect_predictions:
+                if cfg.prediction_mode == "quantile":
+                    try:
+                        with self._suppress_lightning_predict_logs():
+                            try:
+                                raw_preds = best_model.predict(dataloader, mode="raw", **predict_kwargs)
+                            except TypeError:
+                                raw_preds = best_model.predict(dataloader, mode="raw")
+                        raw_np = _to_numpy(raw_preds)
+                        q10_np, q50_np, q90_np = _extract_quantiles(raw_np)
+                    except Exception:
+                        q10_np, q50_np, q90_np = None, None, None
+                    if q10_np is None or q50_np is None or q90_np is None:
+                        q10_np, q50_np, q90_np, manual_actuals_np = _manual_forward_quantiles_and_actuals(
+                            dataloader,
+                            split_name,
+                        )
+                        if (
+                            q10_np is not None
+                            and q50_np is not None
+                            and q90_np is not None
+                            and manual_actuals_np is not None
+                        ):
+                            preds_matrix = q50_np.copy()
+                            actuals_matrix = manual_actuals_np
+                    if q10_np is None or q50_np is None or q90_np is None:
+                        raise RuntimeError(
+                            "Quantile extraction failed during training evaluation for "
+                            f"split '{split_name}'. prediction_mode='quantile' requires "
+                            "valid p10/p50/p90 outputs."
+                        )
+                else:
+                    q10_np = preds_matrix.copy()
+                    q50_np = preds_matrix.copy()
+                    q90_np = preds_matrix.copy()
 
             anchor_h = 1 if 1 in selected_horizons else selected_horizons[0]
             anchor_idx = selected_horizons.index(anchor_h)
@@ -498,6 +583,9 @@ class PytorchForecastingTFTTrainer(ModelTrainer):
             if not collect_predictions:
                 return metrics_out, None
 
+            q10_sel = q10_np[:, selected_idx]
+            q50_sel = q50_np[:, selected_idx]
+            q90_sel = q90_np[:, selected_idx]
             details = {
                 "y_true_matrix": actuals_sel.astype(float).tolist(),
                 "y_pred_matrix": preds_sel.astype(float).tolist(),
