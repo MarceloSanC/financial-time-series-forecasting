@@ -596,3 +596,26 @@ def test_use_case_rejects_invalid_inference_mode() -> None:
             end_date=start + timedelta(days=7),
             inference_mode="foo",
         )
+
+
+def test_apply_scalers_keeps_target_return_timestamp_and_asset_id_unscaled() -> None:
+    start = datetime(2025, 1, 1, tzinfo=UTC)
+    df = _dataset(start, rows=5)
+    original_target = df["target_return"].copy()
+    original_timestamp = df["timestamp"].copy()
+    original_asset = df["asset_id"].copy()
+
+    out = RunTFTInferenceUseCase._apply_scalers(
+        df,
+        {
+            "target_return": _FakeScaler(),  # must be ignored
+            "timestamp": _FakeScaler(),      # must be ignored
+            "asset_id": _FakeScaler(),       # must be ignored
+            "close": _FakeScaler(),          # must be transformed
+        },
+    )
+
+    assert out["target_return"].tolist() == original_target.tolist()
+    assert out["timestamp"].tolist() == original_timestamp.tolist()
+    assert out["asset_id"].tolist() == original_asset.tolist()
+    assert (out["close"] > df["close"]).all()
