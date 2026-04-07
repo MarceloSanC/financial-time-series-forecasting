@@ -967,3 +967,85 @@ def test_persists_failed_status_and_failure_fact_when_training_raises() -> None:
     assert len(analytics.failures) == 1
     assert analytics.failures[0]["stage"] == "train_execute"
     assert "boom training" in analytics.failures[0]["error_message"]
+
+
+def test_persist_fact_oos_predictions_keeps_horizon_index_alignment_per_split() -> None:
+    analytics = FakeAnalyticsRunRepo()
+    use_case = TrainTFTModelUseCase(
+        dataset_repository=FakeDatasetRepository(_df()),
+        model_trainer=FakeTrainer(),
+        model_repository=FakeModelRepo(),
+        analytics_run_repository=analytics,
+    )
+
+    split_frames = {
+        "val": pd.DataFrame(
+            {
+                "timestamp": pd.to_datetime(["2025-01-10", "2025-01-11"], utc=True),
+            }
+        ),
+        "test": pd.DataFrame(
+            {
+                "timestamp": pd.to_datetime(["2025-02-10", "2025-02-11"], utc=True),
+            }
+        ),
+    }
+    split_predictions = {
+        "val": {
+            "horizons": [1, 7, 30],
+            "y_true_matrix": [[101.0, 107.0, 130.0], [201.0, 207.0, 230.0]],
+            "y_pred_matrix": [[111.0, 117.0, 140.0], [211.0, 217.0, 240.0]],
+            "quantile_p10_matrix": [[91.0, 97.0, 120.0], [191.0, 197.0, 220.0]],
+            "quantile_p50_matrix": [[111.0, 117.0, 140.0], [211.0, 217.0, 240.0]],
+            "quantile_p90_matrix": [[131.0, 137.0, 160.0], [231.0, 237.0, 260.0]],
+        },
+        "test": {
+            "horizons": [1, 7, 30],
+            "y_true_matrix": [[301.0, 307.0, 330.0], [401.0, 407.0, 430.0]],
+            "y_pred_matrix": [[311.0, 317.0, 340.0], [411.0, 417.0, 440.0]],
+            "quantile_p10_matrix": [[291.0, 297.0, 320.0], [391.0, 397.0, 420.0]],
+            "quantile_p50_matrix": [[311.0, 317.0, 340.0], [411.0, 417.0, 440.0]],
+            "quantile_p90_matrix": [[331.0, 337.0, 360.0], [431.0, 437.0, 460.0]],
+        },
+    }
+
+    use_case._persist_fact_oos_predictions(
+        run_id="run_x",
+        asset_id="AAPL",
+        feature_set_name="B",
+        model_version="20260407_010101_B",
+        config_signature="sig_x",
+        fold_name="wf_1",
+        seed=7,
+        split_frames=split_frames,
+        split_predictions=split_predictions,
+    )
+
+    assert analytics.oos_rows is not None
+    rows = analytics.oos_rows
+    # 2 timestamps x 3 horizons x 2 splits
+    assert len(rows) == 12
+
+    val_h7 = [
+        r for r in rows
+        if r["split"] == "val" and int(r["horizon"]) == 7 and r["timestamp_utc"].startswith("2025-01-10")
+    ]
+    assert len(val_h7) == 1
+    assert val_h7[0]["y_true"] == 107.0
+    assert val_h7[0]["y_pred"] == 117.0
+    assert val_h7[0]["quantile_p10"] == 97.0
+    assert val_h7[0]["quantile_p50"] == 117.0
+    assert val_h7[0]["quantile_p90"] == 137.0
+    assert val_h7[0]["target_timestamp_utc"].startswith("2025-01-16")
+
+    test_h30 = [
+        r for r in rows
+        if r["split"] == "test" and int(r["horizon"]) == 30 and r["timestamp_utc"].startswith("2025-02-10")
+    ]
+    assert len(test_h30) == 1
+    assert test_h30[0]["y_true"] == 330.0
+    assert test_h30[0]["y_pred"] == 340.0
+    assert test_h30[0]["quantile_p10"] == 320.0
+    assert test_h30[0]["quantile_p50"] == 340.0
+    assert test_h30[0]["quantile_p90"] == 360.0
+    assert test_h30[0]["target_timestamp_utc"].startswith("2025-03-11")
