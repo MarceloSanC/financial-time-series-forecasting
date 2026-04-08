@@ -32,6 +32,7 @@ README synchronization note:
 ## Canonical Files In Current Project State
 - Analytics store checklist: `docs/05_checklists/ANALYTICS_STORE_CHECKLIST.md`
 - Predictions/metrics checklist: `docs/05_checklists/PREDICTIONS_AND_METRICS_CHECKLIST.md`
+- Post-round-1 selection checklist: `docs/05_checklists/POST_ROUND1_MODEL_SELECTION_CHECKLIST.md`
 - Feature set checklist: `docs/05_checklists/FEATURES_SET_CHECKLIST.md`
 - Training pipeline (legacy params doc): `docs/03_modeling/TRAINING_PIPELINE.md`
 - Inference pipeline (legacy params doc): `docs/03_modeling/INFERENCE_PIPELINE.md`

@@ -16,7 +16,7 @@ Covers:
 - Validation discipline
 - Commit rules and documentation sync expectations
 
-Overrides/additions in this skill:
+Project-specific additions in this skill (aligned with docs/ai/skills/skill-creator/SKILL.md):
 - Strict domain-first modeling before adapter wiring
 - Shared threshold/constants policy to avoid duplicated rules
 - Clean dependency direction enforcement
@@ -81,6 +81,7 @@ Example commands:
 - Implementation is traceable, reusable, and consistent with Clean Architecture.
 
 ## References
+- `docs/ai/skills/skill-creator/SKILL.md`
 - `docs/ai/skills/documentation-authoring/SKILL.md`
 - `docs/ai/AGENT_CORE.md`
 - `docs/ai/INDEX.md`

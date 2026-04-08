@@ -16,7 +16,7 @@ Covers:
 - Validation discipline
 - Commit rules and documentation sync expectations
 
-Overrides/additions in this skill:
+Project-specific additions in this skill (aligned with docs/ai/skills/skill-creator/SKILL.md):
 - Test design by layer (domain/use_case/adapter/infrastructure)
 - Determinism and anti-flakiness policy
 - Explicit assertion strategy and failure readability
@@ -94,6 +94,7 @@ Example commands:
 - Executed test subset and result are reported.
 
 ## References
+- `docs/ai/skills/skill-creator/SKILL.md`
 - `docs/ai/skills/documentation-authoring/SKILL.md`
 - `docs/ai/AGENT_CORE.md`
 - `docs/ai/skills/module-implementation-clean-arch/SKILL.md`

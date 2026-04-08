@@ -17,7 +17,7 @@ Covers:
 - Validation discipline
 - Commit rules and documentation sync expectations
 
-Overrides/additions in this skill:
+Project-specific additions in this skill (aligned with docs/ai/skills/skill-creator/SKILL.md):
 - Cohort isolation policy by sweep prefix
 - Explicit command templates for batch execution
 - Resume policy and reconciliation requirements for interrupted runs
@@ -122,6 +122,7 @@ Example commands:
 - Merge/resume cleanup report confirms no orphans in target sweep.
 
 ## References
+- `docs/ai/skills/skill-creator/SKILL.md`
 - `docs/ai/AGENT_CORE.md`
 - `docs/ai/skills/testing-execution/SKILL.md`
 - `docs/ai/skills/project-scope-principles/SKILL.md`

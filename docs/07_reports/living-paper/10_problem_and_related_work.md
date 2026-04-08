@@ -20,4 +20,18 @@ Entrada e saida esperadas:
 - Posicionamento deste trabalho
 
 ## Rascunho inicial
-- [a preencher]
+
+## Base da Fundamentação Teórica (v1 sincronizada com `text/3_Revisao_Teorica`)
+- Previsão financeira: tensão entre eficiência de mercado e adaptação dinâmica de regimes.
+- Deep learning temporal: uso condicionado a desenho experimental rigoroso e controle de leakage.
+- TFT: justificativa por integração de covariáveis heterogêneas, multi-horizonte e interpretabilidade.
+- Predição quantílica: incerteza como componente central da qualidade preditiva.
+- Avaliação OOS: comparação justa requer alinhamento temporal e teste estatístico pareado.
+- Reprodutibilidade: registro auditável de execuções e artefatos como requisito metodológico.
+
+Referências nucleares do capítulo:
+- `FAMA1991`, `LO2004`
+- `LIMZOHREN2021`, `LIMETAL2021TFT`
+- `KOENKERBASSETT1978`, `GNEITING2007`
+- `DIEBOLDMARIANO1995`
+- `PINEAU2021REPRODUCIBILITY`

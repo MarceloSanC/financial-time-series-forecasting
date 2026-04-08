@@ -415,3 +415,38 @@ Objetivo: definir gates objetivos para considerar os artefatos visuais prontos p
   - [ ] `gold_feature_contrib_local_summary.parquet`
 - [ ] Comparacoes estatisticas (DM/MCS/win-rate) usam intersecao temporal explicita.
 - [ ] Decisao final por horizonte esta documentada com erro, calibracao, risco e robustez.
+
+---
+
+## 12) P2 - Inference Explainability Contract (Producao)
+
+Objetivo: padronizar a resposta de inferencia para o usuario final com previsao multi-horizonte, margens de risco e explicacao local do por que da previsao.
+
+### 12.1 Contrato canonico de payload
+- [x] Definir schema versionado da resposta de inferencia explicavel (`p2.inference_explainability.v1`).
+- [x] Retornar por horizonte: `p10`, `p50`, `p90`, `risk_summary`, `feature_contributions`, `explanation_text`, `explanation_reliability`.
+- [x] Suportar `top_k` e opcao de contribuicoes completas (`full`) por feature.
+- [x] Documentar restricoes semanticas da explicacao (fatores associados, nao causalidade forte).
+
+Referencia: `docs/04_specs/P2_INFERENCE_EXPLAINABILITY_CONTRACT.md`
+
+### 12.2 Persistencia e rastreabilidade
+- [x] Persistir previsoes por horizonte em `fact_inference_predictions`.
+- [x] Persistir contribuicoes locais por feature em `fact_feature_contrib_local`.
+- [x] Garantir rastreabilidade por `inference_run_id` + chaves temporais (`timestamp_utc`, `target_timestamp_utc`, `horizon`).
+
+### 12.3 Quality gates P2
+- [x] Enforce de ordenacao quantilica `p10<=p50<=p90` na saida final.
+- [x] Enforce de `interval_width >= 0`.
+- [x] Presenca minima de contribuicoes locais quando explicabilidade habilitada.
+- [x] Ranking top-k consistente por `abs_contribution`.
+- [x] Indicador de estabilidade explicativa (`stability_score`) por horizonte.
+
+### 12.4 Criterios de aceite P2
+- [x] Resposta de inferencia com payload completo por horizonte habilitado.
+- [x] Inference rolling cobrindo todos os dias elegiveis no periodo solicitado.
+- [x] Persistencia consistente (run/predicoes/contribuicoes) sem orfaos.
+- [x] Validacoes operacionais documentadas em runbook.
+
+Referencia operacional: `docs/06_runbooks/P2_INFERENCE_EXPLAINABILITY_RUNBOOK.md`
+

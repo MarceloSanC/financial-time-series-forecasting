@@ -20,3 +20,9 @@ Detalhamento do objetivo:
 - Este arquivo sera refinado junto com a escrita dos capitulos em `text/`.
 - Status atual: Introducao (`text/2_Introducao/2_Introducao.tex`) preenchida em v1 para secoes de contextualizacao, problema, justificativa, delimitacao e estrutura.
 - Sincronizacao: resumo da Introducao v1 registrado em `00_outline.md` (secao 11).
+- Status atual: Fundamentacao Teorica (`text/3_Revisao_Teorica/3_Revisao_Teorica.tex`) preenchida em v1 nas 6 secoes congeladas.
+- Sincronizacao: resumo da Fundamentacao Teorica v1 registrado em `10_problem_and_related_work.md`.
+- Status atual (Rodada 2): Metodo (`text/4_Metodo/4_Metodo.tex`) expandido em v1 com desenho experimental, protocolo, governanca e qualidade.
+- Sincronizacao: resumo de Metodo v1 registrado em `20_method.md`.
+- Status atual (Rodada 2): Resultados (`text/5_Resultados/5_Resultados.tex`) expandido em v1 com coorte controlada, analise probabilistica e comparacoes pareadas.
+- Sincronizacao: resumo de Resultados v1 registrado em `30_results_and_analysis.md`.

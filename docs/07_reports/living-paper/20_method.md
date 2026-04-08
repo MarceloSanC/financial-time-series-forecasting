@@ -22,4 +22,14 @@ Entrada e saida esperadas:
 - Reprodutibilidade e rastreabilidade (run_id, fingerprints, analytics store)
 
 ## Rascunho inicial
-- [a preencher]
+
+## Base do Método (v1 sincronizada com `text/4_Metodo`)
+- Desenho: pesquisa quantitativa e experimental-computacional com foco em validade metodológica.
+- Pipeline: ingestão -> features -> dataset -> treino TFT -> inferência -> atualização analítica.
+- Dados: combinação de mercado, sentimento agregado, indicadores técnicos e fundamentais.
+- Persistência: camadas imutáveis e auditáveis para dados primários de execução + camada analítica derivada e reconstruível para comparação.
+- Engenharia: famílias de features com controle anti-leakage e governança de warmup.
+- Modelo: TFT em modo pontual e quantílico, com rastreabilidade por assinaturas/fingerprints.
+- Protocolo: splits temporais explícitos, múltiplas sementes e alinhamento estrito por `target_timestamp` em comparações pareadas.
+- Métricas: pontuais (RMSE, MAE, DA, viés) e probabilísticas (quantis, cobertura, largura de intervalo).
+- Qualidade: gates de integridade temporal, consistência contratual e monotonicidade de quantis.

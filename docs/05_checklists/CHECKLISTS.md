@@ -1,5 +1,7 @@
 # → CHECKLISTS (DETAILED) USED IN EACH DEVELOPMENT PHASE
 
+Checklist pos-primeira rodada (selecao final): `docs/05_checklists/POST_ROUND1_MODEL_SELECTION_CHECKLIST.md`
+
 # → CHECKLIST Etapas MVP
 
 - [x] **Etapa 0: Setup e Validação do Ambiente**

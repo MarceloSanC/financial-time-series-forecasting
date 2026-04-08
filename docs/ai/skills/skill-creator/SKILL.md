@@ -14,13 +14,18 @@ Covers:
 3. Skill deprecation and replacement routing
 4. Skill structure optimization for minimal-relevant-reading per task
 
+## Base Reference (Codex System)
+- Primary baseline for skill authoring: `~/.codex/skills/.system/skill-creator/SKILL.md`.
+- This project skill is a local extension and must preserve the system principles (conciseness, progressive disclosure, skill anatomy, and validation discipline).
+- When creating or refactoring skills, apply system guidance first, then apply project-specific constraints from this file.
+
 ## Inherited from AGENT_CORE
 - Priority order and conflict handling
 - Data/temporal safety requirements
 - Validation discipline
 - Commit rules and documentation sync expectations
 
-Overrides/additions in this skill:
+Project-specific additions in this skill (complementary to system skill-creator):
 - Mandatory template for all skills
 - Redundancy threshold and overlap policy
 - Skill-specific QA checklist and approval flow
@@ -112,6 +117,7 @@ Example command:
 - Approval: manual maintainer approval required
 
 ## References
+- `~/.codex/skills/.system/skill-creator/SKILL.md` (system baseline)
 - `docs/ai/AGENT_CORE.md`
 - `docs/ai/INDEX.md`
 - `docs/08_governance/GIT_AND_VERSIONING_GUIDE.md`

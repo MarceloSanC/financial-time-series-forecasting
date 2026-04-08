@@ -16,7 +16,7 @@ Covers:
 - Validation discipline
 - Commit rules and documentation sync expectations
 
-Overrides/additions in this skill:
+Project-specific additions in this skill (aligned with docs/ai/skills/skill-creator/SKILL.md):
 - Project-specific decision heuristics for what is essential vs optional
 - Strong preference for persisted evidence over ad-hoc analysis
 - Explicit guardrails for fair model comparison
@@ -87,6 +87,7 @@ Example checks:
 - Tradeoffs are explicit and auditable.
 
 ## References
+- `docs/ai/skills/skill-creator/SKILL.md`
 - `docs/ai/AGENT_CORE.md`
 - `docs/05_checklists/ANALYTICS_STORE_CHECKLIST.md`
 - `docs/05_checklists/PREDICTIONS_AND_METRICS_CHECKLIST.md`

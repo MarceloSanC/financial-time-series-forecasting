@@ -1,0 +1,4 @@
+interface:
+  display_name: "TCC Revisão Teórica"
+  short_description: "Curadoria e redação do Capítulo 3"
+  default_prompt: "Escreva ou revise a fundamentação teórica com referências nucleares aderentes ao método."

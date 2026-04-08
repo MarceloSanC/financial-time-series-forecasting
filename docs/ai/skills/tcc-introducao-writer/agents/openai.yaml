@@ -1,0 +1,4 @@
+interface:
+  display_name: "TCC Introdução"
+  short_description: "Escrita da introdução alinhada ao recorte"
+  default_prompt: "Escreva ou revise o Capítulo 2 com base no outline e no protocolo."

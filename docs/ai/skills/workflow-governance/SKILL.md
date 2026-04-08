@@ -13,7 +13,7 @@ Does not redefine global safety/priority rules from AGENT_CORE.
 - Default commit policy and message skeleton
 - Documentation sync requirements
 
-Adds:
+Project-specific additions in this skill (aligned with docs/ai/skills/skill-creator/SKILL.md):
 - Ordered execution flow for day-to-day tasks
 - Escalation points for high-risk changes
 
@@ -61,6 +61,7 @@ Adds:
 - Handoff includes residual risks/follow-up.
 
 ## References
+- `docs/ai/skills/skill-creator/SKILL.md`
 - `docs/ai/AGENT_CORE.md`
 - `docs/ai/INDEX.md`
 - `docs/08_governance/GIT_AND_VERSIONING_GUIDE.md`

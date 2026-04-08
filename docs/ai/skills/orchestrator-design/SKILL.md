@@ -16,7 +16,7 @@ Covers:
 - Validation discipline
 - Commit rules and documentation sync expectations
 
-Overrides/additions in this skill:
+Project-specific additions in this skill (aligned with docs/ai/skills/skill-creator/SKILL.md):
 - Orchestrator as coordination layer only
 - Explicit boundary rules for orchestration vs domain logic
 - Mandatory execution traceability and failure semantics
@@ -92,6 +92,7 @@ Example commands:
 - Documentation reflects the orchestration contract.
 
 ## References
+- `docs/ai/skills/skill-creator/SKILL.md`
 - `docs/ai/skills/documentation-authoring/SKILL.md`
 - `docs/ai/AGENT_CORE.md`
 - `docs/ai/skills/module-implementation-clean-arch/SKILL.md`

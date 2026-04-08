@@ -16,7 +16,7 @@ Covers:
 - Validation discipline
 - Commit rules and documentation sync expectations
 
-Overrides/additions in this skill:
+Project-specific additions in this skill (aligned with docs/ai/skills/skill-creator/SKILL.md):
 - Maintenance lifecycle for docs assets
 - Deprecation workflow and redirect policy
 - Drift detection between code and docs
@@ -86,6 +86,7 @@ Example commands:
 - Maintenance actions are reported and traceable.
 
 ## References
+- `docs/ai/skills/skill-creator/SKILL.md`
 - `docs/ai/AGENT_CORE.md`
 - `docs/ai/skills/documentation-authoring/SKILL.md`
 - `docs/INDEX.md`

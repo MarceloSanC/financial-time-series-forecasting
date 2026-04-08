@@ -16,7 +16,7 @@ Covers:
 - Validation discipline
 - Commit rules and documentation sync expectations
 
-Overrides/additions in this skill:
+Project-specific additions in this skill (aligned with docs/ai/skills/skill-creator/SKILL.md):
 - Explicit execution matrix by impact area
 - Standard pass/fail gate and rerun policy
 - Standardized test report format
@@ -87,6 +87,7 @@ Example command set:
 - User receives clear summary with next steps when needed.
 
 ## References
+- `docs/ai/skills/skill-creator/SKILL.md`
 - `docs/ai/AGENT_CORE.md`
 - `docs/ai/skills/testing-implementation/SKILL.md`
 - `docs/08_governance/GIT_AND_VERSIONING_GUIDE.md`

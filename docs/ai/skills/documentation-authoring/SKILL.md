@@ -16,7 +16,7 @@ Covers:
 - Validation discipline
 - Commit rules and documentation sync expectations
 
-Overrides/additions in this skill:
+Project-specific additions in this skill (aligned with docs/ai/skills/skill-creator/SKILL.md):
 - Documentation templates by artifact type
 - Source-of-truth and cross-reference discipline
 - Conciseness and anti-duplication guidance
@@ -82,6 +82,7 @@ Example commands:
 - No critical ambiguity or stale instructions remain.
 
 ## References
+- `docs/ai/skills/skill-creator/SKILL.md`
 - `docs/ai/AGENT_CORE.md`
 - `docs/INDEX.md`
 - `docs/08_governance/GIT_AND_VERSIONING_GUIDE.md`
