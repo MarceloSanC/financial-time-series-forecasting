@@ -6,19 +6,31 @@
 % Fora de escopo: revisao centrada em NLP/CNN para classificacao de sentimento como problema principal.
 
 \section{Previsão de séries temporais financeiras}
-% TODO: apresentar fundamentos e desafios da previsao de precos/retornos financeiros.
+A previsão em mercados financeiros é tradicionalmente tratada como um problema de alta incerteza, no qual a dinâmica de preços incorpora informação de forma rápida e não estacionária. Na formulação clássica, a Hipótese de Mercado Eficiente estabelece que retornos previsíveis tendem a ser rapidamente arbitrados, reduzindo persistência de padrões exploráveis \cite{FAMA1991}. Em contraponto, a Hipótese de Mercados Adaptativos propõe que eficiência e ineficiência coexistem ao longo do tempo, em função de mudanças de regime, competição entre estratégias e adaptação dos agentes \cite{LO2004}.
+
+Essa tensão teórica é central para o presente trabalho: por um lado, evita-se assumir previsibilidade estável; por outro, considera-se que sinais preditivos podem emergir de forma contextual, multivariada e temporalmente localizada. Consequentemente, a literatura recente em forecasting financeiro tem enfatizado protocolos rigorosos fora da amostra e comparação entre configurações sob recortes temporais consistentes, em vez de conclusões baseadas apenas em desempenho médio agregado.
 
 \section{Modelagem com deep learning para séries temporais}
-% TODO: revisar abordagens relevantes e justificar uso de modelos profundos em series financeiras.
+Modelos de aprendizado profundo ampliaram a capacidade de representar relações não lineares, efeitos de interação e dependências temporais complexas em séries multivariadas. Em síntese de literatura, Lim e Zohren \cite{LIMZOHREN2021} destacam que arquiteturas profundas oferecem ganhos potenciais quando o problema envolve múltiplas covariáveis, diferentes escalas temporais e necessidade de modelagem conjunta de sinal e ruído.
+
+No entanto, a adoção desses modelos exige desenho experimental cuidadoso. Sem controle de leakage temporal, partições adequadas e validação consistente, ganhos aparentes podem refletir apenas viés de avaliação. Assim, a escolha por deep learning neste trabalho não se baseia em premissa de superioridade universal, mas em aderência ao tipo de dado e à necessidade de modelagem multihorizonte com variáveis heterogêneas.
 
 \section{Temporal Fusion Transformer (TFT)}
-% TODO: descrever componentes principais do TFT e adequacao ao problema.
+O Temporal Fusion Transformer (TFT), proposto por Lim et al. \cite{LIMETAL2021TFT}, combina mecanismos de atenção temporal com componentes recorrentes e de seleção de variáveis para previsão multihorizonte interpretável. Entre seus elementos centrais, destacam-se: (i) codificação de variáveis estáticas e temporais, (ii) camadas de seleção de atributos para relevância contextual, e (iii) blocos de atenção para dependências de longo prazo.
+
+Para o escopo desta pesquisa, o TFT é particularmente adequado por três razões. Primeiro, permite integrar covariáveis de naturezas distintas (mercado, indicadores técnicos, sentimento agregado e fundamentos) em um único modelo. Segundo, suporta predição em múltiplos horizontes temporais, alinhada ao desenho de avaliação adotado no projeto. Terceiro, oferece mecanismos de interpretabilidade úteis para análise acadêmica, como importância global de atributos e contribuições locais condicionadas ao contexto \cite{LIMETAL2021TFT}.
 
 \section{Predição probabilística e quantílica}
-% TODO: explicar previsao quantilica, incerteza preditiva e metricas associadas.
+Em séries financeiras, decisões baseadas apenas em ponto previsto tendem a subestimar risco, pois não explicitam dispersão, assimetria ou caudas da distribuição preditiva. Nesse contexto, a previsão quantílica é uma alternativa consolidada para representar incerteza de forma operacional, ao estimar diretamente diferentes quantis condicionais do alvo \cite{KOENKERBASSETT1978}.
+
+Sob a perspectiva de avaliação, previsões probabilísticas requerem métricas próprias, capazes de julgar simultaneamente acurácia e calibração. Regras de pontuação estritamente próprias são recomendadas porque incentivam previsões probabilísticas honestas e comparáveis \cite{GNEITING2007}. Assim, a modelagem quantílica neste trabalho é tratada como componente central de qualidade preditiva, e não apenas como complemento visual de intervalos.
 
 \section{Avaliação de modelos em ambiente OOS}
-% TODO: discutir validacao temporal, comparacao justa e avaliacao fora da amostra.
+A avaliação fora da amostra (OOS) é condição necessária para inferir utilidade preditiva em cenários financeiros dinâmicos. Na prática, isso implica separar temporalmente treino, validação e teste, evitando contaminação de informação futura no processo de ajuste. Além disso, comparações entre modelos devem ser realizadas sobre coortes temporalmente alinhadas, para que diferenças de desempenho reflitam modelagem e não diferenças de cobertura.
+
+Do ponto de vista estatístico, testes de acurácia preditiva, como Diebold-Mariano \cite{DIEBOLDMARIANO1995}, oferecem base formal para avaliar se discrepâncias de erro entre modelos são estatisticamente sustentáveis. Portanto, no presente trabalho, ranking de modelos é interpretado em conjunto com evidências pareadas e alinhamento temporal estrito, reduzindo risco de conclusões espúrias.
 
 \section{Reprodutibilidade experimental e rastreabilidade}
-% TODO: fundamentar importancia de run_id, versionamento e persistencia de artefatos analiticos.
+A robustez de conclusões em aprendizado de máquina depende de reprodutibilidade experimental: registrar configurações, partições, versões e artefatos de execução de modo que resultados possam ser auditados e reconstruídos. Na literatura recente, esse ponto é tratado como requisito metodológico, não apenas operacional \cite{PINEAU2021REPRODUCIBILITY}.
+
+No escopo deste TCC, a rastreabilidade é materializada por identidade de execução, persistência de artefatos analíticos e separação entre camadas de dados para análise posterior. Essa estratégia reduz dependência de reruns para validação de conclusões e fortalece a defensabilidade acadêmica dos resultados, sobretudo em comparações entre múltiplas configurações de features e hiperparâmetros.
