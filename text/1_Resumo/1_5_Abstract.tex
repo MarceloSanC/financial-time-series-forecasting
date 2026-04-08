@@ -1,15 +1,9 @@
 \begin{resumo}[Abstract]
 
-The search for predicting asset market behavior has motivated the development of economic science and different analytical approaches, such as fundamental and technical analysis. However, market movements are a direct reflection of human emotions and behavior. Previously, accessing this information was restricted to well-positioned professionals with a large network of contacts. However, the use of Artificial Intelligence has been dominating various areas that benefit from large amounts of available data. In order to benefit from this technological tool in the financial market, this work proposes the use of advanced text data processing techniques, such as Natural Language Processing (NLP), to extract information from various internet sources. The extracted information will be used as input data for a machine learning model based on Convolutional Neural Networks (CNN) to classify them on a scale of 0 to 100, quantifying market sentiment towards a specific asset. This sentiment score will be subsequently used as a weighting parameter in a final asset allocation model for an investment portfolio. The implementation of this tool aims to contribute with reliable information for decision-making, considering the defined risk-return profile.
+This study investigates financial time series forecasting with emphasis on methodological robustness, uncertainty quantification, and experimental reproducibility. The research problem is associated with the difficulty of fairly comparing model configurations in out-of-sample settings, particularly when evaluation is limited to point metrics. To address this issue, an integrated pipeline was developed using market data and structured covariates, feature engineering, and Temporal Fusion Transformer models for multi-horizon point and quantile forecasting. The methodology adopts explicit temporal splits, temporal consistency controls, data quality criteria, and auditable artifact persistence using immutable persistence layers and a derived, reconstructible analytical layer. In the initial round, under a controlled cohort, model configurations showed very similar point performance. Quantile modeling provided extra information for risk analysis, but short-horizon coverage was below nominal coverage, indicating that predicted intervals were narrower than ideal at that horizon. Therefore, paired statistical analysis is still needed before claiming model dominance. The study concludes that combining quantile forecasting, strict temporal alignment, and execution traceability strengthens the academic defensibility of predictive evaluation.
 
-\textbf{Keywords}: Convolutional Neural Networks. Natural Language Processing. Web Scraping. Market sentiment. Investment portfolio.
+\textbf{[Version note]} This abstract is a living version and will be updated as the project evolves and new evidence and conclusions are consolidated.
 
-{\color{red}
-Resumo traduzido para outros idiomas, neste caso, inglês. Segue o formato do resumo feito na língua vernácula. As palavras-chave traduzidas, versão em língua estrangeira, são colocadas abaixo do texto precedidas pela expressão Keywords, separadas por ponto.
-
-\vspace{\onelineskip}
-
-\textbf{Keywords}: Word. Word. Word. 
-}
+\textbf{Keywords}: Temporal Fusion Transformer. Quantile forecasting. Predictive uncertainty. Experimental reproducibility. Out-of-sample evaluation.
 	
 \end{resumo}
