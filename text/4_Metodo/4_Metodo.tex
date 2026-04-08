@@ -6,25 +6,41 @@
 % Fora de escopo: metodo centrado em CNN para classificacao de sentimento.
 
 \section{Desenho da pesquisa}
-% TODO: descrever natureza da pesquisa, abordagem e estrategia experimental.
+Esta pesquisa adota abordagem quantitativa, aplicada e de natureza experimental-computacional, com foco em previsão de séries temporais financeiras sob controle de validade metodológica. O desenho experimental foi estruturado para permitir comparação reprodutível entre configurações de features e hiperparâmetros, com avaliação fora da amostra e registro auditável dos artefatos de execução. Em vez de tratar o desenvolvimento como manual de software, as decisões de engenharia foram formuladas como escolhas metodológicas para reduzir vieses de avaliação, aumentar rastreabilidade e preservar a reprodutibilidade dos resultados \cite{PINEAU2021REPRODUCIBILITY}.
+
+O fluxo geral foi organizado em etapas sequenciais: ingestão de dados, engenharia de features, construção de dataset, treinamento, inferência e atualização analítica. A estratégia prioriza validade temporal e comparabilidade estatística, de modo que interpretações finais não dependam de reruns não controlados nem de agregações heterogêneas de coortes.
 
 \section{Dados e pipelines de processamento}
-% TODO: detalhar fontes, recorte temporal e etapas do pipeline de dados.
+Os dados utilizados combinam informações de mercado (OHLCV), notícias processadas para sinal de sentimento agregado, indicadores técnicos e variáveis fundamentalistas, com recorte temporal definido em configuração declarativa por ativo. A ingestão e o pré-processamento seguem ordem causal, com padronização temporal em UTC para minimizar ambiguidades de calendário e risco de vazamento temporal em joins e agregações.
+
+Do ponto de vista de persistência, o projeto utiliza camadas de persistência imutáveis e auditáveis para armazenamento canônico dos dados de execução e uma camada analítica derivada e reconstruível para consolidação de métricas e artefatos de comparação. Essa separação permite preservar evidências primárias de experimento ao mesmo tempo em que fornece visões analíticas consolidadas para decisão, sem necessidade de reprocessar todo o treinamento a cada nova análise.
 
 \section{Engenharia de features}
-% TODO: descrever grupos de features e criterios anti-leakage/warmup.
+A engenharia de atributos foi estruturada por famílias de features: (i) baseline de preço/volume, (ii) indicadores técnicos, (iii) sentimento agregado e dinâmica de sentimento, e (iv) variáveis fundamentalistas e razões derivadas. A seleção de conjuntos de features é versionada e rastreada por assinatura, permitindo comparar experimentos em nível de configuração com controle explícito sobre quais variáveis efetivamente participaram de cada execução.
+
+Para preservar causalidade, o cálculo das features obedece janelas estritamente retrospectivas e políticas as-of para variáveis de divulgação não diária. Além disso, foi adotada governança de warmup por feature, com contabilização do período mínimo necessário para validade estatística de cada atributo antes do uso em treino. Essa estratégia reduz risco de imputação indevida no início da série e melhora a consistência entre treino e inferência.
 
 \section{Configuração do modelo TFT}
-% TODO: especificar arquitetura, hiperparametros e configuracoes de treino.
+O modelo principal adotado é o Temporal Fusion Transformer (TFT), selecionado por sua adequação a cenários multivariados, previsão multihorizonte e mecanismos de interpretabilidade \cite{LIMETAL2021TFT}. A configuração experimental contempla modos de previsão pontual e quantílica, com priorização de previsão quantílica para análise de incerteza preditiva. Esse desenho permite avaliar simultaneamente tendência central e dispersão de risco, em linha com princípios de previsão probabilística \cite{GNEITING2007,KOENKERBASSETT1978}.
+
+As configurações de treino incluem parâmetros de otimização, política de parada, definição de horizontes de avaliação e assinatura de configuração para rastreabilidade. Cada execução registra identificadores determinísticos e metadados de ambiente, de forma a permitir auditoria do experimento sem depender de memória operacional do pesquisador.
 
 \section{Protocolo experimental (splits, seeds, folds)}
-% TODO: definir desenho de validacao temporal e politica de comparacao entre configuracoes.
+O protocolo experimental utiliza particionamento temporal explícito para treino, validação e teste, preservando a ordem cronológica das observações e evitando contaminação futura. Para reduzir sensibilidade a inicialização, as comparações entre configurações consideram múltiplas sementes e repetição de execuções dentro da mesma coorte experimental.
+
+A comparabilidade entre modelos segue regra de alinhamento temporal estrito por \textit{target timestamp} no momento de testes pareados. Esse critério evita comparações entre amostras não equivalentes e é pré-requisito para inferência estatística válida em testes de acurácia preditiva \cite{DIEBOLDMARIANO1995}. Assim, o ranking final não é definido por uma única métrica agregada, mas por combinação de desempenho pontual, qualidade probabilística e evidência estatística em coorte homogênea.
 
 \section{Métricas de avaliação (pontuais e probabilísticas)}
-% TODO: formalizar metricas de erro, direcionalidade, quantis e calibracao.
+As métricas pontuais adotadas incluem RMSE, MAE, acurácia direcional e viés médio, com apuração por horizonte e por split. Em paralelo, a avaliação probabilística considera perdas quantílicas e métricas de calibração de intervalo, com ênfase em cobertura observada (PICP) e largura média de intervalo (MPIW). Essa combinação busca evitar conclusões baseadas apenas em erro médio, incorporando qualidade da incerteza estimada \cite{GNEITING2007}.
+
+Para comparação entre modelos em ambiente fora da amostra, utiliza-se análise pareada de desempenho e estatística de significância quando aplicável. No escopo desta pesquisa, o teste de Diebold-Mariano é empregado como referência para diferença de acurácia preditiva entre configurações alinhadas temporalmente \cite{DIEBOLDMARIANO1995}.
 
 \section{Analytics Store e governança de experimento}
-% TODO: descrever persistencia de artefatos (silver/gold), run_id e rastreabilidade.
+A governança experimental é operacionalizada por um repositório analítico com duas funções complementares: preservar dados primários de execução em camadas de persistência imutáveis e auditáveis, e materializar tabelas derivadas para análise comparativa e tomada de decisão. Nesse arranjo, identificadores de execução, assinaturas de configuração, fingerprints de dataset/split e status de execução são persistidos de forma estruturada para rastreabilidade integral do ciclo de modelagem.
+
+Como consequência metodológica, resultados de comparação podem ser reconstruídos a partir dos artefatos persistidos, sem necessidade de retreinar os modelos para cada rodada analítica. Essa propriedade é particularmente relevante em contexto acadêmico, pois fortalece auditabilidade, transparência e repetibilidade dos resultados reportados \cite{PINEAU2021REPRODUCIBILITY}.
 
 \section{Critérios de qualidade e validação}
-% TODO: explicitar quality gates e verificacoes de integridade/consistencia.
+Os critérios de qualidade incluem validações de integridade temporal, completude mínima de cobertura, consistência de tipos e ausência de violações contratuais nas saídas analíticas. No caso de previsões quantílicas, aplica-se verificação de monotonicidade dos quantis (por exemplo, \(p10 \leq p50 \leq p90\)), além de checagens de unicidade das chaves temporais por execução e horizonte.
+
+Para análise estatística pareada, somente são aceitas comparações com interseção temporal exata entre modelos, reduzindo risco de inferência inválida por coortes não comparáveis. Esse conjunto de \textit{quality gates} atua como barreira metodológica para garantir que conclusões apresentadas no capítulo de resultados mantenham consistência com os requisitos de validade experimental e reprodutibilidade definidos no desenho da pesquisa.
