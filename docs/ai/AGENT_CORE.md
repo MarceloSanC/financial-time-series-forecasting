@@ -38,6 +38,7 @@ If a conflict exists, follow the highest-priority source and state the conflict 
 
 ## Non-Negotiable Data Rules
 - Pairwise statistical comparison requires exact intersection by `target_timestamp`.
+- Statistical/model-selection conclusions require explicit cohort scope (for example `parent_sweep_id` prefix or frozen-candidates set); global unscope checks are health-only and must not be used for winner selection.
 - Quantile outputs must satisfy `p10 <= p50 <= p90`.
 - Gold decision artifacts must be reproducible from persisted data only (no retrain).
 - Prevent temporal leakage in all train/val/test/inference operations.
@@ -65,6 +66,14 @@ If a conflict exists, follow the highest-priority source and state the conflict 
   - `Step <N> - Skills used: <skill-list>`
   - `Step <N> - Skills used: none specific (AGENT_CORE only)`
 
+
+## Scope Governance (Implementation + Decision)
+- Every operation must declare scope intent: `global_health` or `cohort_decision`.
+- `global_health`: checks platform consistency across all stored runs for an asset.
+- `cohort_decision`: checks only the cohort under analysis (same sweep/frozen set, same splits/horizons).
+- Do not report `global_health` failures as if they invalidated a scoped purge/rerun operation.
+- Do not report scoped pass as if it certified global platform health.
+
 ## Validation Rules
 For relevant changes, run at least one applicable validation:
 - touched unit tests,
@@ -72,7 +81,8 @@ For relevant changes, run at least one applicable validation:
 - pipeline smoke check.
 
 For analytics-impacting changes, require:
-- `python -m src.main_refresh_analytics_store --fail-on-quality`
+- `python -m src.main_refresh_analytics_store --fail-on-quality` (global health gate).
+- For statistical/model-selection decisions, run scoped validation (same cohort used in analysis) and report scope explicitly.
 
 ## Documentation Sync Rules
 If behavior/contracts/paths change, update as needed:
