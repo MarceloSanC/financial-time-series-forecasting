@@ -212,6 +212,7 @@ def test_generate_prediction_analysis_plots_use_case_generates_all_outputs(tmp_p
         "fig_interval_width_vs_coverage",
         "fig_oos_timeseries_examples",
         "fig_feature_importance_global",
+        "fig_feature_importance_global_all_features",
         "fig_feature_contrib_local_cases",
         "manifest",
     }
