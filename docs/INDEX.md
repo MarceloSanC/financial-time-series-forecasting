@@ -37,6 +37,7 @@ README synchronization note:
 - Training pipeline (legacy params doc): `docs/03_modeling/TRAINING_PIPELINE.md`
 - Inference pipeline (legacy params doc): `docs/03_modeling/INFERENCE_PIPELINE.md`
 - Sweeps runbook: `docs/06_runbooks/RUN_SWEEPS.md`
+- Sweep purge runbook: `docs/06_runbooks/RUN_SWEEPS.md` (section 11)
 
 ## Documentation Rules
 - One topic, one source of truth.
