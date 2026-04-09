@@ -22,6 +22,7 @@ from src.domain.services.dataset_quality_gate import (
     DatasetQualityGateConfig,
 )
 from src.domain.services.feature_warmup_inspector import FeatureWarmupInspector
+from src.domain.services.quantile_guardrail_service import QuantileGuardrailService
 from src.infrastructure.schemas.analytics_store_schema import (
     ANALYTICS_SCHEMA_VERSION,
     compute_config_signature,
@@ -786,6 +787,7 @@ class TrainTFTModelUseCase:
                         q10 = float(q10_m[i][h_idx])
                         q50 = float(q50_m[i][h_idx])
                         q90 = float(q90_m[i][h_idx])
+                        guardrail = QuantileGuardrailService.enforce_monotonic_triplet(q10, q50, q90)
                         target_ts = ts + pd.Timedelta(days=max(int(h) - 1, 0))
                         err = float(y_pred - y_true)
                         rows.append(
@@ -810,6 +812,10 @@ class TrainTFTModelUseCase:
                                 "quantile_p10": q10,
                                 "quantile_p50": q50,
                                 "quantile_p90": q90,
+                                "quantile_p10_post_guardrail": guardrail.p10_post,
+                                "quantile_p50_post_guardrail": guardrail.p50_post,
+                                "quantile_p90_post_guardrail": guardrail.p90_post,
+                                "quantile_guardrail_applied": int(guardrail.applied),
                                 "year": int(target_ts.year),
                             }
                         )
@@ -832,6 +838,10 @@ class TrainTFTModelUseCase:
                     continue
                 target_ts = ts + pd.Timedelta(days=max(horizons[i] - 1, 0))
                 err = float(y_pred[i] - y_true[i])
+                q10_raw = float(q10[i])
+                q50_raw = float(q50[i])
+                q90_raw = float(q90[i])
+                guardrail = QuantileGuardrailService.enforce_monotonic_triplet(q10_raw, q50_raw, q90_raw)
                 rows.append(
                     {
                         "schema_version": ANALYTICS_SCHEMA_VERSION,
@@ -851,9 +861,13 @@ class TrainTFTModelUseCase:
                         "error": err,
                         "abs_error": float(abs(err)),
                         "sq_error": float(err * err),
-                        "quantile_p10": float(q10[i]),
-                        "quantile_p50": float(q50[i]),
-                        "quantile_p90": float(q90[i]),
+                        "quantile_p10": q10_raw,
+                        "quantile_p50": q50_raw,
+                        "quantile_p90": q90_raw,
+                        "quantile_p10_post_guardrail": guardrail.p10_post,
+                        "quantile_p50_post_guardrail": guardrail.p50_post,
+                        "quantile_p90_post_guardrail": guardrail.p90_post,
+                        "quantile_guardrail_applied": int(guardrail.applied),
                         "year": int(target_ts.year),
                     }
                 )
