@@ -356,3 +356,16 @@ def test_validate_table_payload_accepts_fact_feature_contrib_local_minimal_row()
         "created_at_utc": "2026-03-08T00:00:01+00:00",
     }
     validate_table_payload("fact_feature_contrib_local", [row])
+
+
+def test_guardrail_quantile_columns_declared_in_oos_and_inference_schemas() -> None:
+    oos_cols = set(FACT_OOS_PREDICTIONS_SCHEMA.columns.keys())
+    inf_cols = set(FACT_INFERENCE_PREDICTIONS_SCHEMA.columns.keys())
+    expected = {
+        "quantile_p10_post_guardrail",
+        "quantile_p50_post_guardrail",
+        "quantile_p90_post_guardrail",
+        "quantile_guardrail_applied",
+    }
+    assert expected.issubset(oos_cols)
+    assert expected.issubset(inf_cols)
