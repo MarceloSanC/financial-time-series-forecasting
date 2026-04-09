@@ -20,6 +20,7 @@ Project-specific additions in this skill (aligned with docs/ai/skills/skill-crea
 - Explicit execution matrix by impact area
 - Standard pass/fail gate and rerun policy
 - Standardized test report format
+- Scope semantics for cohort-vs-global quality results
 
 ## When to Use
 - Any code change that requires validation before handoff.
@@ -35,6 +36,7 @@ Project-specific additions in this skill (aligned with docs/ai/skills/skill-crea
 - Required quality gates (unit/contract/integration/analytics)
 - Available test commands and environment constraints
 - User constraints (time budget, strictness level)
+- Scope intent (`global_health` or `cohort_decision`)
 
 ## Execution Steps
 1. Determine validation scope:
@@ -56,8 +58,11 @@ Project-specific additions in this skill (aligned with docs/ai/skills/skill-crea
 - Clear pass/fail status by test group
 - Actionable failure summary with probable root cause
 - Explicit note of what was not run (if any)
+- Explicit scope label on analytics validation result
 
 ## Validation
+- Scope coherence check:
+  - when task is scoped to a cohort/sweep, decision-grade checks must use the same scope; global checks are health-only.
 - Coverage adequacy check:
   - executed tests match change impact.
 - Reproducibility check:
@@ -65,10 +70,21 @@ Project-specific additions in this skill (aligned with docs/ai/skills/skill-crea
 - Transparency check:
   - failures and skipped validations are explicit.
 
+## Scope Semantics (Required Reporting)
+- Every analytics validation result must declare one of:
+  - `scope_mode=cohort_decision`
+  - `scope_mode=global_health`
+- If `scope_mode=cohort_decision`:
+  - report only scope-filtered acceptance status as decision evidence,
+  - report global residual failures separately as non-blocking for scoped decision.
+- If `scope_mode=global_health`:
+  - do not reinterpret the result as winner-selection evidence for a cohort unless scoped checks are also executed.
+
 Example command set:
 - `.venv/bin/pytest -q tests/unit/<module_path>`
 - `.venv/bin/pytest -q tests/unit`
-- `python -m src.main_refresh_analytics_store --fail-on-quality` (analytics-impacting changes)
+- `python -m src.main_refresh_analytics_store --fail-on-quality` (analytics-impacting changes, global health)
+- scoped validation command/filters when conclusions are cohort-specific
 
 ## Common Failures and Fixes
 - Failure: only broad suite executed, missing targeted signal.
@@ -79,12 +95,15 @@ Example command set:
   - Fix: max one controlled rerun and then escalate as failure.
 - Failure: ambiguous report.
   - Fix: use structured summary with command -> result mapping.
+- Failure: conflating scoped and global failures.
+  - Fix: split output into two sections (`cohort_decision` and `global_health`).
 
 ## Definition of Done
 - Validation scope matches change impact.
 - Commands and outcomes are reproducible and explicit.
 - Failures are triaged and not hidden.
 - User receives clear summary with next steps when needed.
+- Scope mode is explicit in final validation summary.
 
 ## References
 - `docs/ai/skills/skill-creator/SKILL.md`
