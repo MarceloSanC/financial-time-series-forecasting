@@ -929,3 +929,126 @@ def test_validate_analytics_quality_passes_n_oos_contract_when_consistent(tmp_pa
     ).execute()
     check = next(item for item in result.checks if item["check"] == "gold_metrics_by_config_n_oos_contract")
     assert check["passed"] is True
+
+
+def test_validate_analytics_quality_block_a_check_passes_on_minimal_valid_dataset(tmp_path) -> None:
+    silver = tmp_path / "silver"
+    _seed_minimal_valid_silver(silver)
+
+    result = ValidateAnalyticsQualityUseCase(analytics_silver_dir=silver).execute()
+    block_a = next(item for item in result.checks if item["check"] == "oos_quantile_block_a_acceptance")
+    assert block_a["passed"] is True
+    assert "total_rows=1" in str(block_a["detail"])
+    assert "crossing_bruto_rate=" in str(block_a["detail"])
+
+
+def test_validate_analytics_quality_block_a_scope_filters_parent_sweep_prefix(tmp_path) -> None:
+    silver = tmp_path / "silver"
+    _seed_minimal_valid_silver(silver)
+
+    # Ensure in-scope run has parent_sweep_id and add out-of-scope run with broken quantiles.
+    _write_table(
+        silver,
+        "dim_run",
+        [
+            {
+                "schema_version": 1,
+                "run_id": "r1",
+                "execution_id": None,
+                "asset": "AAPL",
+                "feature_set_name": "B",
+                "feature_set_hash": "fh",
+                "feature_list_ordered_json": "[]",
+                "config_signature": "cfg1",
+                "split_fingerprint": "sp1",
+                "model_version": "v1",
+                "checkpoint_path_final": "/tmp/final.pt",
+                "checkpoint_path_best": "/tmp/best.ckpt",
+                "git_commit": "abc",
+                "pipeline_version": "0.1",
+                "library_versions_json": "{}",
+                "hardware_info_json": "{}",
+                "status": "ok",
+                "duration_total_seconds": 1.0,
+                "eta_recorded_seconds": 0.0,
+                "retries": 0,
+                "created_at_utc": "2026-01-01T00:00:00+00:00",
+                "parent_sweep_id": "0_2_3_ok",
+            }
+        ],
+        {"asset": "AAPL", "sweep_id": "sw1"},
+    )
+
+    _write_table(
+        silver,
+        "dim_run",
+        [
+            {
+                "schema_version": 1,
+                "run_id": "r2",
+                "execution_id": None,
+                "asset": "AAPL",
+                "feature_set_name": "B",
+                "feature_set_hash": "fh",
+                "feature_list_ordered_json": "[]",
+                "config_signature": "cfg2",
+                "split_fingerprint": "sp2",
+                "model_version": "v2",
+                "checkpoint_path_final": "/tmp/final.pt",
+                "checkpoint_path_best": "/tmp/best.ckpt",
+                "git_commit": "abc",
+                "pipeline_version": "0.1",
+                "library_versions_json": "{}",
+                "hardware_info_json": "{}",
+                "status": "ok",
+                "duration_total_seconds": 1.0,
+                "eta_recorded_seconds": 0.0,
+                "retries": 0,
+                "created_at_utc": "2026-01-01T00:00:00+00:00",
+                "parent_sweep_id": "0_2_1_bad",
+            }
+        ],
+        {"asset": "AAPL", "sweep_id": "sw2"},
+    )
+
+    _write_table(
+        silver,
+        "fact_oos_predictions",
+        [
+            {
+                "schema_version": 1,
+                "run_id": "r2",
+                "model_version": "v2",
+                "asset": "AAPL",
+                "feature_set_name": "B",
+                "config_signature": "cfg2",
+                "split": "test",
+                "fold": "none",
+                "seed": 0,
+                "horizon": 1,
+                "timestamp_utc": "2026-01-10T00:00:00+00:00",
+                "target_timestamp_utc": "2026-01-10T00:00:00+00:00",
+                "y_true": 0.1,
+                "y_pred": 0.2,
+                "error": 0.1,
+                "abs_error": 0.1,
+                "sq_error": 0.01,
+                "quantile_p10": 0.4,
+                "quantile_p50": 0.2,
+                "quantile_p90": 0.3,
+                "year": 2026,
+            }
+        ],
+        {"asset": "AAPL", "feature_set_name": "B", "year": "2026"},
+    )
+
+    # Scope should only include r1 from parent_sweep_id 0_2_3_.
+    result = ValidateAnalyticsQualityUseCase(
+        analytics_silver_dir=silver,
+        block_a_parent_sweep_prefixes=["0_2_3_"],
+        block_a_splits=["test"],
+        block_a_horizons=[1],
+    ).execute()
+
+    block_a = next(item for item in result.checks if item["check"] == "oos_quantile_block_a_acceptance")
+    assert block_a["passed"] is True
