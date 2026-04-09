@@ -378,6 +378,8 @@ def test_persists_fact_inference_runs_when_analytics_repo_is_configured() -> Non
     assert len(analytics_repo.inference_prediction_rows) == result.attempted_upserts
     assert all(r["split"] == "inference" for r in analytics_repo.inference_prediction_rows)
     assert all(r["horizon"] == 1 for r in analytics_repo.inference_prediction_rows)
+    assert all("quantile_p10_post_guardrail" in r for r in analytics_repo.inference_prediction_rows)
+    assert all("quantile_guardrail_applied" in r for r in analytics_repo.inference_prediction_rows)
     assert len(analytics_repo.feature_contrib_rows) > 0
     assert all(r["method"] == "local_magnitude_signed_v1" for r in analytics_repo.feature_contrib_rows)
     assert all(r["feature_rank"] >= 1 for r in analytics_repo.feature_contrib_rows)
