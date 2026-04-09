@@ -6,6 +6,11 @@ from pathlib import Path
 
 import pandas as pd
 
+from src.domain.services.quantile_contract_analyzer import (
+    QuantileBlockAThresholds,
+    QuantileContractAnalyzer,
+)
+
 
 @dataclass(frozen=True)
 class AnalyticsQualityResult:
@@ -22,12 +27,31 @@ class ValidateAnalyticsQualityUseCase:
         min_samples_train: int = 1,
         min_samples_val: int = 1,
         min_samples_test: int = 1,
+        block_a_parent_sweep_prefixes: list[str] | None = None,
+        block_a_splits: list[str] | None = None,
+        block_a_horizons: list[int] | None = None,
+        block_a_max_crossing_bruto_rate: float = 0.001,
+        block_a_max_negative_interval_width_count: int = 0,
+        block_a_max_crossing_post_guardrail_rate: float = 0.0,
+        block_a_require_post_guardrail: bool = False,
     ) -> None:
         self.analytics_silver_dir = Path(analytics_silver_dir)
         self.analytics_gold_dir = Path(analytics_gold_dir) if analytics_gold_dir is not None else None
         self.min_samples_train = int(min_samples_train)
         self.min_samples_val = int(min_samples_val)
         self.min_samples_test = int(min_samples_test)
+
+        self.block_a_parent_sweep_prefixes = [
+            str(v).strip() for v in (block_a_parent_sweep_prefixes or []) if str(v).strip()
+        ]
+        self.block_a_splits = [str(v).strip() for v in (block_a_splits or []) if str(v).strip()]
+        self.block_a_horizons = [int(v) for v in (block_a_horizons or [])]
+        self.block_a_thresholds = QuantileBlockAThresholds(
+            max_crossing_bruto_rate=float(block_a_max_crossing_bruto_rate),
+            max_negative_interval_width_count=int(block_a_max_negative_interval_width_count),
+            max_crossing_post_guardrail_rate=float(block_a_max_crossing_post_guardrail_rate),
+            require_post_guardrail=bool(block_a_require_post_guardrail),
+        )
 
     @staticmethod
     def _load_partitioned_table(base_dir: Path, table_name: str) -> pd.DataFrame:
@@ -286,21 +310,25 @@ class ValidateAnalyticsQualityUseCase:
                 if null_pred > 0:
                     oos_supervised_null_issues.append(f"null_y_pred={null_pred}")
 
-            # Prediction interval width should be non-negative when quantiles exist.
-            if {"quantile_p10", "quantile_p90"}.issubset(set(fact_oos_predictions.columns)):
-                q10 = pd.to_numeric(fact_oos_predictions["quantile_p10"], errors="coerce")
-                q90 = pd.to_numeric(fact_oos_predictions["quantile_p90"], errors="coerce")
+            # Prediction interval checks use post-guardrail quantiles when available.
+            q10_col = "quantile_p10_post_guardrail" if "quantile_p10_post_guardrail" in fact_oos_predictions.columns else "quantile_p10"
+            q50_col = "quantile_p50_post_guardrail" if "quantile_p50_post_guardrail" in fact_oos_predictions.columns else "quantile_p50"
+            q90_col = "quantile_p90_post_guardrail" if "quantile_p90_post_guardrail" in fact_oos_predictions.columns else "quantile_p90"
+
+            if {q10_col, q90_col}.issubset(set(fact_oos_predictions.columns)):
+                q10 = pd.to_numeric(fact_oos_predictions[q10_col], errors="coerce")
+                q90 = pd.to_numeric(fact_oos_predictions[q90_col], errors="coerce")
                 negative_width = int(((~q10.isna()) & (~q90.isna()) & ((q90 - q10) < 0.0)).sum())
                 if negative_width > 0:
-                    oos_interval_issues.append(f"negative_interval_width={negative_width}")
+                    oos_interval_issues.append(f"negative_interval_width={negative_width}|source={q10_col},{q90_col}")
 
-            if {"quantile_p10", "quantile_p50", "quantile_p90"}.issubset(set(fact_oos_predictions.columns)):
-                q10 = pd.to_numeric(fact_oos_predictions["quantile_p10"], errors="coerce")
-                q50 = pd.to_numeric(fact_oos_predictions["quantile_p50"], errors="coerce")
-                q90 = pd.to_numeric(fact_oos_predictions["quantile_p90"], errors="coerce")
+            if {q10_col, q50_col, q90_col}.issubset(set(fact_oos_predictions.columns)):
+                q10 = pd.to_numeric(fact_oos_predictions[q10_col], errors="coerce")
+                q50 = pd.to_numeric(fact_oos_predictions[q50_col], errors="coerce")
+                q90 = pd.to_numeric(fact_oos_predictions[q90_col], errors="coerce")
                 bad_order = int(((~q10.isna()) & (~q50.isna()) & (~q90.isna()) & ((q10 > q50) | (q50 > q90))).sum())
                 if bad_order > 0:
-                    oos_quantile_order_issues.append(f"invalid_quantile_order={bad_order}")
+                    oos_quantile_order_issues.append(f"invalid_quantile_order={bad_order}|source={q10_col},{q50_col},{q90_col}")
 
             # Horizon coverage per run_id/split using fact_config.evaluation_horizons_json.
             if not fact_config.empty and "run_id" in fact_config.columns:
@@ -422,6 +450,25 @@ class ValidateAnalyticsQualityUseCase:
             len(oos_quantile_order_issues) == 0,
             "ok" if not oos_quantile_order_issues else ", ".join(oos_quantile_order_issues),
         )
+
+        block_a_df = QuantileContractAnalyzer.filter_scope(
+            fact_oos_predictions=fact_oos_predictions,
+            dim_run=dim_run,
+            parent_sweep_prefixes=self.block_a_parent_sweep_prefixes or None,
+            splits=self.block_a_splits or None,
+            horizons=self.block_a_horizons or None,
+        )
+        block_a_metrics = QuantileContractAnalyzer.analyze(block_a_df)
+        block_a_eval = QuantileContractAnalyzer.evaluate_block_a(
+            block_a_metrics,
+            thresholds=self.block_a_thresholds,
+        )
+        self._record(
+            checks,
+            "oos_quantile_block_a_acceptance",
+            block_a_eval.passed,
+            block_a_eval.detail,
+        )
         self._record(
             checks,
             "oos_pairwise_target_alignment",
@@ -453,13 +500,16 @@ class ValidateAnalyticsQualityUseCase:
                 if bad_non_numeric > 0:
                     inf_type_issues.append(f"non_numeric_{col}={bad_non_numeric}")
 
-            if {"quantile_p10", "quantile_p50", "quantile_p90"}.issubset(set(fact_inference_predictions.columns)):
-                q10 = pd.to_numeric(fact_inference_predictions["quantile_p10"], errors="coerce")
-                q50 = pd.to_numeric(fact_inference_predictions["quantile_p50"], errors="coerce")
-                q90 = pd.to_numeric(fact_inference_predictions["quantile_p90"], errors="coerce")
+            iq10_col = "quantile_p10_post_guardrail" if "quantile_p10_post_guardrail" in fact_inference_predictions.columns else "quantile_p10"
+            iq50_col = "quantile_p50_post_guardrail" if "quantile_p50_post_guardrail" in fact_inference_predictions.columns else "quantile_p50"
+            iq90_col = "quantile_p90_post_guardrail" if "quantile_p90_post_guardrail" in fact_inference_predictions.columns else "quantile_p90"
+            if {iq10_col, iq50_col, iq90_col}.issubset(set(fact_inference_predictions.columns)):
+                q10 = pd.to_numeric(fact_inference_predictions[iq10_col], errors="coerce")
+                q50 = pd.to_numeric(fact_inference_predictions[iq50_col], errors="coerce")
+                q90 = pd.to_numeric(fact_inference_predictions[iq90_col], errors="coerce")
                 bad_order = int(((~q10.isna()) & (~q50.isna()) & (~q90.isna()) & ((q10 > q50) | (q50 > q90))).sum())
                 if bad_order > 0:
-                    inf_quantile_order_issues.append(f"invalid_quantile_order={bad_order}")
+                    inf_quantile_order_issues.append(f"invalid_quantile_order={bad_order}|source={iq10_col},{iq50_col},{iq90_col}")
 
         self._record(
             checks,
