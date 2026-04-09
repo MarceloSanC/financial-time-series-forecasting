@@ -37,7 +37,7 @@ Hipoteses levantadas para explicar a causa raiz:
 6. Mistura de horizonte/split no parser (indices de matrizes atribuidos ao alvo errado).
 7. Dados com regime shift forte (janelas fora da distribuicao de treino degradam o quantile head antes do ponto medio).
 
-## Entradas
+### Entradas
 - Data: 2026-04-07
 - Questao/Hipotese: H1 - Mapeamento errado na extracao dos quantis (tensor em uma ordem, codigo interpretando em outra).
 - Experimento/Execucao:
@@ -298,6 +298,69 @@ Hipoteses levantadas para explicar a causa raiz:
   - A combinacao A+B reduz crossing estrutural e garante contrato final de quantis em producao.
 - Artefatos (paths):
   - `docs/07_reports/living-paper/30_results_and_analysis.md`
+- Uso no texto (TCC/Artigo/Ambos):
+  - Ambos.
+
+
+- Data: 2026-04-08
+- Questao/Hipotese: Definicao de criterios quantitativos de aceite para fechamento das hipoteses H3/H4/H7 no quality gate.
+- Experimento/Execucao:
+  - Consolidacao dos achados de H3 (crossing), H4 (instabilidade) e H7 (regime/OOD).
+  - Definicao de thresholds operacionais para promocao de modelo/sweep com status de gate `provisorio` -> `oficial`.
+- Configuracao-chave:
+  - Gate A: contrato quantilico (`crossing_bruto_rate`, crossing pos-guardrail, largura negativa).
+  - Gate B: impacto before/after do guardrail (`delta_pinball`, `delta_picp`, `delta_mpiw`).
+  - Gate C: variabilidade relevante por grupo (`std_invalid_rate > 0.005`, limite de grupos instaveis >20%).
+  - Gate D: teste controlado para regime/OOD com `p<0.05` e sinal consistente.
+- Resultado observado:
+  - Criterios documentados para decisao tecnica com thresholds explicitos.
+  - Status inicial definido como `provisorio` ate conclusao das evidencias paper-ready pendentes.
+- Interpretacao:
+  - O framework reduz subjetividade de decisao e conecta diretamente hipoteses suportadas/parcialmente suportadas a regras de promocao.
+  - Evita promocao baseada apenas em media de erro sem qualidade probabilistica/robustez.
+- Conclusao:
+  - Status: suportada (decisao de governanca).
+  - Criterios quantitativos formalizados e rastreaveis para implementacao e escrita academica.
+- Possiveis correcoes/melhorias:
+  - Revisar thresholds apos cada rodada completa com base na distribuicao observada.
+  - Migrar de `provisorio` para `oficial` somente apos 2 rodadas consecutivas aprovadas.
+  - Incluir no pacote final de resultados os testes faltantes de H3/H4/H7 (IC95 e p-valores).
+- Artefatos (paths):
+  - `docs/05_checklists/PREDICTIONS_AND_METRICS_CHECKLIST.md`
+  - `docs/07_reports/living-paper/30_results_and_analysis.md`
+  - `docs/07_reports/living-paper/evidence_log.md`
+- Uso no texto (TCC/Artigo/Ambos):
+  - Ambos.
+
+- Data: 2026-04-08
+- Questao/Hipotese: Implementacao modular do Bloco A (contrato quantilico) para uso recorrente no quality gate.
+- Experimento/Execucao:
+  - Criacao de servico de dominio reutilizavel para analise/evaluacao de crossing e largura de intervalo.
+  - Integracao do servico no `ValidateAnalyticsQualityUseCase` com check dedicado.
+  - Inclusao de escopo opcional por `parent_sweep_prefixes`, `splits` e `horizons`.
+- Configuracao-chave:
+  - Thresholds default do Bloco A:
+    - `max_crossing_bruto_rate=0.001` (0.10%)
+    - `max_negative_interval_width_count=0`
+    - `max_crossing_post_guardrail_rate=0.0`
+    - `require_post_guardrail=False`
+- Resultado observado:
+  - Novo check `oos_quantile_block_a_acceptance` disponivel no quality gate.
+  - Implementacao validada por testes unitarios de dominio e de use case.
+- Interpretacao:
+  - A validacao do Bloco A deixou de ser ad-hoc e passou a ser componente rastreavel, reusavel e escopavel.
+- Conclusao:
+  - Status: implementada.
+  - Pronta para suportar analises 0_2_3 vs 0_2_4 sem duplicacao de logica.
+- Possiveis correcoes/melhorias:
+  - Expor parametros de escopo/threshold via CLI do `main_refresh_analytics_store`.
+  - Persistir resumo do Bloco A em tabela gold dedicada para comparacao historica.
+- Artefatos (paths):
+  - `src/domain/services/quantile_contract_analyzer.py`
+  - `src/use_cases/validate_analytics_quality_use_case.py`
+  - `tests/unit/domain/services/test_quantile_contract_analyzer.py`
+  - `tests/unit/use_cases/test_validate_analytics_quality_use_case.py`
+  - `docs/06_runbooks/RUN_REFRESH_ANALYTICS.md`
 - Uso no texto (TCC/Artigo/Ambos):
   - Ambos.
 
