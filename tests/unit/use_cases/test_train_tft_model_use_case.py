@@ -1049,3 +1049,54 @@ def test_persist_fact_oos_predictions_keeps_horizon_index_alignment_per_split() 
     assert test_h30[0]["quantile_p50"] == 340.0
     assert test_h30[0]["quantile_p90"] == 360.0
     assert test_h30[0]["target_timestamp_utc"].startswith("2025-03-11")
+
+
+def test_persist_fact_oos_predictions_applies_quantile_guardrail_columns() -> None:
+    analytics = FakeAnalyticsRunRepo()
+    use_case = TrainTFTModelUseCase(
+        dataset_repository=FakeDatasetRepository(_df()),
+        model_trainer=FakeTrainer(),
+        model_repository=FakeModelRepo(),
+        analytics_run_repository=analytics,
+    )
+
+    split_frames = {
+        "test": pd.DataFrame(
+            {
+                "timestamp": pd.to_datetime(["2025-02-10"], utc=True),
+            }
+        )
+    }
+    split_predictions = {
+        "test": {
+            "horizons": [1],
+            "y_true_matrix": [[1.0]],
+            "y_pred_matrix": [[1.1]],
+            "quantile_p10_matrix": [[1.3]],
+            "quantile_p50_matrix": [[1.1]],
+            "quantile_p90_matrix": [[0.9]],
+        }
+    }
+
+    use_case._persist_fact_oos_predictions(
+        run_id="run_guardrail",
+        asset_id="AAPL",
+        feature_set_name="B",
+        model_version="20260409_101010_B",
+        config_signature="sig_guardrail",
+        fold_name="wf_1",
+        seed=7,
+        split_frames=split_frames,
+        split_predictions=split_predictions,
+    )
+
+    assert analytics.oos_rows is not None
+    assert len(analytics.oos_rows) == 1
+    row = analytics.oos_rows[0]
+    assert row["quantile_p10"] == 1.3
+    assert row["quantile_p50"] == 1.1
+    assert row["quantile_p90"] == 0.9
+    assert row["quantile_p10_post_guardrail"] == 0.9
+    assert row["quantile_p50_post_guardrail"] == 1.1
+    assert row["quantile_p90_post_guardrail"] == 1.3
+    assert row["quantile_guardrail_applied"] == 1
