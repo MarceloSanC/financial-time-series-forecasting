@@ -310,10 +310,13 @@ class RefreshAnalyticsStoreUseCase:
     def _build_gold_prediction_metrics_by_run_split_horizon(
         dim_run: pd.DataFrame,
         fact_oos_predictions: pd.DataFrame,
+        *,
+        quantile_columns: tuple[str, str, str] = ("quantile_p10", "quantile_p50", "quantile_p90"),
     ) -> pd.DataFrame:
         if fact_oos_predictions.empty:
             return pd.DataFrame()
 
+        q10_col, q50_col, q90_col = quantile_columns
         df = fact_oos_predictions.copy()
 
         required = [
@@ -322,19 +325,18 @@ class RefreshAnalyticsStoreUseCase:
             'horizon',
             'y_true',
             'y_pred',
-            'quantile_p10',
-            'quantile_p50',
-            'quantile_p90',
+            q10_col,
+            q50_col,
+            q90_col,
         ]
         missing = [c for c in required if c not in df.columns]
         if missing:
             return pd.DataFrame()
 
-        # Numeric normalization
-        for c in ['horizon', 'y_true', 'y_pred', 'quantile_p10', 'quantile_p50', 'quantile_p90']:
+        for c in ['horizon', 'y_true', 'y_pred', q10_col, q50_col, q90_col]:
             df[c] = pd.to_numeric(df[c], errors='coerce')
 
-        valid = df.dropna(subset=['horizon', 'y_true', 'y_pred', 'quantile_p10', 'quantile_p50', 'quantile_p90']).copy()
+        valid = df.dropna(subset=['horizon', 'y_true', 'y_pred', q10_col, q50_col, q90_col]).copy()
         if valid.empty:
             return pd.DataFrame()
 
@@ -342,10 +344,10 @@ class RefreshAnalyticsStoreUseCase:
         valid['error'] = valid['y_pred'] - valid['y_true']
         valid['abs_error'] = valid['error'].abs()
         valid['sq_error'] = valid['error'] ** 2
-        valid['pred_interval_width'] = valid['quantile_p90'] - valid['quantile_p10']
+        valid['pred_interval_width'] = valid[q90_col] - valid[q10_col]
         valid['covered_80'] = (
-            (valid['y_true'] >= valid['quantile_p10']) &
-            (valid['y_true'] <= valid['quantile_p90'])
+            (valid['y_true'] >= valid[q10_col]) &
+            (valid['y_true'] <= valid[q90_col])
         ).astype(float)
 
         denom = valid['y_true'].replace(0.0, np.nan)
@@ -354,14 +356,14 @@ class RefreshAnalyticsStoreUseCase:
         valid['smape_row'] = (2.0 * valid['abs_error'] / smape_denom.replace(0.0, np.nan))
 
         valid['da_row'] = (np.sign(valid['y_true']) == np.sign(valid['y_pred'])).astype(float)
-        valid['pinball_q10_row'] = RefreshAnalyticsStoreUseCase._pinball_loss(valid['y_true'], valid['quantile_p10'], 0.1)
-        valid['pinball_q50_row'] = RefreshAnalyticsStoreUseCase._pinball_loss(valid['y_true'], valid['quantile_p50'], 0.5)
-        valid['pinball_q90_row'] = RefreshAnalyticsStoreUseCase._pinball_loss(valid['y_true'], valid['quantile_p90'], 0.9)
+        valid['pinball_q10_row'] = RefreshAnalyticsStoreUseCase._pinball_loss(valid['y_true'], valid[q10_col], 0.1)
+        valid['pinball_q50_row'] = RefreshAnalyticsStoreUseCase._pinball_loss(valid['y_true'], valid[q50_col], 0.5)
+        valid['pinball_q90_row'] = RefreshAnalyticsStoreUseCase._pinball_loss(valid['y_true'], valid[q90_col], 0.9)
         valid['pinball_mean_row'] = (
             valid['pinball_q10_row'] + valid['pinball_q50_row'] + valid['pinball_q90_row']
         ) / 3.0
         valid['prob_up_row'] = RefreshAnalyticsStoreUseCase._prob_up_from_quantiles(
-            valid['quantile_p10'], valid['quantile_p50'], valid['quantile_p90']
+            valid[q10_col], valid[q50_col], valid[q90_col]
         )
 
         group_cols = [
@@ -400,13 +402,115 @@ class RefreshAnalyticsStoreUseCase:
         width_term = 1.0 / (1.0 + agg['pred_interval_width'].clip(lower=0.0))
         agg['confidence_calibrated'] = calibration_term * width_term
 
-        # Optional join for model metadata
         if not dim_run.empty and 'run_id' in dim_run.columns:
             keep = [c for c in ['run_id', 'model_version', 'feature_set_hash', 'parent_sweep_id', 'trial_number', 'status'] if c in dim_run.columns]
             if keep:
                 agg = agg.merge(dim_run[keep].drop_duplicates('run_id'), on='run_id', how='left')
 
         return agg
+
+    @staticmethod
+    def _build_gold_quantile_guardrail_audit(
+        dim_run: pd.DataFrame,
+        fact_oos_predictions: pd.DataFrame,
+    ) -> pd.DataFrame:
+        required = {
+            'run_id', 'split', 'horizon',
+            'quantile_p10', 'quantile_p50', 'quantile_p90',
+            'quantile_p10_post_guardrail', 'quantile_p50_post_guardrail', 'quantile_p90_post_guardrail',
+        }
+        if fact_oos_predictions.empty or not required.issubset(set(fact_oos_predictions.columns)):
+            return pd.DataFrame()
+
+        base_metrics = RefreshAnalyticsStoreUseCase._build_gold_prediction_metrics_by_run_split_horizon(
+            dim_run,
+            fact_oos_predictions,
+            quantile_columns=('quantile_p10', 'quantile_p50', 'quantile_p90'),
+        )
+        post_metrics = RefreshAnalyticsStoreUseCase._build_gold_prediction_metrics_by_run_split_horizon(
+            dim_run,
+            fact_oos_predictions,
+            quantile_columns=(
+                'quantile_p10_post_guardrail',
+                'quantile_p50_post_guardrail',
+                'quantile_p90_post_guardrail',
+            ),
+        )
+        if base_metrics.empty or post_metrics.empty:
+            return pd.DataFrame()
+
+        key_cols = [
+            c for c in [
+                'run_id', 'asset', 'feature_set_name', 'config_signature',
+                'split', 'fold', 'seed', 'horizon',
+                'model_version', 'feature_set_hash', 'parent_sweep_id', 'trial_number', 'status'
+            ] if c in base_metrics.columns and c in post_metrics.columns
+        ]
+        metric_cols = [
+            c for c in ['mean_pinball', 'picp', 'mpiw', 'pred_interval_width', 'coverage_error', 'confidence_calibrated']
+            if c in base_metrics.columns and c in post_metrics.columns
+        ]
+
+        before = base_metrics[key_cols + metric_cols].copy().rename(
+            columns={m: f"{m}_before" for m in metric_cols}
+        )
+        after = post_metrics[key_cols + metric_cols].copy().rename(
+            columns={m: f"{m}_after" for m in metric_cols}
+        )
+        out = before.merge(after, on=key_cols, how='inner')
+        if out.empty:
+            return pd.DataFrame()
+
+        for m in metric_cols:
+            out[f"delta_{m}_after_minus_before"] = out[f"{m}_after"] - out[f"{m}_before"]
+
+        qdf = fact_oos_predictions.copy()
+        for c in [
+            'horizon',
+            'quantile_p10', 'quantile_p50', 'quantile_p90',
+            'quantile_p10_post_guardrail', 'quantile_p50_post_guardrail', 'quantile_p90_post_guardrail',
+            'quantile_guardrail_applied',
+        ]:
+            if c in qdf.columns:
+                qdf[c] = pd.to_numeric(qdf[c], errors='coerce')
+
+        group_cols = [c for c in ['run_id', 'split', 'horizon'] if c in qdf.columns]
+        crossing = (
+            qdf.assign(
+                crossing_before=((qdf['quantile_p10'] > qdf['quantile_p50']) | (qdf['quantile_p50'] > qdf['quantile_p90'])).astype(float),
+                crossing_after=((qdf['quantile_p10_post_guardrail'] > qdf['quantile_p50_post_guardrail']) | (qdf['quantile_p50_post_guardrail'] > qdf['quantile_p90_post_guardrail'])).astype(float),
+                negative_width_before=((qdf['quantile_p90'] - qdf['quantile_p10']) < 0.0).astype(float),
+                negative_width_after=((qdf['quantile_p90_post_guardrail'] - qdf['quantile_p10_post_guardrail']) < 0.0).astype(float),
+                guardrail_applied=qdf.get('quantile_guardrail_applied', pd.Series(0.0, index=qdf.index)).fillna(0.0),
+            )
+            .groupby(group_cols, dropna=False)
+            .agg(
+                n_rows=('run_id', 'count'),
+                crossing_before_count=('crossing_before', 'sum'),
+                crossing_after_count=('crossing_after', 'sum'),
+                negative_width_before_count=('negative_width_before', 'sum'),
+                negative_width_after_count=('negative_width_after', 'sum'),
+                guardrail_applied_count=('guardrail_applied', 'sum'),
+            )
+            .reset_index()
+        )
+
+        for c in [
+            'crossing_before_count', 'crossing_after_count',
+            'negative_width_before_count', 'negative_width_after_count',
+            'guardrail_applied_count',
+        ]:
+            crossing[c] = pd.to_numeric(crossing[c], errors='coerce').fillna(0.0).astype(int)
+
+        n_rows = pd.to_numeric(crossing['n_rows'], errors='coerce').replace(0, np.nan)
+        crossing['crossing_before_rate'] = crossing['crossing_before_count'] / n_rows
+        crossing['crossing_after_rate'] = crossing['crossing_after_count'] / n_rows
+        crossing['negative_width_before_rate'] = crossing['negative_width_before_count'] / n_rows
+        crossing['negative_width_after_rate'] = crossing['negative_width_after_count'] / n_rows
+        crossing['guardrail_applied_rate'] = crossing['guardrail_applied_count'] / n_rows
+
+        out = out.merge(crossing, on=['run_id', 'split', 'horizon'], how='left')
+        return out
 
     @staticmethod
     def _build_gold_prediction_metrics_by_config(metrics_run_split_h: pd.DataFrame) -> pd.DataFrame:
@@ -1821,6 +1925,10 @@ class RefreshAnalyticsStoreUseCase:
         outputs["gold_prediction_metrics_by_run_split_horizon"] = self._safe_write(
             gold_prediction_metrics_by_run_split_horizon,
             self.analytics_gold_dir / "gold_prediction_metrics_by_run_split_horizon.parquet",
+        )
+        outputs["gold_quantile_guardrail_audit"] = self._safe_write(
+            self._build_gold_quantile_guardrail_audit(dim_run, fact_oos_predictions),
+            self.analytics_gold_dir / "gold_quantile_guardrail_audit.parquet",
         )
         outputs["gold_prediction_metrics_by_config"] = self._safe_write(
             self._build_gold_prediction_metrics_by_config(gold_prediction_metrics_by_run_split_horizon),
