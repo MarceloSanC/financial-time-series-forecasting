@@ -136,6 +136,10 @@ def test_refresh_analytics_store_builds_gold_tables(tmp_path) -> None:
                 "quantile_p10": 0.05,
                 "quantile_p50": 0.12,
                 "quantile_p90": 0.2,
+                "quantile_p10_post_guardrail": 0.05,
+                "quantile_p50_post_guardrail": 0.12,
+                "quantile_p90_post_guardrail": 0.2,
+                "quantile_guardrail_applied": 0,
                 "year": 2026,
             },
             {
@@ -158,6 +162,10 @@ def test_refresh_analytics_store_builds_gold_tables(tmp_path) -> None:
                 "quantile_p10": -0.10,
                 "quantile_p50": -0.02,
                 "quantile_p90": 0.05,
+                "quantile_p10_post_guardrail": -0.10,
+                "quantile_p50_post_guardrail": -0.02,
+                "quantile_p90_post_guardrail": 0.05,
+                "quantile_guardrail_applied": 0,
                 "year": 2026,
             },
             {
@@ -180,6 +188,10 @@ def test_refresh_analytics_store_builds_gold_tables(tmp_path) -> None:
                 "quantile_p10": 0.01,
                 "quantile_p50": 0.08,
                 "quantile_p90": 0.16,
+                "quantile_p10_post_guardrail": 0.01,
+                "quantile_p50_post_guardrail": 0.08,
+                "quantile_p90_post_guardrail": 0.16,
+                "quantile_guardrail_applied": 0,
                 "year": 2026,
             },
             {
@@ -202,6 +214,10 @@ def test_refresh_analytics_store_builds_gold_tables(tmp_path) -> None:
                 "quantile_p10": -0.14,
                 "quantile_p50": -0.07,
                 "quantile_p90": 0.01,
+                "quantile_p10_post_guardrail": -0.14,
+                "quantile_p50_post_guardrail": -0.07,
+                "quantile_p90_post_guardrail": 0.01,
+                "quantile_guardrail_applied": 0,
                 "year": 2026,
             }
         ],
@@ -345,6 +361,7 @@ def test_refresh_analytics_store_builds_gold_tables(tmp_path) -> None:
     assert "gold_ic95_by_config_metric" in result.outputs
     assert "gold_feature_set_impact" in result.outputs
     assert "gold_prediction_metrics_by_run_split_horizon" in result.outputs
+    assert "gold_quantile_guardrail_audit" in result.outputs
     assert "gold_prediction_metrics_by_config" in result.outputs
     assert "gold_prediction_metrics_by_horizon" in result.outputs
     assert "gold_prediction_calibration" in result.outputs
@@ -420,6 +437,9 @@ def test_refresh_analytics_store_builds_gold_tables(tmp_path) -> None:
     cal = pd.read_parquet(gold / "gold_prediction_calibration.parquet")
     assert not cal.empty
     assert {"run_id", "horizon", "pinball_q10", "pinball_q50", "pinball_q90", "mean_pinball", "picp", "mpiw", "coverage_error"}.issubset(set(cal.columns))
+    qaudit = pd.read_parquet(gold / "gold_quantile_guardrail_audit.parquet")
+    assert not qaudit.empty
+    assert {"mean_pinball_before", "mean_pinball_after", "crossing_before_count", "crossing_after_count"}.issubset(set(qaudit.columns))
 
     quality = pd.read_parquet(gold / "gold_oos_quality_report.parquet")
     assert not quality.empty
