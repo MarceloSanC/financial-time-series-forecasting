@@ -22,111 +22,151 @@ Entrada e saida esperadas:
 
 ## Validacao de hipoteses (quantis)
 
+### Contextualizacao da investigacao
+No momento desta investigacao, o projeto estava na etapa de consolidacao da avaliacao probabilistica do sweep explicito `0_2_3` (AAPL), com pipeline de treino/inferencia/analytics ja operacional e quality gate ativo. O objetivo especifico era explicar por que parte das linhas OOS ainda violava o contrato quantilico (`p10 <= p50 <= p90`) e como corrigir isso sem comprometer rigor estatistico.
+
+O que estava sendo testado:
+- consistencia de extracao e parser de quantis no codigo;
+- consistencia de configuracao entre treino e inferencia;
+- comportamento real do modelo em OOS (crossing e calibracao);
+- sensibilidade a repeticoes/otimizacao e efeito de regime (OOD/volatilidade).
+
+### Problemas observados
+1. Violacoes de ordenacao quantilica em parte das previsoes OOS.
+- Escopo `0_2_3`: 421 violacoes em 674.820 linhas (0,0624%), em 70/675 runs.
+
+2. Degradacao probabilistica localizada.
+- Runs com crossing apresentaram pior erro medio OOS (`rmse`/`mae`) que runs sem crossing.
+
+3. Sensibilidade entre repeticoes de algumas configuracoes.
+- Variabilidade da taxa de crossing entre seeds/folds em subgrupos especificos.
+
+4. Evidencia de piora em regime mais OOD/volatil.
+- Maior taxa de violacao em meses/timestamps com proxy de deslocamento de distribuicao e alta volatilidade local.
+
+Com base nisso, as hipoteses H1..H7 abaixo foram usadas para identificar causa raiz e orientar mitigacoes.
+
 ### H1. Mapeamento errado na extracao de quantis (ordem do tensor interpretada incorretamente)
 - Como validado:
   - Inspecao de `src/adapters/pytorch_forecasting_tft_inference_engine.py` e `src/adapters/pytorch_forecasting_tft_trainer.py`.
-  - Confirmacao de que p10/p50/p90 sao extraidos por indice de proximidade dos niveis (`argmin(abs(q_levels - alvo))`), e nao por posicao fixa.
-  - Checagem empirica no sweep `0_2_3`: 421 linhas invalidas em 70 runs (padrao esparso, nao sistematico).
+  - Confirmacao de extracao por proximidade de nivel (`argmin(abs(q_levels - alvo))`), e nao por posicao fixa.
+  - No `0_2_3`, padrao esparso (nao massivo/sistematico).
 - Conclusao:
-  - A hipotese de mapeamento posicional invertido foi refutada como causa principal atual.
+  - Hipotese refutada como causa principal atual.
 
 ### H2. `quantile_levels` inconsistente entre treino e inferencia
 - Como validado:
-  - Em `fact_config` para `0_2_3`, `quantile_levels_json` ficou unificado em `[0.1, 0.5, 0.9]` (675/675, 1 valor distinto).
-  - Nos 70 artefatos de runs com erro, leitura de `config.json` sem divergencia de `quantile_levels`.
-  - Carregamento real via `LocalTFTInferenceModelLoader` mostrando consistencia entre:
-    - `training_config.quantile_levels = [0.1, 0.5, 0.9]`
-    - `model.loss.quantiles = [0.1, 0.5, 0.9]`
+  - `fact_config` no `0_2_3` com `quantile_levels_json=[0.1,0.5,0.9]` em 675/675 runs.
+  - Checagem de `config.json` dos 70 runs com violacao sem divergencias.
+  - `LocalTFTInferenceModelLoader`: consistencia entre `training_config.quantile_levels` e `model.loss.quantiles`.
 - Conclusao:
-  - A hipotese de inconsistencia treino vs inferencia foi refutada no escopo atual.
-
-
-
-
+  - Hipotese refutada no escopo atual.
 
 ### H3. Crossing real de quantile regression
 - Como validado:
-  - Medicao de crossing por run no escopo `0_2_3` e comparacao com erro pontual OOS.
+  - Medicao de crossing por run e associacao com erro pontual OOS.
 - Evidencia:
-  - 421 violacoes em 674.820 linhas (0,0624%), presentes em 70/675 runs.
-  - Runs com crossing tiveram pior erro de teste medio:
+  - 421/674.820 violacoes (0,0624%), em 70/675 runs.
+  - Runs com crossing tiveram pior erro medio de teste:
     - `test_rmse`: 0,020796 vs 0,018696
     - `test_mae`: 0,014826 vs 0,013536
-  - Correlacao positiva entre taxa de crossing e erro de teste:
-    - corr com `test_rmse` ~ 0,1449
-    - corr com `test_mae` ~ 0,1464
+  - Correlacao positiva entre taxa de crossing e erro OOS (`~0,145` com RMSE/MAE).
 - Conclusao:
-  - Hipotese suportada: crossing real existe no output quantilico e associa-se a piora de desempenho OOS.
+  - Hipotese suportada.
 
 ### H4. Instabilidade numerica/otimizacao
 - Como validado:
   - Associacao de crossing com `learning_rate`, `batch_size` e proxies de estabilidade de treino.
-  - Analise de variabilidade por grupos de hiperparametros (5 seeds x 3 folds).
+  - Variabilidade por grupos de hiperparametros (5 seeds x 3 folds).
 - Evidencia:
-  - Nao houve suporte para a versao simplificada "LR alto/treino curto/batch pequeno":
-    - crossing maior em quartis mais baixos de LR;
-    - runs com crossing nao pararam antes (mais epocas em media);
-    - batch pequeno nao foi o principal padrAo associado.
-  - Houve variabilidade entre repeticoes para alguns grupos (std da taxa de crossing por grupo chegando a ~0,02244; media ~0,00177).
+  - Sem suporte para narrativa simplificada "LR alto/treino curto/batch pequeno".
+  - Componente real de sensibilidade entre repeticoes em alguns grupos (std de crossing ate ~0,02244; media ~0,00177).
 - Conclusao:
-  - Hipotese parcialmente suportada: existe componente de instabilidade/sensibilidade entre repeticoes, mas nao por um unico gatilho simples (LR alto etc.).
+  - Hipotese parcialmente suportada.
 
 ### H5. Problema de escala/inversao no pos-processamento
 - Como validado:
-  - Busca de codigo por `inverse_transform`/desnormalizacao em fluxo de predicao quantilica.
-  - Revisao de `_apply_scalers` em inferencia e persistencia OOS.
+  - Revisao de `_apply_scalers`, persistencia OOS e busca de `inverse_transform` em caminho de quantis.
 - Evidencia:
-  - O pipeline nao aplica inverse transform em `quantile_p10/p50/p90` antes da gravacao.
-  - A escala e aplicada nas features de entrada; `target_return` e protegido no caminho de inferencia.
+  - Nao ha inverse transform aplicado em `quantile_p10/p50/p90` antes da gravacao.
 - Conclusao:
   - Hipotese refutada como causa principal atual.
 
 ### H6. Mistura de horizonte/split no parser
 - Como validado:
-  - Revisao da montagem de matrizes no trainer e da persistencia em `_persist_fact_oos_predictions`.
-  - Verificacao empirica de distribuicao das violacoes por horizonte e por `max_prediction_length`.
+  - Revisao da montagem/persistencia por horizonte no trainer.
+  - Checagem de violacoes por `horizon` e `max_prediction_length`.
 - Evidencia:
-  - `421/421` violacoes no `horizon=1`.
-  - `0` violacoes em `horizon>1`.
-  - `0` violacoes em runs com `max_prediction_length>1` no conjunto analisado.
+  - `421/421` violacoes em `horizon=1`; zero em `horizon>1` no conjunto analisado.
 - Conclusao:
   - Hipotese refutada para o problema atual.
-  - Recomendado manter teste de regressao para parser multi-horizonte como hardening.
-
-
 
 ### H7. Dados com regime shift forte
 - Como validado:
-  - Analise no escopo `0_2_3` por concentracao temporal das violacoes de ordem quantilica.
-  - Proxy OOD por run com `z_train = |y_true - media_treino|/desvio_treino`.
-  - Proxy de regime via volatilidade local (rolling std 21d) por `target_timestamp_utc`.
+  - Concentracao temporal de violacoes.
+  - Proxy OOD: `z_train = |y_true - media_treino|/desvio_treino`.
+  - Proxy de regime: volatilidade local rolling (21d).
 - Evidencia:
-  - Violacoes concentram-se em meses de 2019-2020 com taxas mensais superiores ao baseline.
-  - `z_train` medio maior nas linhas invalidas (~0,971) que nas validas (~0,818).
-  - Taxa de violacao cresce em faixas mais OOD (`z>=2.0/2.5`).
-  - Alta volatilidade local apresenta taxa maior de violacao (0,000813) que baixa volatilidade (0,000542).
+  - Maior taxa de violacao em meses de 2019-2020 e em regioes mais OOD/volateis.
+  - Ex.: `high_vol=0,000813` vs `low_vol=0,000542`.
 - Conclusao:
-  - Hipotese parcialmente suportada: ha associacao entre regime/OOD e degradacao do head quantilico.
-  - A evidência e correlacional; nao estabelece causalidade unica.
+  - Hipotese parcialmente suportada (evidencia correlacional, nao causal unica).
+
+### Acoes corretivas (mapeadas por problema e hipoteses)
+
+#### Problema A - Violacao do contrato quantilico (ordem/largura)
+- Hipoteses relacionadas: H3 (suportada), H4 (parcial), H7 (parcial).
+- Acoes:
+1. Treino: introduzir penalizacao/parametrizacao monotona de quantis para reduzir crossing na origem.
+2. Inferencia: aplicar guardrail monotono final (`p10<=p50<=p90`) com auditoria before/after (`crossing_rate`, `PICP`, `MPIW`, `pinball`).
+3. Gate: elevar checks de ordem e largura para bloqueio de release quando violados acima do limiar definido.
+
+#### Problema B - Instabilidade entre repeticoes (seed/fold/config)
+- Hipoteses relacionadas: H4 (parcial).
+- Acoes:
+1. Selecao de modelo: priorizar ranking por robustez (media + IC95 + variancia), nao apenas melhor media de erro.
+2. Protocolo finalista: rerun adicional dos candidatos finais para confirmar estabilidade probabilistica.
+3. Governanca: penalizar no ranking configuracoes com variabilidade alta de crossing.
+
+#### Problema C - Degradacao em regime OOD/volatil
+- Hipoteses relacionadas: H7 (parcial), H3 (suportada).
+- Acoes:
+1. Recalibracao por horizonte em janela recente (rolling/expanding) para cobertura mais aderente ao regime atual.
+2. Monitor de drift/regime com gatilho de retreino/recalibracao.
+3. Validacao segmentada por regime no relatorio final (evitar mascaramento por media agregada).
+
+#### Problema D - Risco de regressao de pipeline (causas refutadas)
+- Hipoteses relacionadas: H1, H2, H5, H6 (refutadas no escopo atual).
+- Acoes:
+1. Manter hardening de parser/config com testes automatizados dedicados.
+2. Incluir checks de consistencia treino-inferencia no load do modelo.
+3. Preservar rastreabilidade no living-paper para reavaliar rapidamente se o contexto mudar.
 
 
 
-#### Acoes corretivas propostas para H7
-1. Mitigacao na origem (treino/calibracao)
-- Introduzir restricao de monotonicidade no treino do head quantilico (penalizar crossing `q10>q50` e `q50>q90`) ou adotar parametrizacao monotona por construcao (`q50`, `d1=softplus`, `d2=softplus`, com `q10=q50-d1` e `q90=q50+d2`).
-- Priorizar calibracao probabilistica no criterio de selecao (pinball/PICP/MPIW) junto com erro pontual, com validacao por horizonte.
-- Reforcar robustez em janelas de regime mais volatil (reweight/stratified validation), para reduzir degradacao do quantile head fora da distribuicao de treino.
+### Criterios quantitativos de aceite (status de gate)
 
-2. Garantia de contrato na saida (producao)
-- Aplicar rearranjo monotono dos quantis como guardrail final de inferencia para garantir `p10<=p50<=p90` em 100% das linhas.
-- Registrar auditoria antes/depois (taxa de crossing, impacto em PICP/MPIW/pinball) para nao mascarar comportamento do modelo.
-- Tratar o rearranjo como hardening de confiabilidade, nao substituto de melhoria de modelagem.
+Status atual: `provisorio`.
 
-## Rascunho inicial
-- Escopo analisado: coorte `0_2_3_` (AAPL), com foco principal em `h+1`.
-- Resultado pontual: faixa de RMSE estreita entre candidatos (`~0.01335` a `~0.01341`), sem separação robusta por ponto estimado isolado.
-- Resultado probabilístico: cobertura observada aproximada de `0.75` para cobertura nominal `0.80` (subcobertura no curto prazo).
-- Trade-off incerteza: relação positiva entre largura de intervalo (MPIW) e cobertura (PICP), exigindo decisão por equilíbrio e não por extremo.
-- Comparações pareadas: predominância de p-valores elevados no DM, com separação estatística apenas localizada.
-- Interpretação: evidência de ganhos incrementais e ausência de dominância universal no escopo atual.
-- Limites: dependência de coorte/ativo/horizonte e necessidade de replicação para fortalecer validade externa.
+Criticos para promocao:
+- Gate A (contrato quantilico):
+  - `crossing_bruto_rate <= 0.10%` (meta oficial futura: `<=0.05%`)
+  - `crossing_pos_guardrail_rate = 0`
+  - `negative_interval_width = 0`
+- Gate B (impacto do guardrail):
+  - `delta_pinball_rel <= +1.0%`
+  - `abs(delta_picp) <= 0.02`
+  - `delta_mpiw_rel <= +5.0%`
+- Gate C (variabilidade relevante, H4):
+  - grupo instavel quando `std_invalid_rate > 0.005`
+  - reprovar familia quando `>20%` dos grupos forem instaveis
+- Gate D (regime/OOD, H7):
+  - confirmar efeito em teste controlado com `p<0.05` e sinal consistente
+
+Condicao para status `oficial`:
+- 2 rodadas consecutivas aprovando Gates A/B/C/D e evidencias H3/H4/H7 completas no `evidence_log`.
+
+### Sintese executiva
+- Causas principais do problema atual: crossing real (H3) com componente de instabilidade (H4) e efeito de regime (H7).
+- Causas investigadas e descartadas neste escopo: H1, H2, H5, H6.
+- Direcao de correcao: atuar simultaneamente em modelagem (origem), guardrails de inferencia (contrato), e governanca estatistica (robustez por repeticao/regime).
