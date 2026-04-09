@@ -10,6 +10,7 @@ import numpy as np
 import pandas as pd
 
 from src.domain.time.utc import require_tz_aware, to_utc
+from src.domain.services.quantile_guardrail_service import QuantileGuardrailService
 from src.entities.tft_inference_record import TFTInferenceRecord
 from src.infrastructure.schemas.analytics_store_schema import ANALYTICS_SCHEMA_VERSION
 from src.infrastructure.schemas.feature_validation_schema import IMPLEMENTED_FEATURES
@@ -110,6 +111,7 @@ class RunTFTInferenceUseCase:
             q10 = float(r.quantile_p10) if r.quantile_p10 is not None else None
             q50 = float(r.quantile_p50) if r.quantile_p50 is not None else None
             q90 = float(r.quantile_p90) if r.quantile_p90 is not None else None
+            guardrail = QuantileGuardrailService.enforce_monotonic_triplet(q10, q50, q90)
             pred = float(r.prediction)
             rows.append(
                 {
@@ -133,6 +135,10 @@ class RunTFTInferenceUseCase:
                     "quantile_p10": q10,
                     "quantile_p50": q50,
                     "quantile_p90": q90,
+                    "quantile_p10_post_guardrail": guardrail.p10_post,
+                    "quantile_p50_post_guardrail": guardrail.p50_post,
+                    "quantile_p90_post_guardrail": guardrail.p90_post,
+                    "quantile_guardrail_applied": int(guardrail.applied),
                     "year": int(target_ts_utc.year),
                     "created_at_utc": created_at_utc,
                 }
