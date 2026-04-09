@@ -254,3 +254,53 @@ Campos obrigatorios:
 - `test_type: "ofat"`: exige `param_ranges`
 - `test_type: "optuna"`: exige `search_space`, `n_trials`, `top_k`, `study_name`
 - `test_type: "explicit_configs"`: exige `explicit_configs` com `training_config` por item
+
+## 11) Purge completo de um sweep (silver + models + refresh + validacao)
+
+Use quando precisar apagar completamente os dados de um sweep (ex.: rerun limpo com mesmo prefixo).
+
+Comando:
+
+```bash
+python -m src.main_purge_sweep_data \
+  --asset AAPL \
+  --sweep-prefix 0_2_4_ \
+  --fail-on-quality
+```
+
+Regras de seguranca da CLI:
+- `--sweep-prefix` e obrigatorio.
+- `--sweep-prefix` nao pode ser vazio/whitespace.
+- Se o prefixo nao existir no `silver` (coluna `parent_sweep_id`) e nem em `data/models/<ASSET>/sweeps/<prefix>*`, o comando aborta antes de purge/refresh/quality.
+
+O que o pipeline faz:
+
+1. Resolve `run_id` do prefixo em `dim_run`.
+2. Remove, em todas as tabelas `silver`, linhas com:
+- `parent_sweep_id` iniciando com o prefixo, e/ou
+- `run_id` pertencente ao sweep.
+3. Remove diretorios de modelos em:
+- `data/models/<ASSET>/sweeps/<prefix>*`
+4. Executa refresh do gold (`RefreshAnalyticsStoreUseCase`).
+5. Executa quality validation (`ValidateAnalyticsQualityUseCase`).
+6. Valida residuo zero no silver e ausencia de caminhos remanescentes em models para o sweep purgado.
+
+Codigos de saida:
+
+- `0`: purge + refresh + validacao de residuo concluido.
+- `1`: quality gate falhou com `--fail-on-quality`.
+- `2`: validacao de residuo zero falhou (ainda ha linhas/caminhos do sweep).
+- `3`: sweep prefix nao encontrado (aborta sem executar purge/refresh/quality).
+
+Observacoes:
+
+- O comando nao remove arquivos de configuracao em `config/sweeps/*`.
+- Para rerun limpo do mesmo sweep, execute esse purge antes de iniciar o novo treino.
+- Logs de progresso foram enriquecidos por etapa para facilitar monitoramento:
+  - inicio do comando (paths/asset/prefixo),
+  - discovery,
+  - purge silver,
+  - purge models,
+  - refresh,
+  - quality,
+  - validacao final e tempo total.
