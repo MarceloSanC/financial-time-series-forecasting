@@ -599,7 +599,8 @@ class GeneratePredictionAnalysisPlotsUseCase:
         path: Path,
         impact_df: pd.DataFrame,
         horizons: list[int],
-        top_k_features: int,
+        top_k_features: int | None,
+        figure_title: str = "fig_feature_importance_global",
     ) -> None:
         df = impact_df.copy()
         req = {"split", "horizon", "feature_name", "mean_delta_rmse"}
@@ -621,6 +622,12 @@ class GeneratePredictionAnalysisPlotsUseCase:
         if len(hs) == 1:
             axes = [axes]
 
+        limit = None
+        if top_k_features is not None:
+            k = int(top_k_features)
+            if k > 0:
+                limit = max(1, k)
+
         for ax, h in zip(axes, hs):
             d = (
                 df[df["horizon"] == h]
@@ -628,9 +635,10 @@ class GeneratePredictionAnalysisPlotsUseCase:
                 .mean()
                 .abs()
                 .sort_values(ascending=False)
-                .head(max(1, top_k_features))
-                .sort_values(ascending=True)
             )
+            if limit is not None:
+                d = d.head(limit)
+            d = d.sort_values(ascending=True)
             if d.empty:
                 ax.axis("off")
                 ax.text(0.5, 0.5, f"h+{h}: no data", ha="center", va="center")
@@ -640,7 +648,7 @@ class GeneratePredictionAnalysisPlotsUseCase:
             ax.set_xlabel("|mean_delta_rmse|")
             ax.grid(True, axis="x", linestyle="--", alpha=0.3)
 
-        fig.suptitle("fig_feature_importance_global", fontsize=14)
+        fig.suptitle(str(figure_title), fontsize=14)
         fig.savefig(path, dpi=160, bbox_inches="tight")
         plt.close(fig)
 
@@ -778,7 +786,8 @@ class GeneratePredictionAnalysisPlotsUseCase:
             ("fig_calibration_curve", self._build_fig_calibration_curve, dict(calibration_df=gold_cal, horizons=horizons)),
             ("fig_interval_width_vs_coverage", self._build_fig_interval_width_vs_coverage, dict(metrics_by_config=gold_cfg, horizons=horizons)),
             ("fig_oos_timeseries_examples", self._build_fig_oos_timeseries_examples, dict(oos_df=gold_oos, decision_df=gold_dec, metrics_by_config=gold_cfg, horizons=horizons, max_points=max_timeseries_points)),
-            ("fig_feature_importance_global", self._build_fig_feature_importance_global, dict(impact_df=gold_imp, horizons=horizons, top_k_features=top_k_features)),
+            ("fig_feature_importance_global", self._build_fig_feature_importance_global, dict(impact_df=gold_imp, horizons=horizons, top_k_features=top_k_features, figure_title="fig_feature_importance_global")),
+            ("fig_feature_importance_global_all_features", self._build_fig_feature_importance_global, dict(impact_df=gold_imp, horizons=horizons, top_k_features=None, figure_title="fig_feature_importance_global_all_features")),
             ("fig_feature_contrib_local_cases", self._build_fig_feature_contrib_local_cases, dict(local_df=local_contrib, oos_df=gold_oos, top_k_features=top_k_features)),
         ]
 
