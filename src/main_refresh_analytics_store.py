@@ -64,6 +64,51 @@ def parse_args() -> argparse.Namespace:
             "(example: 0_2_2_)."
         ),
     )
+
+    parser.add_argument(
+        "--block-a-scope-sweep-prefixes",
+        type=str,
+        default=None,
+        help=(
+            "Optional comma-separated parent_sweep_id prefixes used to scope Quantile Block A "
+            "acceptance checks (example: 0_2_3_)."
+        ),
+    )
+    parser.add_argument(
+        "--block-a-splits",
+        type=str,
+        default=None,
+        help="Optional comma-separated split filter for Block A (example: val,test).",
+    )
+    parser.add_argument(
+        "--block-a-horizons",
+        type=str,
+        default=None,
+        help="Optional comma-separated horizon filter for Block A (example: 1,7,30).",
+    )
+    parser.add_argument(
+        "--block-a-max-crossing-bruto-rate",
+        type=float,
+        default=0.001,
+        help="Block A threshold for crossing bruto rate (default: 0.001 = 0.10%).",
+    )
+    parser.add_argument(
+        "--block-a-max-negative-interval-width-count",
+        type=int,
+        default=0,
+        help="Block A threshold for negative interval width count (default: 0).",
+    )
+    parser.add_argument(
+        "--block-a-max-crossing-post-guardrail-rate",
+        type=float,
+        default=0.0,
+        help="Block A threshold for crossing rate after guardrail (default: 0.0).",
+    )
+    parser.add_argument(
+        "--block-a-require-post-guardrail",
+        action="store_true",
+        help="Require post-guardrail quantile columns for Block A acceptance.",
+    )
     return parser.parse_args()
 
 
@@ -85,12 +130,44 @@ def main() -> None:
         },
     )
 
+    block_a_scope_prefixes = None
+    if args.block_a_scope_sweep_prefixes:
+        block_a_scope_prefixes = [
+            part.strip()
+            for part in str(args.block_a_scope_sweep_prefixes).split(",")
+            if part.strip()
+        ]
+
+    block_a_splits = None
+    if args.block_a_splits:
+        block_a_splits = [
+            part.strip()
+            for part in str(args.block_a_splits).split(",")
+            if part.strip()
+        ]
+
+    block_a_horizons = None
+    if args.block_a_horizons:
+        block_a_horizons = []
+        for part in str(args.block_a_horizons).split(","):
+            part = part.strip()
+            if not part:
+                continue
+            block_a_horizons.append(int(part))
+
     quality_result = ValidateAnalyticsQualityUseCase(
         analytics_silver_dir=paths["analytics_silver"],
         analytics_gold_dir=paths["analytics_gold"],
         min_samples_train=args.min_samples_train,
         min_samples_val=args.min_samples_val,
         min_samples_test=args.min_samples_test,
+        block_a_parent_sweep_prefixes=block_a_scope_prefixes,
+        block_a_splits=block_a_splits,
+        block_a_horizons=block_a_horizons,
+        block_a_max_crossing_bruto_rate=args.block_a_max_crossing_bruto_rate,
+        block_a_max_negative_interval_width_count=args.block_a_max_negative_interval_width_count,
+        block_a_max_crossing_post_guardrail_rate=args.block_a_max_crossing_post_guardrail_rate,
+        block_a_require_post_guardrail=args.block_a_require_post_guardrail,
     ).execute()
     failed_checks = [c for c in quality_result.checks if not bool(c["passed"])]
     logger.info(
@@ -99,6 +176,9 @@ def main() -> None:
             "passed": quality_result.passed,
             "failed_checks": failed_checks,
             "total_checks": len(quality_result.checks),
+            "block_a_scope_sweep_prefixes": args.block_a_scope_sweep_prefixes,
+            "block_a_splits": args.block_a_splits,
+            "block_a_horizons": args.block_a_horizons,
         },
     )
 
