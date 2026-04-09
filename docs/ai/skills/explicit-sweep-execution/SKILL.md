@@ -39,12 +39,32 @@ Project-specific additions in this skill (aligned with docs/ai/skills/skill-crea
 - Config directory path
 - Continue-on-error requirement
 - Plot scope target (`scope csv` and/or `sweep prefixes`)
+- Scope intent (`global_health` or `cohort_decision`)
 - Resume policy fields (for merge mode):
   - `resume_policy`: `keep_completed | rewind_last | rewind_last_n`
   - `rewind_n`: integer `>= 1` when `rewind_last_n`
   - `reconcile_orphans`: boolean
   - `cleanup_failed_or_incomplete`: boolean
   - `dry_run_cleanup`: boolean
+
+## Scope Discipline Policy
+- Any statistical comparison (DM/MCS/win-rate/final ranking) must run on explicit cohort scope.
+- Global quality checks are allowed for health monitoring, but cannot be used as final evidence for scoped winner selection.
+- Every final analysis report must restate the exact scope used (prefix/csv/splits/horizons/status filter).
+- During purge/rerun operations with explicit target prefix:
+  - global failures outside target scope must be reported as global health findings,
+  - and must not be mislabeled as purge/rerun failure for that scope.
+
+## Quality Modes (Execution Semantics)
+- `global_health`:
+  - validates full asset history in silver/gold.
+  - use for platform health and long-horizon consistency.
+- `cohort_decision`:
+  - validates only target cohort used in analysis decision.
+  - use for winner selection evidence and scoped regression.
+- Best practice:
+  - run scoped checks first for decision workflows,
+  - then run global checks to report platform residual issues separately.
 
 ## Resume Policy (Merge Mode)
 Use deterministic cleanup before scheduling new runs:
@@ -88,7 +108,9 @@ Safety requirements:
 - Prefix integrity check:
   - all executed files match target prefix.
 - Quality gate check:
-  - `main_refresh_analytics_store --fail-on-quality` passes.
+  - `main_refresh_analytics_store --fail-on-quality` passes (global health).
+- Scoped decision check (mandatory for winner claims):
+  - statistical tables/plots are generated from the same scoped cohort used in the decision.
 - Scope check:
   - plots generated with `--plots-scope-*` for target cohort.
 - Merge/resume consistency checks:
@@ -113,6 +135,8 @@ Example commands:
   - Fix: freeze candidates per cohort and keep old cohorts for audit only.
 - Failure: interrupted merge leaves orphan artifacts.
   - Fix: enable reconciliation + orphan cleanup before resuming.
+- Failure: global findings reported as scoped failure.
+  - Fix: split report into `cohort_decision` result and `global_health` residual findings.
 
 ## Definition of Done
 - Cohort executed under isolated prefix.
