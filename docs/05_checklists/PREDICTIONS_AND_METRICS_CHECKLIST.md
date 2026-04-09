@@ -450,3 +450,53 @@ Referencia: `docs/04_specs/P2_INFERENCE_EXPLAINABILITY_CONTRACT.md`
 
 Referencia operacional: `docs/06_runbooks/P2_INFERENCE_EXPLAINABILITY_RUNBOOK.md`
 
+
+## 13) Criterios Quantitativos De Aceite (H3/H4/H7)
+
+Objetivo: definir thresholds objetivos para promover modelo/sweep com rigor estatistico na camada probabilistica.
+
+### 13.1 Status do gate
+- [x] `status_gate = provisorio` enquanto testes controlados completos (IC95/p-valor H3 e modelo controlado H7) nao estiverem finalizados.
+- [ ] Promover para `status_gate = oficial` apenas apos 2 rodadas consecutivas com todos os gates abaixo aprovados.
+
+### 13.2 Gate A - Contrato quantilico (problema de crossing)
+Hipoteses relacionadas: H3 (suportada), H4 (parcial), H7 (parcial).
+Implementacao atual:
+- [x] Servico de dominio modular: `src/domain/services/quantile_contract_analyzer.py`
+- [x] Check integrado no quality gate: `oos_quantile_block_a_acceptance` (`src/use_cases/validate_analytics_quality_use_case.py`)
+- [x] Cobertura de testes unitarios por camada (dominio + use case)
+- [x] `crossing_bruto_rate <= 0.10%` (provisorio)
+- [ ] `crossing_bruto_rate <= 0.05%` (oficial)
+- [x] `crossing_pos_guardrail_rate = 0`
+- [x] `negative_interval_width = 0`
+
+### 13.3 Gate B - Impacto do guardrail (before/after)
+Hipoteses relacionadas: H3 (suportada).
+Implementacao atual:
+- [x] Guardrail monotônico aplicado na persistencia de treino e inferencia (`quantile_p10/50/90_post_guardrail` + `quantile_guardrail_applied`).
+- [x] Auditoria gold before/after materializada em `gold_quantile_guardrail_audit.parquet`.
+- [x] Metricas before/after por run/split/horizon: `mean_pinball`, `picp`, `mpiw`, `pred_interval_width`, `coverage_error`, `confidence_calibrated`.
+- [x] Auditoria de crossing/negative-width before/after por run/split/horizon.
+- [x] `delta_pinball_rel <= +1.0%`
+- [x] `abs(delta_picp) <= 0.02`
+- [x] `delta_mpiw_rel <= +5.0%`
+- [x] Reprovar promocao se qualquer limite for violado.
+
+### 13.4 Gate C - Variabilidade relevante (robustez)
+Hipoteses relacionadas: H4 (parcialmente suportada).
+- [x] Marcar grupo como instavel se `std_invalid_rate > 0.005`.
+- [x] Reprovar familia/coorte se `>20%` dos grupos forem instaveis.
+- [x] Selecao final deve considerar media + IC95 + variancia (nao apenas media de erro).
+
+### 13.5 Gate D - Regime/OOD (teste controlado)
+Hipoteses relacionadas: H7 (parcialmente suportada).
+- [x] Rodar modelo controlado (logit/regressao) com crossing como alvo e controles de config/fold/seed.
+- [x] Tratar efeito de regime como suportado somente com `p<0.05` e sinal consistente em repeticoes.
+- [x] Manter conclusao como correlacional enquanto causalidade nao for isolada com robustez adicional.
+
+### 13.6 Evidencia paper-ready obrigatoria
+- [ ] H3: diferenca entre grupos com/sem crossing reportada com IC95 + p-valor.
+- [ ] H4: `% grupos instaveis` e impacto na selecao final.
+- [ ] H7: coeficientes do teste controlado (IC95, p-valor, sinal).
+- [x] Registrar tudo no living-paper (`30_results_and_analysis.md`) e no log de evidencias (`evidence_log.md`).
+
