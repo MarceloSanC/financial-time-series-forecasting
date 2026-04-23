@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import json
 from pathlib import Path
+import warnings
 
 import pandas as pd
 
@@ -10,6 +11,7 @@ from src.domain.services.quantile_contract_analyzer import (
     QuantileBlockAThresholds,
     QuantileContractAnalyzer,
 )
+from src.domain.services.scope_spec import ScopeSpec, validate_scope_spec
 
 
 @dataclass(frozen=True)
@@ -24,6 +26,7 @@ class ValidateAnalyticsQualityUseCase:
         *,
         analytics_silver_dir: str | Path,
         analytics_gold_dir: str | Path | None = None,
+        scope_spec: ScopeSpec | None = None,
         min_samples_train: int = 1,
         min_samples_val: int = 1,
         min_samples_test: int = 1,
@@ -37,6 +40,7 @@ class ValidateAnalyticsQualityUseCase:
     ) -> None:
         self.analytics_silver_dir = Path(analytics_silver_dir)
         self.analytics_gold_dir = Path(analytics_gold_dir) if analytics_gold_dir is not None else None
+        self.scope_spec = scope_spec
         self.min_samples_train = int(min_samples_train)
         self.min_samples_val = int(min_samples_val)
         self.min_samples_test = int(min_samples_test)
@@ -76,6 +80,112 @@ class ValidateAnalyticsQualityUseCase:
     def _record(checks: list[dict[str, object]], name: str, passed: bool, detail: str) -> None:
         checks.append({"check": name, "passed": bool(passed), "detail": detail})
 
+    def _resolve_scope_spec(self) -> ScopeSpec:
+        legacy_scope_used = bool(
+            self.block_a_parent_sweep_prefixes or self.block_a_splits or self.block_a_horizons
+        )
+        if legacy_scope_used:
+            warnings.warn(
+                "block_a_parent_sweep_prefixes/block_a_splits/block_a_horizons are deprecated; "
+                "use scope_spec=ScopeSpec(...) instead.",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+
+        if self.scope_spec is not None:
+            return validate_scope_spec(self.scope_spec)
+
+        if legacy_scope_used:
+            return validate_scope_spec(
+                ScopeSpec.create(
+                    scope_mode="cohort_decision",
+                    parent_sweep_prefixes=self.block_a_parent_sweep_prefixes,
+                    splits=self.block_a_splits,
+                    horizons=self.block_a_horizons,
+                )
+            )
+
+        return validate_scope_spec(ScopeSpec.create(scope_mode="global_health"))
+
+    @staticmethod
+    def _scope_detail(scope_spec: ScopeSpec) -> str:
+        return (
+            "scope_mode="
+            + str(scope_spec.scope_mode)
+            + ", scope_parent_sweep_prefixes="
+            + str(list(scope_spec.parent_sweep_prefixes))
+            + ", scope_splits="
+            + str(list(scope_spec.splits))
+            + ", scope_horizons="
+            + str(list(scope_spec.horizons))
+        )
+
+    @staticmethod
+    def _scope_table(df: pd.DataFrame, *, scope_spec: ScopeSpec, run_ids: set[str] | None) -> pd.DataFrame:
+        if df.empty:
+            return df.copy()
+        out = df.copy()
+
+        if run_ids is not None and "run_id" in out.columns:
+            out = out[out["run_id"].astype(str).isin(run_ids)].copy()
+
+        if scope_spec.parent_sweep_prefixes and "parent_sweep_id" in out.columns:
+            out = out[
+                out["parent_sweep_id"].astype(str).apply(
+                    lambda value: any(value.startswith(prefix) for prefix in scope_spec.parent_sweep_prefixes)
+                )
+            ].copy()
+
+        if scope_spec.splits and "split" in out.columns:
+            out = out[out["split"].astype(str).isin(set(scope_spec.splits))].copy()
+
+        if scope_spec.horizons and "horizon" in out.columns:
+            horizon = pd.to_numeric(out["horizon"], errors="coerce")
+            out = out[horizon.isin(set(scope_spec.horizons))].copy()
+
+        return out
+
+    @staticmethod
+    def _build_scoped_run_ids(
+        *,
+        dim_run: pd.DataFrame,
+        fact_oos_predictions: pd.DataFrame,
+        scope_spec: ScopeSpec,
+    ) -> set[str]:
+        if dim_run.empty or "run_id" not in dim_run.columns:
+            return set()
+
+        dim_scoped = ValidateAnalyticsQualityUseCase._scope_table(
+            dim_run,
+            scope_spec=ScopeSpec.create(
+                scope_mode=scope_spec.scope_mode,
+                parent_sweep_prefixes=scope_spec.parent_sweep_prefixes,
+            ),
+            run_ids=None,
+        )
+        run_ids = set(dim_scoped["run_id"].dropna().astype(str).tolist())
+        if not run_ids:
+            return set()
+
+        if not (scope_spec.splits or scope_spec.horizons):
+            return run_ids
+
+        if fact_oos_predictions.empty or "run_id" not in fact_oos_predictions.columns:
+            return set()
+
+        oos_scoped = ValidateAnalyticsQualityUseCase._scope_table(
+            fact_oos_predictions,
+            scope_spec=ScopeSpec.create(
+                scope_mode=scope_spec.scope_mode,
+                splits=scope_spec.splits,
+                horizons=scope_spec.horizons,
+            ),
+            run_ids=run_ids,
+        )
+        if oos_scoped.empty:
+            return set()
+        return set(oos_scoped["run_id"].dropna().astype(str).tolist())
+
     def execute(self) -> AnalyticsQualityResult:
         checks: list[dict[str, object]] = []
 
@@ -93,6 +203,35 @@ class ValidateAnalyticsQualityUseCase:
         bridge_run_features = self._load_partitioned_table(self.analytics_silver_dir, "bridge_run_features")
         fact_split_timestamps_ref = self._load_partitioned_table(
             self.analytics_silver_dir, "fact_split_timestamps_ref"
+        )
+
+        scope_spec = self._resolve_scope_spec()
+        scope_detail = self._scope_detail(scope_spec)
+        scoped_run_ids = self._build_scoped_run_ids(
+            dim_run=dim_run,
+            fact_oos_predictions=fact_oos_predictions,
+            scope_spec=scope_spec,
+        )
+        run_id_scope_filter: set[str] | None = scoped_run_ids if scope_spec.has_cohort_filters() else None
+
+        dim_run = self._scope_table(dim_run, scope_spec=scope_spec, run_ids=run_id_scope_filter)
+        fact_run_snapshot = self._scope_table(fact_run_snapshot, scope_spec=scope_spec, run_ids=run_id_scope_filter)
+        fact_config = self._scope_table(fact_config, scope_spec=scope_spec, run_ids=run_id_scope_filter)
+        fact_split_metrics = self._scope_table(fact_split_metrics, scope_spec=scope_spec, run_ids=run_id_scope_filter)
+        fact_epoch_metrics = self._scope_table(fact_epoch_metrics, scope_spec=scope_spec, run_ids=run_id_scope_filter)
+        fact_oos_predictions = self._scope_table(fact_oos_predictions, scope_spec=scope_spec, run_ids=run_id_scope_filter)
+        fact_model_artifacts = self._scope_table(fact_model_artifacts, scope_spec=scope_spec, run_ids=run_id_scope_filter)
+        fact_inference_runs = self._scope_table(fact_inference_runs, scope_spec=scope_spec, run_ids=run_id_scope_filter)
+        fact_inference_predictions = self._scope_table(
+            fact_inference_predictions, scope_spec=scope_spec, run_ids=run_id_scope_filter
+        )
+        fact_feature_contrib_local = self._scope_table(
+            fact_feature_contrib_local, scope_spec=scope_spec, run_ids=run_id_scope_filter
+        )
+        fact_failures = self._scope_table(fact_failures, scope_spec=scope_spec, run_ids=run_id_scope_filter)
+        bridge_run_features = self._scope_table(bridge_run_features, scope_spec=scope_spec, run_ids=run_id_scope_filter)
+        fact_split_timestamps_ref = self._scope_table(
+            fact_split_timestamps_ref, scope_spec=scope_spec, run_ids=run_id_scope_filter
         )
 
         required_tables = {
@@ -454,9 +593,9 @@ class ValidateAnalyticsQualityUseCase:
         block_a_df = QuantileContractAnalyzer.filter_scope(
             fact_oos_predictions=fact_oos_predictions,
             dim_run=dim_run,
-            parent_sweep_prefixes=self.block_a_parent_sweep_prefixes or None,
-            splits=self.block_a_splits or None,
-            horizons=self.block_a_horizons or None,
+            parent_sweep_prefixes=list(scope_spec.parent_sweep_prefixes) or None,
+            splits=list(scope_spec.splits) or None,
+            horizons=list(scope_spec.horizons) or None,
         )
         block_a_metrics = QuantileContractAnalyzer.analyze(block_a_df)
         block_a_eval = QuantileContractAnalyzer.evaluate_block_a(
@@ -570,6 +709,9 @@ class ValidateAnalyticsQualityUseCase:
             dm_gold = self._load_partitioned_table(self.analytics_gold_dir, "gold_dm_pairwise_results")
             mcs_gold = self._load_partitioned_table(self.analytics_gold_dir, "gold_mcs_results")
             report_gold = self._load_partitioned_table(self.analytics_gold_dir, "gold_quality_statistics_report")
+            dm_gold = self._scope_table(dm_gold, scope_spec=scope_spec, run_ids=None)
+            mcs_gold = self._scope_table(mcs_gold, scope_spec=scope_spec, run_ids=None)
+            report_gold = self._scope_table(report_gold, scope_spec=scope_spec, run_ids=None)
 
             feasible_keys_dm: set[tuple[object, object, object, object]] = set()
             feasible_keys_mcs: set[tuple[object, object, object, object]] = set()
@@ -663,6 +805,7 @@ class ValidateAnalyticsQualityUseCase:
                 self.analytics_gold_dir,
                 "gold_prediction_metrics_by_run_split_horizon",
             )
+            gold_conf = self._scope_table(gold_conf, scope_spec=scope_spec, run_ids=run_id_scope_filter)
             if gold_conf.empty:
                 confidence_ok = False
                 confidence_detail = "missing_gold_prediction_metrics_by_run_split_horizon"
@@ -708,6 +851,8 @@ class ValidateAnalyticsQualityUseCase:
                 self.analytics_gold_dir,
                 "gold_prediction_metrics_by_run_split_horizon",
             )
+            gold_by_cfg = self._scope_table(gold_by_cfg, scope_spec=scope_spec, run_ids=None)
+            gold_run_h = self._scope_table(gold_run_h, scope_spec=scope_spec, run_ids=run_id_scope_filter)
             if gold_by_cfg.empty:
                 n_oos_ok = False
                 n_oos_detail = "missing_gold_prediction_metrics_by_config"
@@ -794,6 +939,10 @@ class ValidateAnalyticsQualityUseCase:
             contract_ok,
             "ok" if not contract_issues else ", ".join(contract_issues),
         )
+
+        for item in checks:
+            current = str(item.get("detail", ""))
+            item["detail"] = f"{current} | {scope_detail}"
 
         passed = all(bool(item["passed"]) for item in checks)
         return AnalyticsQualityResult(passed=passed, checks=checks)
