@@ -91,6 +91,8 @@ lightning_logs/
 .env
 .env.*
 config/local.yaml
+.codex
+codex/
 
 # ======================================================
 # IDEs / Editores
