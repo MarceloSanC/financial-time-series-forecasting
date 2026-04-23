@@ -1,44 +1,159 @@
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
+# src/adapters/finbert_sentiment_model.py
 
-from src.entities.news import InferredNews, SentimentLabel
+from __future__ import annotations
+
+from collections.abc import Iterable
+
+import torch
+
+from transformers import AutoModelForSequenceClassification, AutoTokenizer
+
+from src.domain.time.utc import require_tz_aware
+from src.entities.news_article import NewsArticle
+from src.entities.scored_news_article import ScoredNewsArticle
 from src.interfaces.sentiment_model import SentimentModel
 
 
 class FinBERTSentimentModel(SentimentModel):
-    def __init__(self, model_name: str = "yiyanghkust/finbert-tone"):
+    """
+    Financial sentiment inference using FinBERT.
+
+    Input:
+      - NewsArticle (domain)
+
+    Output:
+      - ScoredNewsArticle with sentiment_score ∈ [-1.0, +1.0]
+
+    Score strategy:
+      score = P(positive) - P(negative)
+    """
+
+    def __init__(
+        self,
+        model_name: str = "ProsusAI/finbert",
+        device: str | None = None,
+        batch_size: int = 16,
+        max_length: int = 512,
+    ) -> None:
+        self.model_name = model_name
+        self.batch_size = int(batch_size)
+        self.max_length = int(max_length)
+
+        self.device = (
+            device
+            if device is not None
+            else ("cuda" if torch.cuda.is_available() else "cpu")
+        )
+
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-        self.model = AutoModelForSequenceClassification.from_pretrained(model_name)
-        self.pipeline = pipeline(
-            "sentiment-analysis",
-            model=self.model,
-            tokenizer=self.tokenizer,
-            return_all_scores=False,
+        self.model = AutoModelForSequenceClassification.from_pretrained(model_name).to(
+            self.device
         )
+        self.model.eval()
 
-    def predict(self, text: str) -> InferredNews:
-        # Garantir que o texto seja string válida
-        if not isinstance(text, str) or not text.strip():
-            text = "."
+    @torch.no_grad()
+    def infer(self, articles: list[NewsArticle]) -> list[ScoredNewsArticle]:
+        if not articles:
+            return []
 
-        result = self.pipeline(text)[0]  # {"label": "positive", "score": 0.95}
+        # Guard rails for the new "score raw dataset" pipeline:
+        # - We rely on article_id for idempotent persistence in processed parquet.
+        # - Time must be tz-aware for downstream joins/aggregation.
+        for a in articles:
+            if a.article_id is None or not str(a.article_id).strip():
+                raise ValueError(
+                    "NewsArticle.article_id is required for scoring (used as stable id)."
+                )
+            require_tz_aware(a.published_at, "published_at")
 
-        # Normalizar label
-        label_map = {
-            "positive": SentimentLabel.POSITIVE,
-            "negative": SentimentLabel.NEGATIVE,
-            "neutral": SentimentLabel.NEUTRAL,
-        }
+        texts = [self._build_text(a) for a in articles]
+        scores = self._score_texts(texts)
 
-        sentiment = label_map.get(result["label"].lower(), SentimentLabel.NEUTRAL)
-        confidence = float(result["score"])
+        if len(scores) != len(articles):
+            raise RuntimeError("Sentiment inference produced inconsistent output size")
 
-        # Retorna InferredNews *sem* ticker/data — isso será preenchido pelo Use Case
-        return InferredNews(
-            ticker="",  # será sobrescrito
-            published_at=None,  # será sobrescrito
-            title="",  # será sobrescrito
-            source="",
-            url="",
-            sentiment=sentiment,
-            confidence=confidence,
-        )
+        scored: list[ScoredNewsArticle] = []
+        for article, score in zip(articles, scores):
+            s = float(score)
+            scored.append(
+                ScoredNewsArticle(
+                    article_id=str(article.article_id),
+                    asset_id=article.asset_id,
+                    published_at=article.published_at,
+                    sentiment_score=s,
+                    confidence=abs(s),
+                    model_name=self.model_name,
+                )
+            )
+
+        return scored
+
+    @staticmethod
+    def _build_text(article: NewsArticle) -> str:
+        # Minimal policy: concat headline + summary.
+        # If both are empty/whitespace, fallback to a neutral token.
+        headline = (article.headline or "").strip()
+        summary = (article.summary or "").strip()
+        text = " ".join(p for p in (headline, summary) if p)
+        return text if text else " "
+
+    def _score_texts(self, texts: Iterable[str]) -> list[float]:
+        batch_texts = list(texts)
+        scores: list[float] = []
+
+        for batch in self._batch(batch_texts):
+            inputs = self.tokenizer(
+                batch,
+                padding=True,
+                truncation=True,
+                max_length=self.max_length,
+                return_tensors="pt",
+            ).to(self.device)
+
+            outputs = self.model(**inputs)
+            probs = torch.softmax(outputs.logits, dim=1)
+
+            # FinBERT labels: [negative, neutral, positive]
+            batch_scores = (probs[:, 2] - probs[:, 0]).detach().cpu().tolist()
+            scores.extend(batch_scores)
+
+        return scores
+
+    def _batch(self, texts: list[str]) -> Iterable[list[str]]:
+        for i in range(0, len(texts), self.batch_size):
+            yield texts[i : i + self.batch_size]
+
+
+# =========================
+# TODOs — melhorias futuras
+# =========================
+
+# TODO (CleanArch):
+# Centralizar política de seleção de texto
+# para inferência de sentimento em método da entidade
+# ou Value Object dedicado (ex: SentimentInputText)
+
+# TODO(feature-engineering):
+# Retornar distribuição completa (neg / neu / pos)
+# e permitir múltiplas estratégias de agregação
+# (ex: weighted_pos, entropy, polarity_strength)
+
+# TODO(feature-engineering):
+# Permitir que modelos retornem confidence explícita
+# independente do sentiment_score (ex: entropy-based confidence)
+
+# TODO(normalization & leakage):
+# Calibrar scores por ativo usando z-score rolling
+# para evitar viés cross-asset
+
+# TODO(performance):
+# Implementar cache de inferência por hash de texto
+# (útil quando múltiplos ativos compartilham notícias)
+
+# TODO(performance):
+# Suporte a inferência em lote via DataLoader
+# com pin_memory e prefetching
+
+# TODO(stat-validation):
+# Validar estabilidade temporal do score
+# (ex: rolling mean / drift detection)

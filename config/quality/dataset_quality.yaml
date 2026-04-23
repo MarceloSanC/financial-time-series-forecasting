@@ -1,0 +1,12 @@
+build_dataset_tft:
+  max_nan_ratio_per_feature: 0.05
+  min_temporal_coverage_days: 1
+  require_unique_timestamps: true
+  require_monotonic_timestamps: true
+
+train_guard_rail:
+  max_nan_ratio_per_feature: 1.0
+  min_temporal_coverage_days: 1
+  require_unique_timestamps: true
+  require_monotonic_timestamps: true
+

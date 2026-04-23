@@ -1,19 +1,91 @@
+# ======================================================
+# Ambientes virtuais
+# ======================================================
+.venv/
 .venv_nlp/
+env/
+ENV/
+
+# ======================================================
+# Python caches / compilados
+# ======================================================
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.ipynb_checkpoints/
+
+# ======================================================
+# Build / packaging
+# ======================================================
+build/
+dist/
+*.egg
+*.egg-info/
+*.whl
+*.deb
+
+# ======================================================
+# ===================== DADOS ==========================
+# ======================================================
+# Todos os dados são gerados ou dependem de fontes externas
+# NÃO devem ser versionados
 
 data/**
-__pycache__/
-*.egg-info/
-.codex
+text/**
 
-# Diretórios locais fora da origem canônica (origin/main)
-.venv/
-.vscode/
-logs/
-text/
+# Exceção opcional: manter estrutura vazia
+!data/**/.gitkeep
 
-.coverage
+# ======================================================
+# Notebooks (exploratórios / não determinísticos)
+# ======================================================
+notebooks/**
+
+# Se quiser versionar notebooks finais, remova a linha acima
+# ou use exceções explícitas:
+# !notebooks/final/**
+
+# ======================================================
+# Outputs / relatórios gerados
+# ======================================================
+output/
+results/
+reports/**
+
+# ======================================================
+# Logs
+# ======================================================
+*.log
+*.out
+lightning_logs/
+
+# ======================================================
+# Configurações locais / segredos
+# ======================================================
 .env
-*.deb
-*.whl
-# opcional: se esse notebook for só local
-notebooks/training/validate_candidate_protocol.ipynb
+.env.*
+config/local.yaml
+
+# ======================================================
+# IDEs / Editores
+# ======================================================
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ======================================================
+# Sistema operacional
+# ======================================================
+.DS_Store
+Thumbs.db
+
+# ======================================================
+# Coverage / testes
+# ======================================================
+.coverage
+.coverage.*
+htmlcov/
+pytest_cache/

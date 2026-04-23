@@ -1,178 +1,123 @@
-# TCC: Análise de Sentimento em Notícias Financeiras para Previsão de Tendências de Mercado
+# Financial Time Series Forecasting
 
-> **Aluno**: Marcelo Santos  
-> **Curso**: Engenharia Mecatrônica — UFSC  
-> **Orientador**: [Nome do orientador]  
-> **Ano**: 2025  
+End-to-end machine learning project for financial time series forecasting with:
+- data ingestion (market/news/fundamentals),
+- feature engineering (technical, sentiment, derived features),
+- TFT model training and inference,
+- analytics storage for reproducible model evaluation without retraining.
 
-Este projeto implementa um sistema automatizado para:
-- Coletar notícias financeiras de ações (via API **Finnhub**),
-- Inferir sentimento (*positivo*, *neutro*, *negativo*) com **FinBERT**,
-- Calcular médias móveis de sentimento,
-- Analisar correlação entre sentimento e retorno de mercado.
+The project is structured with Clean Architecture (adapters, interfaces, use cases, domain services), with emphasis on traceability, reproducibility, and academic-grade evaluation.
 
-O sistema segue os princípios da **Clean Architecture**, garantindo **desacoplamento**, **testabilidade** e **extensibilidade** — permitindo futuras expansões com análise técnica, modelos de ML, etc.
+## Project Scope
+- **Primary goal**: generate robust, reproducible evidence for model comparison and decision support in financial assets.
+- **Model family**: Temporal Fusion Transformer (TFT), including quantile outputs for uncertainty-aware analysis.
+- **Data stack**: Parquet + DuckDB for analytics persistence and interactive querying.
 
----
+## Main Capabilities
+- Historical data pipelines:
+  - candles (market OHLCV),
+  - news ingestion,
+  - FinBERT sentiment scoring,
+  - daily sentiment aggregation,
+  - technical indicators,
+  - fundamentals.
+- Dataset builder for TFT (`dataset_tft`).
+- Training pipeline with split/warmup validation and quality gates.
+- Inference pipeline with feature compatibility checks and quantile support.
+- Analytics Store (silver/gold) for run/epoch/OOS artifacts and statistical post-analysis.
 
-## Estrutura do Projeto (Clean Architecture)
+## High-Level Architecture
 ```
 src/
-├── main.py
-├── adapters/
-│   ├── finbert_sentiment_model.py
-│   ├── finnhub_news_fetcher.py
-│   └── sqlite_news_repository.py
-├── entities/
-│   └── news.py
-├── interfaces/
-│   ├── news_fetcher.py
-│   ├── news_repository.py
-│   └── sentiment_model.py
-├── services/
-│   ├── finbert.py
-│   ├── market_data_fetcher.py
-│   ├── news_search.py
-│   ├── sentiment_aggregator.py
-│   └── sentiment_market_analyzer.py
-├── tcc_sentiment_analysis.egg-info/
-│   ├── PKG-INFO
-│   ├── SOURCES.txt
-│   ├── dependency_links.txt
-│   ├── requires.txt
-│   └── top_level.txt
-└── use_cases/
-    ├── fetch_news_use_case.py
-    └── infer_sentiment_use_case.py
+  adapters/         # external integrations and IO adapters
+  interfaces/       # ports
+  use_cases/        # application orchestration
+  domain/           # business rules/services
+  entities/         # core entities
+  infrastructure/   # schemas and storage contracts
 ```
 
----
+For the full structure, see `docs/PROJECT_STRUCTURE.md`.
 
-## Requisitos
-
-- **Windows 10/11**
-- **Python 3.13+** ([download](https://python.org))
-- **Git** (opcional, para versionamento)
-
-> *Recomenda-se uso de ambiente virtual.*
-
----
-
-## Configuração (Passo a Passo)
-
-### 1. Clone ou baixe o projeto
-
-```powershell
-git clone https://github.com/seu-usuario/tcc-sentiment-analysis.git
-cd tcc-sentiment-analysis
+## Repository Structure
+```
+config/             # runtime and source configuration
+data/               # raw, processed, analytics outputs
+docs/               # checklists, runbooks, guides
+src/                # source code
+tests/              # unit/integration tests
 ```
 
-### 2. Instale o make
+## Environment Setup
+### Requirements
+- Python 3.12+
+- GNU Make
+- Git
 
-```
-winget install GnuWin32.Make
-```
-
-### 3. Configure o ambiente
-
-Habilita execução de scripts (só uma vez no PC)
-```
-Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
-```
-
-Configura PATH, Python e ativa o venv (se existir)
-
-```
-.\setup.ps1
-```
-
-### 4. Crie e ative o ambiente virtual
-
-```
+### Quick start
+```bash
+git clone git@github.com:MarceloSanC/financial-time-series-forecasting.git
+cd financial-time-series-forecasting
 python -m venv .venv
-.\setup.ps1
-```
-
-### 5. Instale dependências
-
-```
+source .venv/bin/activate
 make install
 ```
-ou manualmente:
 
-```
-pip install -e ".[dev]"
-```
+## Configuration
+Main configuration files:
+- `config/data_sources.yaml` (providers, assets, periods, source-specific settings)
+- `config/data_paths.yaml` (local storage layout)
 
-## Como Executar
+Set API keys via environment variables / `.env` (never commit secrets).
 
-### Pipeline completo (notícias → sentimento → análise)
-
-```
-python src/main.py
-```
-
-### Comandos úteis (make)
-
-Roda testes + cobertura
-```
-make test
-```
-Formata código ( black + ruff )
-```
-make format
-```
-Verifica estilo e imports
-```
-make lint
-```
-Valida anotações de tipo ( mypy )
-```
-make type-check
-```
-Limpa arquivos temporários
-```
-make clean
+## Running Pipelines
+### Core data steps (example asset: AAPL)
+```bash
+make run-candles ASSET=AAPL
+make run-news-raw ASSET=AAPL
+make run-sentiment ASSET=AAPL
+make run-sentiment-feat ASSET=AAPL
+make run-indicators ASSET=AAPL
+python -m src.main_fundamentals --asset AAPL
+python -m src.main_dataset_tft --asset AAPL --overwrite
 ```
 
-## Testes
-Testes unitários isolados (sem dependência de rede, banco ou modelo):
-```
-make test
-```
-Saída esperada:
-```
------------ coverage: platform win32, python 3.13.3 -----------
-Name                              Stmts   Miss  Cover
--------------------------------------------------------
-src/entities/news.py                 12      0   100%
-src/use_cases/fetch_news_use_case.py 28      0   100%
-src/use_cases/infer_sentiment_use_case.py 24  0   100%
--------------------------------------------------------
-TOTAL                                64      0   100%
+### Training
+```bash
+python -m src.main_train_tft --asset AAPL --features BASELINE_FEATURES,TECHNICAL_FEATURES
 ```
 
-## Banco de Dados
-
- - SQLite: data/tcc_sentiment.db
- - Tabela única: news
-    - Campos: ticker, published_at, title, source, url, sentiment, confidence
-    - sentiment começa como NULL (notícia bruta) e é atualizado após inferência.
-
-## Chave da API Finnhub
-A chave está em src/adapters/finnhub_news_fetcher.py:
-```
-self.api_key = "d0ls2p9r01qpni3125ngd0ls2p9r01qpni3125o0"
+### Inference
+```bash
+python -m src.main_infer_tft --asset AAPL --model-path <MODEL_VERSION> --start 20250101 --end 20250228
 ```
 
-## Referências
-- Bollen, J., Mao, H., & Zeng, X. (2011). Twitter mood predicts the stock market.
-- Araci, D. (2019). FinBERT: Financial Sentiment Analysis with Pre-trained Language Models.
-- Martin, R. C. (2017). Clean Architecture.
+### Analytics refresh + validation
+```bash
+python -m src.main_refresh_analytics_store --fail-on-quality
+```
 
-##  Contato
+## Quality and CI
+- Local quality gate:
+```bash
+make ci-local
+```
+- CI workflows are defined in `.github/workflows/ci.yml`.
 
-Marcelo Santos
-marcelo.santos.c@grad.ufsc.br
+## Documentation Index
+- `docs/RUNNING_PIPELINE.md`
+- `docs/RUNNING_TESTS.md`
+- `docs/RUNNING_TFT_INFERENCE.md`
+- `docs/ANALYTICS_STORE_CHECKLIST.md`
+- `docs/PREDICTIONS_AND_METRICS_CHECKLIST.md`
+- `docs/FEATURES_SET_CHECKLIST.md`
 
-Engenharia Mecatrônica — UFSC
+## Academic Context
+This repository supports TCC research focused on:
+- financial forecasting with structured feature sets,
+- uncertainty-aware predictions (quantiles),
+- reproducible model comparison across folds/seeds/configurations.
+
+## Author
+Marcelo Santos  
+UFSC - Engenharia Mecatrônica

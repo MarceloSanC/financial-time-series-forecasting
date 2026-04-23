@@ -1,0 +1,42 @@
+# src/utils/path_resolver.py
+import logging
+import os
+
+from pathlib import Path
+
+import yaml
+
+logger = logging.getLogger(__name__)
+
+def load_data_paths() -> dict:
+    with open("config/data_paths.yaml") as f:
+        paths = yaml.safe_load(f)
+
+    root_env = os.getenv("DATA_ROOT")
+    root = Path(root_env) if root_env else None
+
+    logger.info("Resolved data paths | root=%s", root)
+
+    def resolve(p: str) -> Path:
+        return root / Path(p) if root else Path(p)
+
+    return {
+        "raw_candles": resolve(paths["data"]["raw"]["candles"]),
+        "processed_features": resolve(paths["data"]["processed"]["features"]),
+        "processed_technical_indicators": resolve(
+            paths["data"]["processed"]["technical_indicators"]
+        ),
+        "processed_sentiment_daily": resolve(
+            paths["data"]["processed"]["sentiment_daily"]
+        ),
+        "processed_news_scored": resolve(paths["data"]["processed"]["news_scored"]),
+        "processed_fundamentals": resolve(
+            paths["data"]["processed"]["fundamentals"]
+        ),
+        "dataset_tft": resolve(paths["data"]["processed"]["dataset_tft"]),
+        "inference_tft": resolve(paths["data"]["processed"]["inference_tft"]),
+        "analytics_silver": resolve(paths["data"]["processed"].get("analytics_silver", "data/analytics/silver")),
+        "analytics_gold": resolve(paths["data"]["processed"].get("analytics_gold", "data/analytics/gold")),
+        "models": resolve(paths["data"]["models"]["tft"]),
+        "news_dataset": resolve(paths["data"]["raw"]["news"]),
+    }

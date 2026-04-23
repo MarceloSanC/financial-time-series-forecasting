@@ -1,0 +1,19 @@
+# config/data_paths.yaml
+data:
+  raw:
+    candles: data/raw/market/candles
+    news: data/raw/news
+
+  processed:
+    features: data/processed/features
+    technical_indicators: data/processed/technical_indicators
+    news_scored: data/processed/scored_news
+    sentiment_daily: data/processed/sentiment_daily
+    fundamentals: data/processed/fundamentals
+    dataset_tft: data/processed/dataset_tft
+    inference_tft: data/processed/inference_tft
+    analytics_silver: data/analytics/silver
+    analytics_gold: data/analytics/gold
+
+  models:
+    tft: data/models

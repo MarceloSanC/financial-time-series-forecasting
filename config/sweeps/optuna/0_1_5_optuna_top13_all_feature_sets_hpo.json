@@ -1,0 +1,108 @@
+{
+  "test_type": "optuna",
+  "output_subdir": "optuna_0_1_5_top13_all_feature_sets_hpo",
+  "study_name": "tft_optuna_top13_all_feature_sets_v015",
+  "features": null,
+  "feature_sets": [
+    "BASELINE_FEATURES",
+    "TECHNICAL_FEATURES",
+    "SENTIMENT_FEATURES",
+    "BASELINE_FEATURES+TECHNICAL_FEATURES",
+    "BASELINE_FEATURES+SENTIMENT_FEATURES",
+    "TECHNICAL_FEATURES+SENTIMENT_FEATURES",
+    "BASELINE_FEATURES+TECHNICAL_FEATURES+SENTIMENT_FEATURES"
+  ],
+  "continue_on_error": true,
+  "merge_tests": false,
+  "n_trials": 30,
+  "top_k": 5,
+  "timeout_seconds": null,
+  "sampler_seed": 42,
+  "objective_metric": "robust_score",
+  "objective_lambda": 1.0,
+  "replica_seeds": [7, 11, 13, 42, 123],
+  "walk_forward": {
+    "enabled": true,
+    "folds": [
+      {
+        "name": "wf_1",
+        "train_start": "20100101",
+        "train_end": "20161231",
+        "val_start": "20170101",
+        "val_end": "20181231",
+        "test_start": "20190101",
+        "test_end": "20201231"
+      },
+      {
+        "name": "wf_2",
+        "train_start": "20100101",
+        "train_end": "20181231",
+        "val_start": "20190101",
+        "val_end": "20201231",
+        "test_start": "20210101",
+        "test_end": "20221231"
+      },
+      {
+        "name": "wf_3",
+        "train_start": "20100101",
+        "train_end": "20201231",
+        "val_start": "20210101",
+        "val_end": "20221231",
+        "test_start": "20230101",
+        "test_end": "20241231"
+      }
+    ]
+  },
+  "training_config": {
+    "max_encoder_length": 60,
+    "max_prediction_length": 1,
+    "batch_size": 64,
+    "max_epochs": 20,
+    "learning_rate": 0.0005,
+    "hidden_size": 32,
+    "attention_head_size": 2,
+    "dropout": 0.1,
+    "hidden_continuous_size": 8,
+    "seed": 42,
+    "early_stopping_patience": 5,
+    "early_stopping_min_delta": 0.0,
+    "warmup_policy": "drop_leading",
+    "compute_feature_importance": false
+  },
+  "split_config": {
+    "train_start": "20100101",
+    "train_end": "20201231",
+    "val_start": "20210101",
+    "val_end": "20221231",
+    "test_start": "20230101",
+    "test_end": "20241231"
+  },
+  "search_space": {
+    "max_encoder_length": { "type": "categorical", "choices": [2, 3, 4, 9, 12, 13, 16, 18, 20] },
+    "batch_size": { "type": "categorical", "choices": [32, 64, 128] },
+    "learning_rate": {
+      "type": "categorical",
+      "choices": [
+        0.00025229682180673925,
+        0.00027134257058444606,
+        0.0003332213575546234,
+        0.0003335164817119854,
+        0.00037502249227728244,
+        0.00040173989725148776,
+        0.00041423175146473645,
+        0.00048474274454898386,
+        0.0005281438046676378,
+        0.0005313744861267072,
+        0.0007613784484702295,
+        0.0007789764245638139,
+        0.0009322041620921816
+      ]
+    },
+    "hidden_size": { "type": "categorical", "choices": [8, 16, 32, 64] },
+    "attention_head_size": { "type": "categorical", "choices": [1, 4, 8, 16] },
+    "dropout": { "type": "categorical", "choices": [0.05, 0.1, 0.15] },
+    "hidden_continuous_size": { "type": "categorical", "choices": [4, 8, 16] },
+    "early_stopping_patience": { "type": "categorical", "choices": [3, 5, 8] },
+    "early_stopping_min_delta": { "type": "categorical", "choices": [0.00001, 0.00005, 0.0001] }
+  }
+}

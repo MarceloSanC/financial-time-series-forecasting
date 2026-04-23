@@ -1,0 +1,59 @@
+# config/data_sources.yaml
+assets:
+  - symbol: "AAPL"
+    name: "Apple Inc"
+    data_period:
+      start_date: "2010-01-01"
+      end_date: "2025-12-31"
+    training_period:
+      train_start: "2010-10-18"
+      train_end: "2020-12-31"
+      val_start: "2021-01-01"
+      val_end: "2022-12-31"
+      test_start: "2023-01-01"
+      test_end: "2025-12-31"
+    open_hour: "09:30"
+    close_hour: "16:00"
+    weekends: false
+
+  - symbol: "MSFT"
+    name: "Microsoft"
+    data_period:
+      start_date: "2010-01-01"
+      end_date: "2025-12-31"
+    training_period:
+      train_start: "2010-01-01"
+      train_end: "2020-12-31"
+      val_start: "2021-01-01"
+      val_end: "2022-12-31"
+      test_start: "2023-01-01"
+      test_end: "2025-12-31"
+    open_hour: "09:30"
+    close_hour: "16:00"
+    weekends: false
+
+data_sources:
+  candles:
+    provider: "yfinance"
+    interval: "1d"
+
+  news_dataset:
+    build_enabled: true
+    provider: "alpha_vantage"
+    dataset_start: "2010-01-01T00:00:00Z"
+    dataset_end: "2025-12-31T23:59:00Z"
+    sort: "EARLIEST"
+    limit: 1000
+    safety_margin: 950
+
+  sentiment:
+    enabled: true
+    provider: "alpha_vantage"   # ou "local_dataset" depois
+    aggregation: "daily"
+
+  fundamentals:
+    enabled: true
+    provider: "alpha_vantage"
+    report_types:
+      - "annual"
+      - "quarterly"

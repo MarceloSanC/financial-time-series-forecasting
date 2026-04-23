@@ -2,24 +2,22 @@ name: CI
 
 on:
   push:
-    branches: [ main, dev ]
+    branches: [ main, dev, v2/** ]
   pull_request:
-    branches: [ main ]
+    branches: [ main, dev, v2/** ]
 
 jobs:
-  test:
+  lint-type-unit:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        python-version: ["3.13"]
+    timeout-minutes: 40
 
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Python ${{ matrix.python-version }}
+    - name: Set up Python 3.12
       uses: actions/setup-python@v5
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: "3.12"
 
     - name: Install dependencies
       run: |
@@ -29,13 +27,46 @@ jobs:
     - name: Lint with ruff
       run: ruff check src/ tests/
 
-    - name: Run tests with coverage
+    - name: Type-check analytics store modules
       run: |
-        pytest tests/ --cov=src --cov-report=xml
+        python -m mypy --explicit-package-bases --ignore-missing-imports --disable-error-code import-untyped \
+          src/infrastructure/schemas/analytics_store_schema.py \
+          src/use_cases/refresh_analytics_store_use_case.py \
+          src/use_cases/validate_analytics_quality_use_case.py \
+          src/main_refresh_analytics_store.py
+
+    - name: Run unit tests (non-integration)
+      run: |
+        pytest tests/ -m "not integration" --cov=src --cov-report=xml
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v4
       with:
-        token: ${{ secrets.CODECOV_TOKEN }}  # opcional
+        token: ${{ secrets.CODECOV_TOKEN }}
         file: ./coverage.xml
         fail_ci_if_error: true
+
+  analytics-contract-and-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    needs: lint-type-unit
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: "3.12"
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e ".[dev]"
+
+    - name: Run analytics schema + synthetic quality tests
+      run: |
+        pytest -q \
+          tests/unit/infrastructure/schemas/test_analytics_store_schema.py \
+          tests/unit/use_cases/test_refresh_analytics_store_use_case.py \
+          tests/unit/use_cases/test_validate_analytics_quality_use_case.py
