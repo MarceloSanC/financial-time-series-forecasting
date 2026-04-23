@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import pandas as pd
+import pytest
 
+from src.domain.services.scope_spec import ScopeSpec
 from src.use_cases.validate_analytics_quality_use_case import (
     ValidateAnalyticsQualityUseCase,
 )
@@ -1052,3 +1054,43 @@ def test_validate_analytics_quality_block_a_scope_filters_parent_sweep_prefix(tm
 
     block_a = next(item for item in result.checks if item["check"] == "oos_quantile_block_a_acceptance")
     assert block_a["passed"] is True
+
+
+def test_validate_analytics_quality_scope_metadata_is_appended_to_checks(tmp_path) -> None:
+    silver = tmp_path / "silver"
+    _seed_minimal_valid_silver(silver)
+
+    result = ValidateAnalyticsQualityUseCase(
+        analytics_silver_dir=silver,
+        scope_spec=ScopeSpec.create(scope_mode="global_health"),
+    ).execute()
+
+    assert len(result.checks) > 0
+    assert all("scope_mode=global_health" in str(item["detail"]) for item in result.checks)
+
+
+def test_validate_analytics_quality_legacy_block_a_scope_warns_deprecation(tmp_path) -> None:
+    silver = tmp_path / "silver"
+    _seed_minimal_valid_silver(silver)
+
+    with pytest.warns(DeprecationWarning, match="deprecated"):
+        ValidateAnalyticsQualityUseCase(
+            analytics_silver_dir=silver,
+            block_a_parent_sweep_prefixes=["0_2_3_"],
+        ).execute()
+
+
+def test_validate_analytics_quality_scope_spec_overrides_legacy_scope_filters(tmp_path) -> None:
+    silver = tmp_path / "silver"
+    _seed_minimal_valid_silver(silver)
+
+    result = ValidateAnalyticsQualityUseCase(
+        analytics_silver_dir=silver,
+        scope_spec=ScopeSpec.create(scope_mode="global_health"),
+        block_a_parent_sweep_prefixes=["0_2_3_"],
+        block_a_splits=["test"],
+        block_a_horizons=[1],
+    ).execute()
+    block_a = next(item for item in result.checks if item["check"] == "oos_quantile_block_a_acceptance")
+    assert block_a["passed"] is True
+    assert "scope_mode=global_health" in str(block_a["detail"])
