@@ -55,6 +55,7 @@ def test_tft_trainer_smoke_tiny_dataset() -> None:
             "seed": 42,
             "early_stopping_patience": 1,
             "early_stopping_min_delta": 0.0,
+            "evaluate_train_split": True,
         },
     )
 

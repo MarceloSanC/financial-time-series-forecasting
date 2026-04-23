@@ -449,8 +449,9 @@ def main() -> None:
     for key, value in overrides.items():
         if value is not None:
             training_config[key] = value
-    if args.parent_sweep_id is not None:
-        training_config["parent_sweep_id"] = str(args.parent_sweep_id)
+    parent_sweep_id = getattr(args, "parent_sweep_id", None)
+    if parent_sweep_id is not None:
+        training_config["parent_sweep_id"] = str(parent_sweep_id)
     validate_tft_training_config(training_config)
 
     training_config["entrypoint"] = "src.main_train_tft"
