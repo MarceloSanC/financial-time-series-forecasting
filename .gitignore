@@ -4,3 +4,16 @@ data/**
 __pycache__/
 *.egg-info/
 .codex
+
+# Diretórios locais fora da origem canônica (origin/main)
+.venv/
+.vscode/
+logs/
+text/
+
+.coverage
+.env
+*.deb
+*.whl
+# opcional: se esse notebook for só local
+notebooks/training/validate_candidate_protocol.ipynb
