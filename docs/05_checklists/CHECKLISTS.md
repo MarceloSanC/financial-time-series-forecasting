@@ -1,6 +1,7 @@
 # → CHECKLISTS (DETAILED) USED IN EACH DEVELOPMENT PHASE
 
-Checklist pos-primeira rodada (selecao final): `docs/05_checklists/POST_ROUND1_MODEL_SELECTION_CHECKLIST.md`
+Direcionamento estrategico atual (supersede o antigo checklist pos-rodada):
+`docs/00_overview/STRATEGIC_DIRECTION.md`
 
 # → CHECKLIST Etapas MVP
 

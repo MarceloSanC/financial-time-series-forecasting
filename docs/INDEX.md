@@ -6,7 +6,8 @@ README synchronization note:
 - `README.md` was aligned on 2026-04-02 to reference the current docs tree and canonical runbooks/checklists.
 
 ## How To Use This Docs Set
-- Start at `docs/00_overview/PROJECT_OVERVIEW.md` for scope and goals.
+- **Start at `docs/00_overview/STRATEGIC_DIRECTION.md`** for current objective, methodological pivot, and execution roadmap (supersedes earlier plans).
+- Then `docs/00_overview/PROJECT_OVERVIEW.md` for scope and goals.
 - Use `docs/06_runbooks/*` for execution commands.
 - Use `docs/05_checklists/*` as implementation and validation gates.
 - Use `docs/04_evaluation/*` for metric/statistical definitions.
@@ -30,9 +31,9 @@ README synchronization note:
 - `ai/`: agent-focused skills, context, and workflow guidance.
 
 ## Canonical Files In Current Project State
+- **Strategic direction (current): `docs/00_overview/STRATEGIC_DIRECTION.md`**
 - Analytics store checklist: `docs/05_checklists/ANALYTICS_STORE_CHECKLIST.md`
 - Predictions/metrics checklist: `docs/05_checklists/PREDICTIONS_AND_METRICS_CHECKLIST.md`
-- Post-round-1 selection checklist: `docs/05_checklists/POST_ROUND1_MODEL_SELECTION_CHECKLIST.md`
 - Feature set checklist: `docs/05_checklists/FEATURES_SET_CHECKLIST.md`
 - Training pipeline (legacy params doc): `docs/03_modeling/TRAINING_PIPELINE.md`
 - Inference pipeline (legacy params doc): `docs/03_modeling/INFERENCE_PIPELINE.md`

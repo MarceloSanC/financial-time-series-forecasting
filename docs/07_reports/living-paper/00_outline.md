@@ -1,80 +1,163 @@
 # Living Paper - Outline
 
 Status: draft vivo para alimentar TCC (ABNT) e artigo estilo ML.
+Ultima revisao estrategica: 2026-04-23 (alinhado com `docs/00_overview/STRATEGIC_DIRECTION.md`).
 Protocolo operacional de escrita: `docs/living-paper/WRITING_PROTOCOL.md`.
 
 ## Objetivo do arquivo
 Este arquivo funciona como ancora conceitual do projeto de escrita.
-Seu papel e consolidar as definicoes centrais (tese, problema, pergunta, recorte, contribuicoes e hipoteses) antes da escrita detalhada dos capitulos.
+Seu papel e consolidar as definicoes centrais (tese, problema, pergunta, recorte,
+contribuicoes e hipoteses) antes da escrita detalhada dos capitulos.
 
 Uso esperado:
 - Entrada: alinhamentos de orientacao, escopo tecnico do repositorio e decisoes metodologicas.
 - Saida: base coerente para Introducao do TCC e Introduction/Contributions do artigo.
-- Regra: qualquer alteracao de escopo deve ser atualizada primeiro aqui e depois propagada para os demais arquivos.
+- Regra: qualquer alteracao de escopo deve ser atualizada primeiro em
+  `docs/00_overview/STRATEGIC_DIRECTION.md` e depois propagada para este arquivo.
 
 ## 1) Visao geral
-Este repositório suporta uma pesquisa de previsao de series temporais financeiras com foco em robustez metodologica, comparabilidade entre configuracoes e reproducibilidade experimental.
+Este repositorio suporta uma pesquisa de previsao de series temporais financeiras
+com foco em calibracao probabilistica, contribuicao de familias de indicadores,
+e reprodutibilidade experimental — usando Temporal Fusion Transformer (TFT) como
+modelo principal.
 
 ## 2) Tese central
-Este trabalho sustenta que a previsao de series temporais financeiras com Temporal Fusion Transformer (TFT), combinada com engenharia sistematica de conjuntos de features e avaliacao reprodutivel em nivel de experimento, produz evidencias mais robustas do que abordagens puramente pontuais, especialmente quando incorpora predicoes quantilicas para analise explicita de incerteza.
+
+Este trabalho sustenta que e possivel avaliar rigorosamente a qualidade probabilistica
+de previsoes de retorno de ativo com TFT, caracterizando a contribuicao relativa de
+familias de indicadores (preco, tecnico, fundamentalista, sentimento) por horizonte,
+sob um protocolo experimental reproduzivel e com claims explicitamente delimitados ao
+escopo do estudo (ativo AAPL, periodo analisado, sem generalizacao para outros ativos
+ou afirmacoes causais).
+
+O diferencial do trabalho nao e "prever o mercado com alta acuracia", mas:
+- produzir um protocolo experimental reproduzivel e auditavel para forecasting
+  financeiro com TFT e predicao quantilica;
+- reportar calibracao probabilistica honesta (PICP, MPIW, reliability diagram)
+  por horizonte, comparada a baselines explicitos;
+- quantificar, de forma metodologicamente defensavel, quais familias de indicadores
+  contribuem para a previsao do modelo — sem confundir contribuicao preditiva com
+  causalidade.
 
 ## 3) Problema cientifico
 Em previsao financeira, modelos podem aparentar bom desempenho sem garantir:
 - robustez fora da amostra;
-- comparabilidade justa entre configuracoes;
-- quantificacao confiavel da incerteza preditiva.
+- comparabilidade justa entre configuracoes (temporal alignment, scope governance);
+- quantificacao confiavel da incerteza preditiva (calibracao real vs PICP superficial);
+- separacao entre "o modelo usou esta feature" e "esta feature causa o retorno".
 
 ## 4) Pergunta de pesquisa
-Em series temporais de precos de ativos, o uso de TFT com saidas quantilicas e protocolo reprodutivel de avaliacao permite melhorar a qualidade e a confiabilidade da comparacao entre configuracoes de features e hiperparametros?
+
+Pergunta principal:
+- Em series temporais de retorno de ativo (AAPL, horizontes h+1 e h+7), um TFT
+  treinado com todas as familias de indicadores disponiveis produz previsoes
+  probabilisticas calibradas e estatisticamente superiores a baselines simples?
+
+Pergunta secundaria:
+- Quais familias de indicadores (preco, tecnico, fundamentalista, sentimento)
+  contribuem de forma heterogenea e consistente para a previsao do modelo, segundo
+  VSN weights nativos, permutation importance e ablation explicativa?
 
 ## 5) Recorte (delimitacao)
 - Tarefa: previsao supervisionada de series temporais financeiras.
-- Modelo principal: TFT (sem foco central em comparar arquiteturas profundas distintas).
-- Entradas: preco/volume, indicadores tecnicos, sentimento agregado e fundamentals (conforme disponibilidade no pipeline).
-- Incerteza: previsao quantilica (ex.: p10, p50, p90).
-- Avaliacao: metricas pontuais e probabilisticas + comparacao pareada OOS com alinhamento temporal.
-- Reprodutibilidade: rastreabilidade de run_id, configuracao, split e artefatos em Parquet/DuckDB.
-- Fora de escopo: estrategia de trading em producao, otimizacao de carteira em tempo real, inferencia intradiaria de alta frequencia.
+- Modelo principal: TFT (sem foco central em comparar arquiteturas distintas).
+- Ativo: AAPL (single-asset; resultados condicionais ao periodo e ativo analisados).
+- Horizonte principal: h+1 e h+7; h+30 como suplementar se N_effective suficiente.
+- Entradas: familias de indicadores — PRICE, TECHNICAL, SENTIMENT, FUNDAMENTAL.
+  Candidato principal: "all-features com poda minima baseada em principio (nao em OOS)".
+- Incerteza: previsao quantilica (p10, p50, p90) com guardrail monotonico.
+- Avaliacao: metricas pontuais e probabilisticas + comparacao pareada OOS com
+  alinhamento temporal estrito por `target_timestamp`.
+- Reprodutibilidade: rastreabilidade por `run_id`, configuracao, split e artefatos
+  em Parquet/DuckDB; decisoes reproduziveis sem retrain.
+- Fora de escopo: estrategia de trading em producao, otimizacao de carteira,
+  inferencia intradiaria, generalizacao para outros ativos, inferencia causal,
+  classificacao de regimes de mercado (future work).
 
 ## 6) Contribuicoes esperadas
-- Protocolo reprodutivel de avaliacao para forecasting financeiro com TFT.
-- Analise de incerteza com saida quantilica integrada ao pipeline.
-- Estrutura de comparacao entre feature sets e configuracoes sem retraining (Analytics Store).
+- Protocolo reproduzivel de avaliacao probabilistica para forecasting financeiro
+  com TFT, incluindo governance de escopo, pre-registro e artefatos versionados.
+- Analise de calibracao probabilistica (PICP, MPIW, reliability diagram por quantil)
+  comparada a baselines explicitos por horizonte.
+- Caracterizacao da contribuicao relativa de familias de indicadores via tres
+  metodos complementares: VSN weights, permutation importance, ablation explicativa.
+- Analytics Store reproduzivel que permite comparacao entre configuracoes sem retrain.
 
-## 7) Hipoteses de trabalho (rascunho)
-- H1: configuracoes com features enriquecidas melhoram desempenho OOS frente ao baseline.
-- H2: metricas probabilisticas e cobertura de intervalo agregam informacao relevante alem da acuracia pontual.
-- H3: alinhamento temporal estrito reduz risco de conclusoes espurias em comparacoes entre modelos.
+## 7) Hipoteses de trabalho (v2 — 2026-04-23)
+
+- **H1 (calibracao):** O candidato TFT all-features produz, para pelo menos um
+  horizonte h in {1, 7}, intervalos de predicao (p10-p90) com PICP dentro das
+  bandas de tolerancia pre-declaradas por quantil.
+
+- **H2 (superioridade):** Para pelo menos um horizonte h in {1, 7}, o candidato
+  TFT all-features apresenta pinball loss menor que cada baseline (random walk,
+  media historica, AR(1), EWMA-vol para quantis) de forma estatisticamente
+  significativa (DM com HAC, Holm-Bonferroni corrigido).
+
+- **H3 (heterogeneidade de contribuicao):** A contribuicao agregada das familias
+  de indicadores (PRICE, TECHNICAL, SENTIMENT, FUNDAMENTAL) e heterogenea entre
+  horizontes, detectavel de forma consistente em pelo menos dois dos tres metodos
+  (VSN weights, permutation importance, ablation explicativa).
+
+Nota: qualquer hipotese pode ser refutada. Refutacao honesta e resultado valido
+e academicamente preferivel a forcar claims frageis. A analise de por que uma
+hipotese foi refutada tem valor explicativo proprio.
 
 ## 8) Mapeamento de uso
-- Uso TCC: texto-base para Introducao (tema, problema, justificativa, objetivos e delimitacoes).
-- Uso Artigo: Abstract/Introduction/Contributions.
+- Uso TCC: texto-base para Introducao (tema, problema, justificativa, objetivos e
+  delimitacoes); hipoteses para Metodo e Resultados.
+- Uso Artigo: Abstract/Introduction/Contributions/Hypotheses.
 
-## 9) Objetivos do trabalho (versao congelada v1)
+## 9) Objetivos do trabalho (v2 — 2026-04-23)
+
 Objetivo geral:
-- Investigar e avaliar um pipeline reproduzivel de previsao de series temporais financeiras baseado em Temporal Fusion Transformer, com predicao quantilica e comparacao sistematica de configuracoes de features e hiperparametros em ambiente fora da amostra.
+- Avaliar rigorosamente a calibracao probabilistica de um Temporal Fusion Transformer
+  aplicado a previsao multi-horizonte de retornos de AAPL, e caracterizar a
+  contribuicao relativa de familias de indicadores sob um protocolo estatistico
+  explicito, reproduzivel e com pre-registro versionado.
 
 Objetivos especificos:
-- Estruturar um fluxo integrado de dados financeiros, indicadores tecnicos, sentimento agregado e fundamentos, com controle de consistencia temporal e mitigacao de leakage.
-- Implementar treinamento e inferencia com Temporal Fusion Transformer em modo pontual e quantilico, com rastreabilidade completa de configuracoes e artefatos de execucao.
-- Definir e aplicar protocolo experimental reproduzivel, com particionamento temporal, multiplas sementes e criterios padronizados de comparacao entre experimentos.
-- Avaliar o desempenho preditivo com metricas pontuais e probabilisticas, incluindo analise de cobertura e largura de intervalos de predicao.
-- Comparar configuracoes de features e hiperparametros com base em evidencias fora da amostra, identificando ganhos de desempenho, robustez e limitacoes.
+1. Estruturar um fluxo integrado de dados financeiros (preco, indicadores tecnicos,
+   sentimento, fundamentals) com controle de consistencia temporal e mitigacao de
+   leakage.
+2. Implementar treinamento e inferencia com TFT em modo quantilico, com rastreabilidade
+   completa de configuracoes, artefatos e seeds.
+3. Definir e aplicar protocolo experimental reproduzivel com pre-registro versionado,
+   particionamento temporal, multiplas sementes, alinhamento estrito por
+   `target_timestamp` e comparacao contra baselines explicitos.
+4. Avaliar calibracao probabilistica com metricas completas (PICP, MPIW, pinball,
+   reliability diagram) e comparar com baselines via DM com HAC e Holm-Bonferroni.
+5. Caracterizar a contribuicao relativa de familias de indicadores via VSN weights,
+   permutation importance e ablation explicativa, reportando convergencias e
+   divergencias entre os tres metodos.
 
-## 10) Pendencias imediatas
-- Definir conjunto minimo de experimentos para secao de resultados.
-- Consolidar bibliografia principal para este recorte.
+## 10) Proximo passo imediato (Fase A do roadmap)
+Ver `docs/00_overview/STRATEGIC_DIRECTION.md` §5 (Fase A) para o roadmap completo.
 
-## 11) Base da Introducao (v1 sincronizada com `text/2_Introducao`)
-- Contextualizacao: forecasting financeiro como problema desafiador sob HME/HMA e sob dinamica adaptativa de mercado.
-- Problema: comparacoes pouco auditaveis entre configuracoes e excesso de foco em erro pontual.
-- Justificativa: necessidade de protocolo reproduzivel com TFT, avaliacao OOS e incerteza quantilica.
-- Delimitacao: foco em TFT + covariaveis estruturadas + avaliacao pontual/probabilistica; fora de escopo comparacao exaustiva de arquiteturas e trading em producao.
-- Estrutura do trabalho: cap. 3 (fundamentacao), cap. 4 (metodo), cap. 5 (resultados), cap. 6 (conclusoes).
+Antes de escrever qualquer capitulo de Resultados:
+- [ ] Auditoria de leakage concluida (`docs/07_reports/external-reviews/leakage_audit_<date>.md`)
+- [ ] Baselines persistidos na coorte (`fact_oos_predictions` com mesmos grao)
+- [ ] Pre-registro versionado commitado (`docs/08_governance/preregistration_round1_<date>.md`)
+- [ ] Seed de inferencia fixa documentada
+
+## 11) Base da Introducao (v2 sincronizada com `text/2_Introducao`)
+- Contextualizacao: forecasting financeiro como problema desafiador sob HME/HMA
+  e dinamica adaptativa de mercado. R² OOS tipico de 0,1-1% para retornos diarios
+  de acoes liquidas (Gu, Kelly & Xiu 2020) — expectativa calibrada.
+- Problema: comparacoes pouco auditaveis entre configuracoes; foco excessivo em
+  erro pontual sem calibracao probabilistica; confusao entre predicao e inferencia
+  causal.
+- Justificativa: necessidade de protocolo reproduzivel com TFT, avaliacao OOS
+  calibrada, analise de contribuicao de features metodologicamente defensavel.
+- Delimitacao: foco em TFT + covariaveis estruturadas + avaliacao pontual/probabilistica;
+  single-asset AAPL; sem claim causal, sem generalizacao de ativo, sem trading.
+- Estrutura do trabalho: cap. 3 (fundamentacao), cap. 4 (metodo), cap. 5 (resultados),
+  cap. 6 (conclusoes).
 
 Referencias nucleares da Introducao:
 - `FAMA1991`, `LO2004`
 - `LIMZOHREN2021`, `LIMETAL2021TFT`
 - `GNEITING2007`, `KOENKERBASSETT1978`
-- `DIEBOLDMARIANO1995`
+- `DIEBOLDMARIANO1995`, `HARVEY1997`
+- `GU2020`, `RAPACH2013`
 - `PINEAU2021REPRODUCIBILITY`
