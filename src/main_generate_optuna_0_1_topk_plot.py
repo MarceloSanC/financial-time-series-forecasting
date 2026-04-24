@@ -6,12 +6,21 @@ import math
 
 from pathlib import Path, PureWindowsPath
 
-import matplotlib.pyplot as plt
-
 from src.utils.matplotlib_backend import ensure_non_interactive_matplotlib_backend
 from src.utils.path_policy import to_project_relative
 
 ensure_non_interactive_matplotlib_backend()
+
+
+def _require_pyplot():
+    try:
+        import matplotlib.pyplot as plt
+    except ModuleNotFoundError as exc:
+        raise ModuleNotFoundError(
+            "matplotlib is required to generate Optuna plots. "
+            "Install optional plotting dependencies to run this script."
+        ) from exc
+    return plt
 
 
 def _parse_args() -> argparse.Namespace:
@@ -99,6 +108,7 @@ def _save_plot(
     plot_title_suffix: str,
     x_axis_label: str,
 ) -> Path | None:
+    plt = _require_pyplot()
     if not entries:
         return None
 

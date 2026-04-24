@@ -7,7 +7,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
@@ -15,6 +14,17 @@ from src.utils.matplotlib_backend import ensure_non_interactive_matplotlib_backe
 from src.utils.path_policy import to_project_relative
 
 ensure_non_interactive_matplotlib_backend()
+
+
+def _require_pyplot():
+    try:
+        import matplotlib.pyplot as plt
+    except ModuleNotFoundError as exc:
+        raise ModuleNotFoundError(
+            "matplotlib is required to generate prediction analysis plots. "
+            "Install optional plotting dependencies to run this feature."
+        ) from exc
+    return plt
 
 
 @dataclass(frozen=True)
@@ -86,6 +96,7 @@ class GeneratePredictionAnalysisPlotsUseCase:
 
     @staticmethod
     def _save_no_data(path: Path, title: str, reason: str) -> None:
+        plt = _require_pyplot()
         fig, ax = plt.subplots(figsize=(10, 4))
         ax.axis("off")
         ax.text(0.5, 0.6, title, ha="center", va="center", fontsize=13, fontweight="bold")
@@ -261,6 +272,7 @@ class GeneratePredictionAnalysisPlotsUseCase:
         horizons: list[int],
         top_n_configs: int,
     ) -> None:
+        plt = _require_pyplot()
         df = metrics_by_config.copy()
         if df.empty or not {"split", "horizon", "mean_rmse", "mean_mae", "mean_directional_accuracy", "mean_mean_pinball"}.issubset(df.columns):
             self._save_no_data(path, "Heatmap Metrics by Horizon", "insufficient data in gold_prediction_metrics_by_config")
@@ -326,6 +338,7 @@ class GeneratePredictionAnalysisPlotsUseCase:
         horizons: list[int],
         top_n_configs: int,
     ) -> None:
+        plt = _require_pyplot()
         df = metrics_by_run.copy()
         if df.empty or not {"split", "horizon", "rmse", "feature_set_name", "config_signature"}.issubset(df.columns):
             self._save_no_data(path, "Boxplot Error by Fold/Seed", "insufficient data in gold_prediction_metrics_by_run_split_horizon")
@@ -385,6 +398,7 @@ class GeneratePredictionAnalysisPlotsUseCase:
         dm_df: pd.DataFrame,
         horizons: list[int],
     ) -> None:
+        plt = _require_pyplot()
         df = dm_df.copy()
         if df.empty or not {"horizon", "left_config", "right_config"}.issubset(df.columns):
             self._save_no_data(path, "DM P-Value Matrix", "gold_dm_pairwise_results empty or missing columns")
@@ -441,6 +455,7 @@ class GeneratePredictionAnalysisPlotsUseCase:
         plt.close(fig)
 
     def _build_fig_calibration_curve(self, *, path: Path, calibration_df: pd.DataFrame, horizons: list[int]) -> None:
+        plt = _require_pyplot()
         df = calibration_df.copy()
         if df.empty or not {"split", "horizon", "coverage_nominal", "picp"}.issubset(df.columns):
             self._save_no_data(path, "Calibration Curve", "insufficient data in gold_prediction_calibration")
@@ -486,6 +501,7 @@ class GeneratePredictionAnalysisPlotsUseCase:
         metrics_by_config: pd.DataFrame,
         horizons: list[int],
     ) -> None:
+        plt = _require_pyplot()
         df = metrics_by_config.copy()
         req = {"split", "horizon", "mean_mpiw", "mean_picp", "feature_set_name", "config_signature"}
         if df.empty or not req.issubset(df.columns):
@@ -525,6 +541,7 @@ class GeneratePredictionAnalysisPlotsUseCase:
         horizons: list[int],
         max_points: int,
     ) -> None:
+        plt = _require_pyplot()
         if oos_df.empty or "split" not in oos_df.columns:
             self._save_no_data(path, "OOS Timeseries Examples", "gold_oos_consolidated empty")
             return
@@ -602,6 +619,7 @@ class GeneratePredictionAnalysisPlotsUseCase:
         top_k_features: int | None,
         figure_title: str = "fig_feature_importance_global",
     ) -> None:
+        plt = _require_pyplot()
         df = impact_df.copy()
         req = {"split", "horizon", "feature_name", "mean_delta_rmse"}
         if df.empty or not req.issubset(df.columns):
@@ -660,6 +678,7 @@ class GeneratePredictionAnalysisPlotsUseCase:
         oos_df: pd.DataFrame,
         top_k_features: int,
     ) -> None:
+        plt = _require_pyplot()
         if local_df.empty:
             self._save_no_data(path, "Feature Contribution Local Cases", "fact_feature_contrib_local empty")
             return
