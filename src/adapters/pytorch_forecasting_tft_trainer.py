@@ -47,32 +47,6 @@ class PytorchForecastingTFTTrainer(ModelTrainer):
         pass
 
     @staticmethod
-    def _ensure_torch_cuda_api(torch_module: Any) -> None:
-        """
-        Ensure a minimal `torch.cuda` API exists.
-
-        Some test doubles or CPU-only custom torch builds can miss `torch.cuda`
-        entirely, while Lightning internals still access `torch.cuda.*`.
-        """
-        if hasattr(torch_module, "cuda"):
-            return
-
-        class _CudaShim:
-            @staticmethod
-            def is_available() -> bool:
-                return False
-
-            @staticmethod
-            def device_count() -> int:
-                return 0
-
-            @staticmethod
-            def get_device_name(index: int = 0) -> str:
-                return "cpu"
-
-        torch_module.cuda = _CudaShim()  # type: ignore[attr-defined]
-
-    @staticmethod
     @contextmanager
     def _suppress_lightning_predict_logs():
         """
@@ -167,8 +141,6 @@ class PytorchForecastingTFTTrainer(ModelTrainer):
                 "pytorch-forecasting is required for TFT training. "
                 "Install dependencies before running training."
             ) from exc
-
-        self._ensure_torch_cuda_api(torch)
 
         cfg = self._resolve_config(config)
         seed_everything(cfg.seed, workers=True)

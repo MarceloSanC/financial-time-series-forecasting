@@ -88,6 +88,9 @@ def _install_fake_training_modules(
     fake_pf_metrics = types.ModuleType("pytorch_forecasting.metrics")
     fake_pl = types.ModuleType("pytorch_lightning")
     fake_pl_callbacks = types.ModuleType("pytorch_lightning.callbacks")
+    fake_lightning = types.ModuleType("lightning")
+    fake_lightning_pytorch = types.ModuleType("lightning.pytorch")
+    fake_lightning_pytorch_callbacks = types.ModuleType("lightning.pytorch.callbacks")
 
     class _FakeDataset:
         def __init__(self, df, **kwargs):
@@ -201,11 +204,22 @@ def _install_fake_training_modules(
     fake_pl_callbacks.ModelCheckpoint = _FakeModelCheckpoint
     fake_pl_callbacks.EarlyStopping = _FakeEarlyStopping
 
+    # Mirror the same fake API under the modern lightning.pytorch namespace.
+    fake_lightning_pytorch.Trainer = _FakeTrainer
+    fake_lightning_pytorch.seed_everything = _seed_everything
+    fake_lightning_pytorch_callbacks.Callback = _FakeCallback
+    fake_lightning_pytorch_callbacks.ModelCheckpoint = _FakeModelCheckpoint
+    fake_lightning_pytorch_callbacks.EarlyStopping = _FakeEarlyStopping
+    fake_lightning.pytorch = fake_lightning_pytorch
+
     monkeypatch.setitem(sys.modules, "torch", fake_torch)
     monkeypatch.setitem(sys.modules, "pytorch_forecasting", fake_pf)
     monkeypatch.setitem(sys.modules, "pytorch_forecasting.metrics", fake_pf_metrics)
     monkeypatch.setitem(sys.modules, "pytorch_lightning", fake_pl)
     monkeypatch.setitem(sys.modules, "pytorch_lightning.callbacks", fake_pl_callbacks)
+    monkeypatch.setitem(sys.modules, "lightning", fake_lightning)
+    monkeypatch.setitem(sys.modules, "lightning.pytorch", fake_lightning_pytorch)
+    monkeypatch.setitem(sys.modules, "lightning.pytorch.callbacks", fake_lightning_pytorch_callbacks)
     return {"FakeTFT": _FakeTFT}
 
 
