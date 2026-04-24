@@ -29,6 +29,7 @@ dev = [
     "black",
     "ruff",
     "mypy",
+    "matplotlib",
 ]
 
 [tool.pytest.ini_options]

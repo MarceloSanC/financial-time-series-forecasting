@@ -154,8 +154,8 @@ class GeneratePredictionAnalysisPlotsUseCase:
             if prefixes:
                 masks: list[pd.Series] = []
                 if "parent_sweep_id" in selected.columns:
-                    sid = selected["parent_sweep_id"].map(self._normalize_sweep_id)
-                    masks.append(sid.fillna("").str.startswith(tuple(prefixes)))
+                    sid = selected["parent_sweep_id"].map(self._normalize_sweep_id).fillna("").astype(str)
+                    masks.append(sid.str.startswith(tuple(prefixes)))
 
                 # Fallback for runs where parent_sweep_id is null but artifact paths include the sweep folder.
                 path_cols = [
