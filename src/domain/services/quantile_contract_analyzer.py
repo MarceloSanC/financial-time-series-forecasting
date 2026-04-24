@@ -76,7 +76,7 @@ class QuantileContractAnalyzer:
             meta = dim_run[[c for c in ["run_id", "parent_sweep_id"] if c in dim_run.columns]].drop_duplicates("run_id")
             scoped = df.merge(meta, on="run_id", how="left")
             ps = scoped.get("parent_sweep_id", pd.Series(index=scoped.index, dtype=object)).astype(str)
-            mask = ps.apply(lambda v: any(v.startswith(p) for p in prefixes))
+            mask = ps.apply(lambda v: isinstance(v, str) and any(v.startswith(p) for p in prefixes))
             df = scoped[mask].drop(columns=[c for c in ["parent_sweep_id"] if c in scoped.columns]).copy()
 
         return df
