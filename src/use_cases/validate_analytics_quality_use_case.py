@@ -503,10 +503,10 @@ class ValidateAnalyticsQualityUseCase:
                             if pd.notna(h)
                         }
                     )
-                    missing = sorted(set(expected) - set(actual))
-                    if missing:
+                    missing_horizons = sorted(set(expected) - set(actual))
+                    if missing_horizons:
                         oos_coverage_issues.append(
-                            f"run_id={run_key}|split={split}|missing_horizons={missing}|expected={expected}|actual={actual}"
+                            f"run_id={run_key}|split={split}|missing_horizons={missing_horizons}|expected={expected}|actual={actual}"
                         )
 
             # Pairwise alignment readiness by target_timestamp across models.
@@ -622,9 +622,9 @@ class ValidateAnalyticsQualityUseCase:
         inf_quantile_order_issues: list[str] = []
         if not fact_inference_predictions.empty:
             key_cols = ["inference_run_id", "horizon", "timestamp_utc", "target_timestamp_utc"]
-            missing = [c for c in key_cols if c not in fact_inference_predictions.columns]
-            if missing:
-                inf_unique_issues.append(f"missing_key_columns={missing}")
+            missing_key_cols = [c for c in key_cols if c not in fact_inference_predictions.columns]
+            if missing_key_cols:
+                inf_unique_issues.append(f"missing_key_columns={missing_key_cols}")
             else:
                 dup = int(fact_inference_predictions.duplicated(subset=key_cols).sum())
                 if dup > 0:
@@ -826,11 +826,11 @@ class ValidateAnalyticsQualityUseCase:
                     if expected_by_run and {"run_id", "horizon"}.issubset(set(conf.columns)):
                         for run_id, grp in conf.groupby("run_id", dropna=False):
                             run_key = str(run_id)
-                            expected = expected_by_run.get(run_key)
-                            if not expected:
+                            expected_horizons = expected_by_run.get(run_key)
+                            if not expected_horizons:
                                 continue
                             actual = sorted({int(h) for h in grp["horizon"].dropna().tolist()})
-                            missing_h = sorted(set(expected) - set(actual))
+                            missing_h = sorted(set(expected_horizons) - set(actual))
                             if missing_h:
                                 horizon_misses.append(f"run_id={run_key}:missing={missing_h}")
                     confidence_ok = bad_conf == 0 and non_finite == 0 and len(horizon_misses) == 0
@@ -869,10 +869,10 @@ class ValidateAnalyticsQualityUseCase:
                     n_oos_detail = f"non_positive_n_oos={non_positive}, consistency=skipped(no_run_level_gold)"
                 else:
                     needed = {"asset", "feature_set_name", "config_signature", "split", "horizon", "n_samples"}
-                    missing = sorted(needed - set(gold_run_h.columns))
-                    if missing:
+                    missing_run_level_cols = sorted(needed - set(gold_run_h.columns))
+                    if missing_run_level_cols:
                         n_oos_ok = False
-                        n_oos_detail = f"missing_run_level_columns={missing}"
+                        n_oos_detail = f"missing_run_level_columns={missing_run_level_cols}"
                     else:
                         run = gold_run_h.copy()
                         run["n_samples"] = pd.to_numeric(run["n_samples"], errors="coerce").fillna(0)

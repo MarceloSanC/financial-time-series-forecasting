@@ -1488,12 +1488,13 @@ class RefreshAnalyticsStoreUseCase:
                 if pd.notna(rw):
                     recs.setdefault(key_right, []).append(float(rw))
             for (asset, sweep, split, horizon, cfg), vals in recs.items():
+                horizon_value = pd.to_numeric(horizon, errors="coerce")
                 wr_rows.append(
                     {
                         "asset": asset,
                         "parent_sweep_id": sweep,
                         "split": split,
-                        "horizon": int(horizon) if pd.notna(horizon) else None,
+                        "horizon": int(horizon_value) if pd.notna(horizon_value) else None,
                         "config_label": cfg,
                         "win_rate_ex_ties_mean": float(np.mean(vals)),
                     }
@@ -1765,13 +1766,10 @@ class RefreshAnalyticsStoreUseCase:
         out["pvalue_adj_holm"] = np.nan
 
         group_cols = [c for c in ["asset", "parent_sweep_id", "split", "horizon"] if c in out.columns]
-        if not group_cols:
-            group_cols = [None]
-
-        if group_cols == [None]:
-            groups = [(None, out)]
-        else:
+        if group_cols:
             groups = out.groupby(group_cols, dropna=False)
+        else:
+            groups = [((), out)]
 
         for _, g in groups:
             pv = pd.to_numeric(g["pvalue_two_sided"], errors="coerce")
