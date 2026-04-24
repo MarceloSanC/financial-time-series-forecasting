@@ -29,10 +29,10 @@ def build_tree_lines(root_dir):
     Ex: ["├──", "domain/", "news.py"] → será combinado com prefixos de indentação.
     """
     output_lines = []
-    
+
     # Pilha: (diretório_atual, caminho_relativo, prefixos_anteriores, é_último?)
     # Mas vamos usar recursão controlada com acumulador para simplicidade.
-    
+
     def recurse(current_path, depth, is_last_stack):
         """
         current_path: caminho absoluto do diretório atual

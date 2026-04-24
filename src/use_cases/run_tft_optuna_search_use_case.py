@@ -16,8 +16,8 @@ from src.domain.services.sweep_eta_estimator import SweepEtaEstimator
 from src.infrastructure.schemas.model_artifact_schema import TFT_TRAINING_DEFAULTS
 from src.use_cases.run_tft_model_analysis_use_case import RunTFTModelAnalysisUseCase
 from src.use_cases.test_pipeline_common import validate_train_runner_contract
-from src.utils.path_policy import to_project_relative
 from src.utils.matplotlib_backend import ensure_non_interactive_matplotlib_backend
+from src.utils.path_policy import to_project_relative
 
 logger = logging.getLogger(__name__)
 

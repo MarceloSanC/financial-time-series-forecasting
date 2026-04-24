@@ -20,8 +20,8 @@ from src.use_cases.rebuild_explicit_sweep_predictions_use_case import (
 )
 from src.use_cases.run_tft_model_analysis_use_case import RunTFTModelAnalysisUseCase
 from src.utils.logging_config import setup_logging
-from src.utils.path_resolver import load_data_paths
 from src.utils.matplotlib_backend import ensure_non_interactive_matplotlib_backend
+from src.utils.path_resolver import load_data_paths
 
 logger = logging.getLogger(__name__)
 

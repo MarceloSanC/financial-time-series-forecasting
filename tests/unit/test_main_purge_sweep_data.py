@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 import src.main_purge_sweep_data as main_purge
+
 from src.use_cases.purge_sweep_data_use_case import PurgeSweepDataResult
 
 

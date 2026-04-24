@@ -5,7 +5,6 @@ from typing import Literal
 
 import pandas as pd
 
-
 ScopeMode = Literal["global_health", "cohort_decision"]
 
 

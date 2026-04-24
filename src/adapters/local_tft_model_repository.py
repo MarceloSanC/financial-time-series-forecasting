@@ -11,8 +11,8 @@ from typing import Any
 import pandas as pd
 
 from src.interfaces.model_repository import ModelRepository
-from src.utils.path_policy import to_project_relative
 from src.utils.matplotlib_backend import ensure_non_interactive_matplotlib_backend
+from src.utils.path_policy import to_project_relative
 
 
 class LocalTFTModelRepository(ModelRepository):

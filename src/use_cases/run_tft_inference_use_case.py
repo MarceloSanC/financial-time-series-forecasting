@@ -9,8 +9,8 @@ from datetime import UTC, datetime, timedelta
 import numpy as np
 import pandas as pd
 
-from src.domain.time.utc import require_tz_aware, to_utc
 from src.domain.services.quantile_guardrail_service import QuantileGuardrailService
+from src.domain.time.utc import require_tz_aware, to_utc
 from src.entities.tft_inference_record import TFTInferenceRecord
 from src.infrastructure.schemas.analytics_store_schema import ANALYTICS_SCHEMA_VERSION
 from src.infrastructure.schemas.feature_validation_schema import IMPLEMENTED_FEATURES
@@ -301,7 +301,6 @@ class RunTFTInferenceUseCase:
         excess = sorted([c for c in dataset_feature_cols if c not in expected_set])
         return missing, excess
 
-    
     @staticmethod
     def _has_contiguous_context(df: pd.DataFrame, *, target_idx: int, max_encoder_length: int) -> bool:
         start_idx = int(target_idx) - int(max_encoder_length)
@@ -316,7 +315,6 @@ class RunTFTInferenceUseCase:
         diffs = vals.diff().iloc[1:]
         return bool((diffs == 1).all())
 
-    
     @staticmethod
     def _compute_eligible_target_indexes(
         df: pd.DataFrame,

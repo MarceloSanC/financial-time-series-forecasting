@@ -1,20 +1,20 @@
 from __future__ import annotations
 
+import json
+import math
+
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import json
-import math
-
+import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-from src.utils.path_policy import to_project_relative
 from src.utils.matplotlib_backend import ensure_non_interactive_matplotlib_backend
+from src.utils.path_policy import to_project_relative
 
 ensure_non_interactive_matplotlib_backend()
-import matplotlib.pyplot as plt
 
 
 @dataclass(frozen=True)

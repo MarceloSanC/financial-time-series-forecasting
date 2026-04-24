@@ -1,16 +1,18 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import logging
 import shutil
+
+from collections.abc import Callable
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 
 import pandas as pd
 
 from src.use_cases.refresh_analytics_store_use_case import RefreshAnalyticsStoreUseCase
-from src.use_cases.validate_analytics_quality_use_case import ValidateAnalyticsQualityUseCase
-
+from src.use_cases.validate_analytics_quality_use_case import (
+    ValidateAnalyticsQualityUseCase,
+)
 
 logger = logging.getLogger(__name__)
 

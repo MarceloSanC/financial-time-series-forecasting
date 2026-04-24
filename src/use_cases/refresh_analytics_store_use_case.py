@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 import math
+
+from dataclasses import dataclass
 from itertools import combinations
 from pathlib import Path
 
@@ -42,8 +43,6 @@ class RefreshAnalyticsStoreUseCase:
         df.to_parquet(path, index=False)
         return str(to_project_relative(path))
 
-    
-    
     @staticmethod
     def _normalize_parent_sweep_id_for_merge(df: pd.DataFrame, column: str = "parent_sweep_id") -> pd.DataFrame:
         if df.empty or column not in df.columns:
@@ -1774,8 +1773,7 @@ class RefreshAnalyticsStoreUseCase:
         else:
             groups = out.groupby(group_cols, dropna=False)
 
-        for keys, g in groups:
-            idx = g.index.tolist()
+        for _, g in groups:
             pv = pd.to_numeric(g["pvalue_two_sided"], errors="coerce")
             valid = pv.dropna()
             m = int(len(valid))

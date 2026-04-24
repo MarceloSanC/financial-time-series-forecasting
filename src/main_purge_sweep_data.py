@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import argparse
 import logging
-from time import perf_counter
+
 from pathlib import Path
+from time import perf_counter
 
 from src.use_cases.purge_sweep_data_use_case import PurgeSweepDataUseCase
 from src.utils.logging_config import setup_logging

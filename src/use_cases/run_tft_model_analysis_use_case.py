@@ -34,8 +34,8 @@ from src.use_cases.test_pipeline_common import (
     validate_train_runner_contract,
 )
 from src.utils.feature_token_parser import parse_feature_tokens
-from src.utils.path_resolver import load_data_paths
 from src.utils.matplotlib_backend import ensure_non_interactive_matplotlib_backend
+from src.utils.path_resolver import load_data_paths
 
 logger = logging.getLogger(__name__)
 
