@@ -533,3 +533,276 @@ def test_merge_tests_skips_existing_valid_run(tmp_path: Path) -> None:
     assert result.runs_ok == 1
     runs = (sweep_dir / "sweep_runs.csv").read_text(encoding="utf-8")
     assert "baseline|seed=7|fold=default" in runs
+
+
+class _CaptureConfigTrainRunner:
+    def __init__(self) -> None:
+        self.last_config: dict[str, Any] | None = None
+
+    def run(
+        self,
+        *,
+        asset: str,
+        features: str | None,
+        config: dict[str, Any],
+        split_config: dict[str, str] | None,
+        models_asset_dir: Path,
+    ) -> tuple[str | None, dict[str, Any] | None]:
+        self.last_config = dict(config)
+        version = "run_capture"
+        run_dir = models_asset_dir / version
+        run_dir.mkdir(parents=True, exist_ok=True)
+        metadata = {
+            "version": version,
+            "split_metrics": {
+                "train": {"rmse": 0.03, "mae": 0.02},
+                "val": {"rmse": 0.02, "mae": 0.01},
+                "test": {"rmse": 0.021, "mae": 0.011},
+            },
+        }
+        (run_dir / "metadata.json").write_text(json.dumps(metadata), encoding="utf-8")
+        return version, metadata
+
+
+def test_model_analysis_sets_parent_sweep_id_in_runner_config(tmp_path: Path) -> None:
+    runner = _CaptureConfigTrainRunner()
+    use_case = RunTFTModelAnalysisUseCase(
+        train_runner=runner,
+        base_training_config={
+            "max_encoder_length": 60,
+            "max_prediction_length": 1,
+            "batch_size": 64,
+            "max_epochs": 1,
+            "learning_rate": 5e-4,
+            "hidden_size": 32,
+            "attention_head_size": 2,
+            "dropout": 0.1,
+            "hidden_continuous_size": 8,
+            "seed": 42,
+            "early_stopping_patience": 1,
+            "early_stopping_min_delta": 0.0,
+        },
+        param_ranges={},
+        generate_comparison_plots=False,
+        replica_seeds=[42],
+    )
+
+    use_case.execute(
+        asset="AAPL",
+        models_asset_dir=tmp_path / "models" / "AAPL",
+        max_runs=1,
+        output_subdir="sweep_parent_id_test",
+        analysis_config={"test_mode": True},
+    )
+
+    assert runner.last_config is not None
+    assert runner.last_config.get("parent_sweep_id") == "sweep_parent_id_test"
+
+
+def test_merge_tests_rewind_last_forces_retrain_even_when_existing_ok(tmp_path: Path) -> None:
+    runner = _CountingTrainRunner()
+    base_cfg = {
+        "max_encoder_length": 60,
+        "max_prediction_length": 1,
+        "batch_size": 64,
+        "max_epochs": 20,
+        "learning_rate": 5e-4,
+        "hidden_size": 32,
+        "attention_head_size": 2,
+        "dropout": 0.1,
+        "hidden_continuous_size": 8,
+        "seed": 42,
+        "early_stopping_patience": 5,
+        "early_stopping_min_delta": 0.0,
+    }
+    use_case = RunTFTModelAnalysisUseCase(
+        train_runner=runner,
+        base_training_config=base_cfg,
+        param_ranges={"max_encoder_length": [60]},
+        replica_seeds=[7],
+        generate_comparison_plots=False,
+    )
+
+    models_asset_dir = tmp_path / "models" / "AAPL"
+    sweep_dir = models_asset_dir / "sweeps" / "merge_rewind"
+    fold_dir = sweep_dir / "folds" / "default"
+    models_dir = fold_dir / "models"
+    models_dir.mkdir(parents=True, exist_ok=True)
+
+    version = "run_existing_001"
+    _write_valid_model_artifacts(
+        models_dir / version,
+        val_rmse=0.02,
+        val_mae=0.01,
+        test_rmse=0.021,
+        test_mae=0.011,
+    )
+
+    cfg_with_seed = dict(base_cfg)
+    cfg_with_seed["seed"] = 7
+    config_signature = use_case._config_signature(cfg_with_seed)
+    row = {
+        "fold_name": "default",
+        "run_label": "baseline|seed=7|fold=default",
+        "varied_param": "",
+        "varied_value": "",
+        "config_signature": config_signature,
+        "version": version,
+        "status": "ok",
+        "error": "",
+        "val_rmse": "0.02",
+        "val_mae": "0.01",
+        "test_rmse": "0.021",
+        "test_mae": "0.011",
+    }
+    with (sweep_dir / "sweep_runs.csv").open("w", newline="", encoding="utf-8") as fp:
+        writer = csv.DictWriter(fp, fieldnames=list(row.keys()))
+        writer.writeheader()
+        writer.writerow(row)
+
+    analysis_cfg = {
+        "features": "BASELINE_FEATURES",
+        "continue_on_error": True,
+        "merge_tests": True,
+        "resume_policy": "rewind_last",
+        "rewind_n": 1,
+        "reconcile_orphans": True,
+        "cleanup_failed_or_incomplete": True,
+        "dry_run_cleanup": False,
+        "output_subdir": "merge_rewind",
+        "compute_confidence_interval": True,
+        "replica_seeds": [7],
+        "walk_forward": {"enabled": False, "folds": []},
+        "training_config": base_cfg,
+        "split_config": {
+            "train_start": "20100101",
+            "train_end": "20201231",
+            "val_start": "20210101",
+            "val_end": "20221231",
+            "test_start": "20230101",
+            "test_end": "20241231",
+        },
+        "param_ranges": {"max_encoder_length": [60]},
+    }
+    (sweep_dir / "analysis_config.json").write_text(json.dumps(analysis_cfg), encoding="utf-8")
+
+    result = use_case.execute(
+        asset="AAPL",
+        models_asset_dir=models_asset_dir,
+        output_subdir="merge_rewind",
+        merge_tests=True,
+        analysis_config=analysis_cfg,
+    )
+
+    assert runner.calls == 1
+    assert result.runs_ok == 1
+    csv_text = (sweep_dir / "sweep_runs.csv").read_text(encoding="utf-8")
+    assert "new_001" in csv_text
+
+
+def test_merge_tests_reconcile_orphans_removes_untracked_model_dir(tmp_path: Path) -> None:
+    runner = _CountingTrainRunner()
+    base_cfg = {
+        "max_encoder_length": 60,
+        "max_prediction_length": 1,
+        "batch_size": 64,
+        "max_epochs": 20,
+        "learning_rate": 5e-4,
+        "hidden_size": 32,
+        "attention_head_size": 2,
+        "dropout": 0.1,
+        "hidden_continuous_size": 8,
+        "seed": 42,
+        "early_stopping_patience": 5,
+        "early_stopping_min_delta": 0.0,
+    }
+    use_case = RunTFTModelAnalysisUseCase(
+        train_runner=runner,
+        base_training_config=base_cfg,
+        param_ranges={"max_encoder_length": [60]},
+        replica_seeds=[7],
+        generate_comparison_plots=False,
+    )
+
+    models_asset_dir = tmp_path / "models" / "AAPL"
+    sweep_dir = models_asset_dir / "sweeps" / "merge_orphans"
+    fold_dir = sweep_dir / "folds" / "default"
+    models_dir = fold_dir / "models"
+    models_dir.mkdir(parents=True, exist_ok=True)
+
+    version = "run_existing_001"
+    _write_valid_model_artifacts(
+        models_dir / version,
+        val_rmse=0.02,
+        val_mae=0.01,
+        test_rmse=0.021,
+        test_mae=0.011,
+    )
+    orphan_version = "orphan_extra_001"
+    _write_valid_model_artifacts(
+        models_dir / orphan_version,
+        val_rmse=0.03,
+        val_mae=0.02,
+        test_rmse=0.031,
+        test_mae=0.021,
+    )
+
+    cfg_with_seed = dict(base_cfg)
+    cfg_with_seed["seed"] = 7
+    config_signature = use_case._config_signature(cfg_with_seed)
+    row = {
+        "fold_name": "default",
+        "run_label": "baseline|seed=7|fold=default",
+        "varied_param": "",
+        "varied_value": "",
+        "config_signature": config_signature,
+        "version": version,
+        "status": "ok",
+        "error": "",
+        "val_rmse": "0.02",
+        "val_mae": "0.01",
+        "test_rmse": "0.021",
+        "test_mae": "0.011",
+    }
+    with (sweep_dir / "sweep_runs.csv").open("w", newline="", encoding="utf-8") as fp:
+        writer = csv.DictWriter(fp, fieldnames=list(row.keys()))
+        writer.writeheader()
+        writer.writerow(row)
+
+    analysis_cfg = {
+        "features": "BASELINE_FEATURES",
+        "continue_on_error": True,
+        "merge_tests": True,
+        "resume_policy": "keep_completed",
+        "rewind_n": 1,
+        "reconcile_orphans": True,
+        "cleanup_failed_or_incomplete": True,
+        "dry_run_cleanup": False,
+        "output_subdir": "merge_orphans",
+        "compute_confidence_interval": True,
+        "replica_seeds": [7],
+        "walk_forward": {"enabled": False, "folds": []},
+        "training_config": base_cfg,
+        "split_config": {
+            "train_start": "20100101",
+            "train_end": "20201231",
+            "val_start": "20210101",
+            "val_end": "20221231",
+            "test_start": "20230101",
+            "test_end": "20241231",
+        },
+        "param_ranges": {"max_encoder_length": [60]},
+    }
+    (sweep_dir / "analysis_config.json").write_text(json.dumps(analysis_cfg), encoding="utf-8")
+
+    result = use_case.execute(
+        asset="AAPL",
+        models_asset_dir=models_asset_dir,
+        output_subdir="merge_orphans",
+        merge_tests=True,
+        analysis_config=analysis_cfg,
+    )
+
+    assert result.runs_ok == 1
+    assert runner.calls == 0
+    assert not (models_dir / orphan_version).exists()

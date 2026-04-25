@@ -1,0 +1,4 @@
+interface:
+  display_name: "TCC Writing Core"
+  short_description: "Padrões globais de escrita acadêmica do projeto"
+  default_prompt: "Use esta skill para manter coerência entre outline, capítulos e protocolo de escrita."

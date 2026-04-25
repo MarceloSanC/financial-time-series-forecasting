@@ -1,0 +1,100 @@
+{
+  "generated_files": [
+    {
+      "file": "config/sweeps/explicit/0_2_4_explicit_frozen_0_1_configs_baseline_features.json",
+      "feature_set_name": "BASELINE_FEATURES",
+      "source_sweeps": [
+        "optuna_0_1_5_top13_all_feature_sets_hpo__BASELINE_FEATURES"
+      ],
+      "unique_configs_without_seed": 1
+    },
+    {
+      "file": "config/sweeps/explicit/0_2_4_explicit_frozen_0_1_configs_baseline_features_fundamental_features.json",
+      "feature_set_name": "BASELINE_FEATURES+FUNDAMENTAL_FEATURES",
+      "source_sweeps": [
+        "optuna_0_1_6_fundamental_variations_hpo__BASELINE_FEATURES_FUNDAMENTAL_FEATURES"
+      ],
+      "unique_configs_without_seed": 5
+    },
+    {
+      "file": "config/sweeps/explicit/0_2_4_explicit_frozen_0_1_configs_baseline_features_sentiment_features.json",
+      "feature_set_name": "BASELINE_FEATURES+SENTIMENT_FEATURES",
+      "source_sweeps": [
+        "optuna_0_1_5_top13_all_feature_sets_hpo__BASELINE_FEATURES_SENTIMENT_FEATURES"
+      ],
+      "unique_configs_without_seed": 5
+    },
+    {
+      "file": "config/sweeps/explicit/0_2_4_explicit_frozen_0_1_configs_baseline_features_technical_features.json",
+      "feature_set_name": "BASELINE_FEATURES+TECHNICAL_FEATURES",
+      "source_sweeps": [
+        "optuna_0_1_5_top13_all_feature_sets_hpo__BASELINE_FEATURES_TECHNICAL_FEATURES"
+      ],
+      "unique_configs_without_seed": 3
+    },
+    {
+      "file": "config/sweeps/explicit/0_2_4_explicit_frozen_0_1_configs_baseline_features_technical_features_fundamental_features.json",
+      "feature_set_name": "BASELINE_FEATURES+TECHNICAL_FEATURES+FUNDAMENTAL_FEATURES",
+      "source_sweeps": [
+        "optuna_0_1_6_fundamental_variations_hpo__BASELINE_FEATURES_TECHNICAL_FEATURES_FUNDAMENTAL_FEATURES"
+      ],
+      "unique_configs_without_seed": 5
+    },
+    {
+      "file": "config/sweeps/explicit/0_2_4_explicit_frozen_0_1_configs_baseline_features_technical_features_sentiment_features.json",
+      "feature_set_name": "BASELINE_FEATURES+TECHNICAL_FEATURES+SENTIMENT_FEATURES",
+      "source_sweeps": [
+        "optuna_0_1_5_top13_all_feature_sets_hpo__BASELINE_FEATURES_TECHNICAL_FEATURES_SENTIMENT_FEATURES"
+      ],
+      "unique_configs_without_seed": 3
+    },
+    {
+      "file": "config/sweeps/explicit/0_2_4_explicit_frozen_0_1_configs_baseline_features_technical_features_sentiment_features_fundamental_features.json",
+      "feature_set_name": "BASELINE_FEATURES+TECHNICAL_FEATURES+SENTIMENT_FEATURES+FUNDAMENTAL_FEATURES",
+      "source_sweeps": [
+        "optuna_0_1_6_fundamental_variations_hpo__BASELINE_FEATURES_TECHNICAL_FEATURES_SENTIMENT_FEATURES_FUNDAMENTAL_FEATURES"
+      ],
+      "unique_configs_without_seed": 5
+    },
+    {
+      "file": "config/sweeps/explicit/0_2_4_explicit_frozen_0_1_configs_sentiment_features.json",
+      "feature_set_name": "SENTIMENT_FEATURES",
+      "source_sweeps": [
+        "optuna_0_1_5_top13_all_feature_sets_hpo__SENTIMENT_FEATURES"
+      ],
+      "unique_configs_without_seed": 4
+    },
+    {
+      "file": "config/sweeps/explicit/0_2_4_explicit_frozen_0_1_configs_technical_features.json",
+      "feature_set_name": "TECHNICAL_FEATURES",
+      "source_sweeps": [
+        "optuna_0_1_5_top13_all_feature_sets_hpo__TECHNICAL_FEATURES"
+      ],
+      "unique_configs_without_seed": 5
+    },
+    {
+      "file": "config/sweeps/explicit/0_2_4_explicit_frozen_0_1_configs_technical_features_fundamental_features.json",
+      "feature_set_name": "TECHNICAL_FEATURES+FUNDAMENTAL_FEATURES",
+      "source_sweeps": [
+        "optuna_0_1_6_fundamental_variations_hpo__TECHNICAL_FEATURES_FUNDAMENTAL_FEATURES"
+      ],
+      "unique_configs_without_seed": 2
+    },
+    {
+      "file": "config/sweeps/explicit/0_2_4_explicit_frozen_0_1_configs_technical_features_sentiment_features.json",
+      "feature_set_name": "TECHNICAL_FEATURES+SENTIMENT_FEATURES",
+      "source_sweeps": [
+        "optuna_0_1_5_top13_all_feature_sets_hpo__TECHNICAL_FEATURES_SENTIMENT_FEATURES"
+      ],
+      "unique_configs_without_seed": 2
+    },
+    {
+      "file": "config/sweeps/explicit/0_2_4_explicit_frozen_0_1_configs_technical_features_sentiment_features_fundamental_features.json",
+      "feature_set_name": "TECHNICAL_FEATURES+SENTIMENT_FEATURES+FUNDAMENTAL_FEATURES",
+      "source_sweeps": [
+        "optuna_0_1_6_fundamental_variations_hpo__TECHNICAL_FEATURES_SENTIMENT_FEATURES_FUNDAMENTAL_FEATURES"
+      ],
+      "unique_configs_without_seed": 5
+    }
+  ]
+}

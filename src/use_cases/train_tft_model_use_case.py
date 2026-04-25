@@ -22,6 +22,7 @@ from src.domain.services.dataset_quality_gate import (
     DatasetQualityGateConfig,
 )
 from src.domain.services.feature_warmup_inspector import FeatureWarmupInspector
+from src.domain.services.quantile_guardrail_service import QuantileGuardrailService
 from src.infrastructure.schemas.analytics_store_schema import (
     ANALYTICS_SCHEMA_VERSION,
     compute_config_signature,
@@ -738,6 +739,7 @@ class TrainTFTModelUseCase:
         run_id: str,
         asset_id: str,
         feature_set_name: str,
+        model_version: str,
         config_signature: str,
         fold_name: str | None,
         seed: int | None,
@@ -753,32 +755,98 @@ class TrainTFTModelUseCase:
         for split_name, pred in split_predictions.items():
             if split_name not in split_frames:
                 continue
+            split_df = split_frames[split_name].copy().sort_values("timestamp").reset_index(drop=True)
+            if split_df.empty:
+                continue
+
+            if "y_true_matrix" in pred and "y_pred_matrix" in pred:
+                horizons = [int(v) for v in pred.get("horizons", [])]
+                y_true_m = pred.get("y_true_matrix", [])
+                y_pred_m = pred.get("y_pred_matrix", [])
+                q10_m = pred.get("quantile_p10_matrix", [])
+                q50_m = pred.get("quantile_p50_matrix", [])
+                q90_m = pred.get("quantile_p90_matrix", [])
+
+                n = min(len(y_true_m), len(y_pred_m), len(q10_m), len(q50_m), len(q90_m), len(split_df))
+                if n == 0 or not horizons:
+                    continue
+                split_tail = split_df.tail(n).reset_index(drop=True)
+
+                for i in range(n):
+                    ts = pd.to_datetime(split_tail.loc[i, "timestamp"], utc=True, errors="coerce")
+                    if pd.isna(ts):
+                        continue
+                    for h_idx, h in enumerate(horizons):
+                        if (
+                            h_idx >= len(y_true_m[i]) or h_idx >= len(y_pred_m[i]) or
+                            h_idx >= len(q10_m[i]) or h_idx >= len(q50_m[i]) or h_idx >= len(q90_m[i])
+                        ):
+                            continue
+                        y_true = float(y_true_m[i][h_idx])
+                        y_pred = float(y_pred_m[i][h_idx])
+                        q10 = float(q10_m[i][h_idx])
+                        q50 = float(q50_m[i][h_idx])
+                        q90 = float(q90_m[i][h_idx])
+                        guardrail = QuantileGuardrailService.enforce_monotonic_triplet(q10, q50, q90)
+                        target_ts = ts + pd.Timedelta(days=max(int(h) - 1, 0))
+                        err = float(y_pred - y_true)
+                        rows.append(
+                            {
+                                "schema_version": ANALYTICS_SCHEMA_VERSION,
+                                "run_id": run_id,
+                                "model_version": str(model_version),
+                                "asset": str(asset_id),
+                                "feature_set_name": str(feature_set_name),
+                                "config_signature": str(config_signature),
+                                "split": str(split_name),
+                                "fold": str(fold_name) if fold_name is not None else "none",
+                                "seed": int(seed) if seed is not None else 0,
+                                "horizon": int(h),
+                                "timestamp_utc": str(ts.isoformat()),
+                                "target_timestamp_utc": str(target_ts.isoformat()),
+                                "y_true": y_true,
+                                "y_pred": y_pred,
+                                "error": err,
+                                "abs_error": float(abs(err)),
+                                "sq_error": float(err * err),
+                                "quantile_p10": q10,
+                                "quantile_p50": q50,
+                                "quantile_p90": q90,
+                                "quantile_p10_post_guardrail": guardrail.p10_post,
+                                "quantile_p50_post_guardrail": guardrail.p50_post,
+                                "quantile_p90_post_guardrail": guardrail.p90_post,
+                                "quantile_guardrail_applied": int(guardrail.applied),
+                                "year": int(target_ts.year),
+                            }
+                        )
+                continue
+
+            # Backward-compatible path for legacy 1-horizon details.
             y_true = [float(v) for v in pred.get("y_true", [])]
             y_pred = [float(v) for v in pred.get("y_pred", [])]
             q10 = [float(v) for v in pred.get("quantile_p10", [])]
             q50 = [float(v) for v in pred.get("quantile_p50", [])]
             q90 = [float(v) for v in pred.get("quantile_p90", [])]
             horizons = [int(v) for v in pred.get("horizon", [])]
-
-            n = min(len(y_true), len(y_pred), len(q10), len(q50), len(q90), len(horizons))
+            n = min(len(y_true), len(y_pred), len(q10), len(q50), len(q90), len(horizons), len(split_df))
             if n == 0:
                 continue
-
-            split_df = split_frames[split_name].copy().sort_values("timestamp").reset_index(drop=True)
-            if len(split_df) < n:
-                n = len(split_df)
             split_tail = split_df.tail(n).reset_index(drop=True)
-
             for i in range(n):
                 ts = pd.to_datetime(split_tail.loc[i, "timestamp"], utc=True, errors="coerce")
                 if pd.isna(ts):
                     continue
                 target_ts = ts + pd.Timedelta(days=max(horizons[i] - 1, 0))
                 err = float(y_pred[i] - y_true[i])
+                q10_raw = float(q10[i])
+                q50_raw = float(q50[i])
+                q90_raw = float(q90[i])
+                guardrail = QuantileGuardrailService.enforce_monotonic_triplet(q10_raw, q50_raw, q90_raw)
                 rows.append(
                     {
                         "schema_version": ANALYTICS_SCHEMA_VERSION,
                         "run_id": run_id,
+                        "model_version": str(model_version),
                         "asset": str(asset_id),
                         "feature_set_name": str(feature_set_name),
                         "config_signature": str(config_signature),
@@ -793,9 +861,13 @@ class TrainTFTModelUseCase:
                         "error": err,
                         "abs_error": float(abs(err)),
                         "sq_error": float(err * err),
-                        "quantile_p10": float(q10[i]),
-                        "quantile_p50": float(q50[i]),
-                        "quantile_p90": float(q90[i]),
+                        "quantile_p10": q10_raw,
+                        "quantile_p50": q50_raw,
+                        "quantile_p90": q90_raw,
+                        "quantile_p10_post_guardrail": guardrail.p10_post,
+                        "quantile_p50_post_guardrail": guardrail.p50_post,
+                        "quantile_p90_post_guardrail": guardrail.p90_post,
+                        "quantile_guardrail_applied": int(guardrail.applied),
                         "year": int(target_ts.year),
                     }
                 )
@@ -933,6 +1005,9 @@ class TrainTFTModelUseCase:
             'prediction_mode': prediction_mode,
             'loss_name': loss_name,
             'quantile_levels_json': self._safe_json_dumps(quantile_levels),
+            'evaluation_horizons_json': self._safe_json_dumps(
+                trainer_config.get('evaluation_horizons', TFT_TRAINING_DEFAULTS.get('evaluation_horizons', [1]))
+            ),
             'max_encoder_length': int(trainer_config.get('max_encoder_length', TFT_TRAINING_DEFAULTS['max_encoder_length'])),
             'max_prediction_length': int(trainer_config.get('max_prediction_length', TFT_TRAINING_DEFAULTS['max_prediction_length'])),
             'batch_size': int(trainer_config.get('batch_size', TFT_TRAINING_DEFAULTS['batch_size'])),
@@ -1087,6 +1162,21 @@ class TrainTFTModelUseCase:
 
         trainer_config.setdefault("prediction_mode", str(TFT_TRAINING_DEFAULTS.get("prediction_mode", "quantile")))
         trainer_config.setdefault("quantile_levels", TFT_TRAINING_DEFAULTS.get("quantile_levels", [0.1, 0.5, 0.9]))
+        trainer_config.setdefault("evaluation_horizons", TFT_TRAINING_DEFAULTS.get("evaluation_horizons", [1, 7, 30]))
+        max_prediction_length = int(
+            trainer_config.get(
+                "max_prediction_length",
+                TFT_TRAINING_DEFAULTS.get("max_prediction_length", 1),
+            )
+        )
+        raw_horizons = trainer_config.get("evaluation_horizons", [1])
+        if isinstance(raw_horizons, list) and raw_horizons:
+            normalized_horizons = sorted({max(1, int(h)) for h in raw_horizons})
+        else:
+            normalized_horizons = [1]
+        trainer_config["evaluation_horizons"] = [
+            h for h in normalized_horizons if h <= max_prediction_length
+        ] or [1]
 
         self._run_pretrain_quality_gate(
             df=df,
@@ -1270,6 +1360,7 @@ class TrainTFTModelUseCase:
                         run_id=persisted_run_id,
                         asset_id=asset_id,
                         feature_set_name=metadata_config.get("feature_set_name", feature_tag),
+                        model_version=str(version),
                         config_signature=config_signature,
                         fold_name=metadata_config.get("fold"),
                         seed=metadata_config.get("seed") if isinstance(metadata_config.get("seed"), int) else None,

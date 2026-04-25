@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, time, timedelta
 
-from domain.time.utc import require_tz_aware, to_utc
+from src.domain.time.utc import require_tz_aware, to_utc
 from src.interfaces.candle_fetcher import CandleFetcher
 from src.interfaces.candle_repository import CandleRepository
 

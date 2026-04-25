@@ -78,6 +78,18 @@ class ParquetAnalyticsRunRepository(AnalyticsRunRepository):
         asset = self._safe_partition(row.get("asset"))
         return self.output_dir / "fact_inference_runs" / f"asset={asset}" / "fact_inference_runs.parquet"
 
+    def _fact_inference_predictions_path(self, row: dict[str, Any]) -> Path:
+        asset = self._safe_partition(row.get("asset"))
+        model_version = self._safe_partition(row.get("model_version"))
+        year = self._safe_partition(row.get("year"))
+        return self.output_dir / "fact_inference_predictions" / f"asset={asset}" / f"model_version={model_version}" / f"year={year}" / "fact_inference_predictions.parquet"
+
+    def _fact_feature_contrib_local_path(self, row: dict[str, Any]) -> Path:
+        asset = self._safe_partition(row.get("asset"))
+        model_version = self._safe_partition(row.get("model_version"))
+        year = self._safe_partition(row.get("year"))
+        return self.output_dir / "fact_feature_contrib_local" / f"asset={asset}" / f"model_version={model_version}" / f"year={year}" / "fact_feature_contrib_local.parquet"
+
     @staticmethod
     def _append_to_parquet(path: Path, incoming: pd.DataFrame) -> None:
         if path.exists():
@@ -221,6 +233,26 @@ class ParquetAnalyticsRunRepository(AnalyticsRunRepository):
         logger.info(
             "analytics fact_inference_runs appended",
             extra={"path": str(path.resolve()), "inference_run_id": row.get("inference_run_id")},
+        )
+
+    def append_fact_inference_predictions(self, rows: list[dict[str, Any]]) -> None:
+        validate_table_payload("fact_inference_predictions", rows)
+        if not rows:
+            return
+        self._append_rows_partitioned(rows, self._fact_inference_predictions_path)
+        logger.info(
+            "analytics fact_inference_predictions appended",
+            extra={"inference_run_id": rows[0].get("inference_run_id"), "rows": len(rows)},
+        )
+
+    def append_fact_feature_contrib_local(self, rows: list[dict[str, Any]]) -> None:
+        validate_table_payload("fact_feature_contrib_local", rows)
+        if not rows:
+            return
+        self._append_rows_partitioned(rows, self._fact_feature_contrib_local_path)
+        logger.info(
+            "analytics fact_feature_contrib_local appended",
+            extra={"inference_run_id": rows[0].get("inference_run_id"), "rows": len(rows)},
         )
 
     def append_fact_failures(self, row: dict[str, Any]) -> None:

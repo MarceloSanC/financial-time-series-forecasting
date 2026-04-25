@@ -34,6 +34,7 @@ from src.use_cases.test_pipeline_common import (
     validate_train_runner_contract,
 )
 from src.utils.feature_token_parser import parse_feature_tokens
+from src.utils.matplotlib_backend import ensure_non_interactive_matplotlib_backend
 from src.utils.path_resolver import load_data_paths
 
 logger = logging.getLogger(__name__)
@@ -275,6 +276,11 @@ class RunTFTModelAnalysisUseCase:
     def _strip_merge_allowed_fields(config: dict[str, Any]) -> dict[str, Any]:
         reduced = deepcopy(config)
         reduced.pop("merge_tests", None)
+        reduced.pop("resume_policy", None)
+        reduced.pop("rewind_n", None)
+        reduced.pop("reconcile_orphans", None)
+        reduced.pop("cleanup_failed_or_incomplete", None)
+        reduced.pop("dry_run_cleanup", None)
         reduced.pop("param_ranges", None)
         reduced.pop("replica_seeds", None)
         walk_forward = reduced.get("walk_forward")
@@ -428,6 +434,299 @@ class RunTFTModelAnalysisUseCase:
         return idx
 
     @staticmethod
+    def _normalize_resume_policy(value: Any) -> str:
+        policy = str(value or "keep_completed").strip().lower()
+        if policy not in {"keep_completed", "rewind_last", "rewind_last_n"}:
+            return "keep_completed"
+        return policy
+
+    @staticmethod
+    def _run_record_key_from_row(row: dict[str, Any]) -> tuple[str, str, str]:
+        return (
+            str(row.get("fold_name", "")),
+            str(row.get("run_label", "")),
+            str(row.get("config_signature", "")),
+        )
+
+    @classmethod
+    def _select_last_n_unique_keys(cls, run_df: pd.DataFrame, n: int) -> set[tuple[str, str, str]]:
+        keys: list[tuple[str, str, str]] = []
+        seen: set[tuple[str, str, str]] = set()
+        for row in reversed(run_df.to_dict(orient="records")):
+            key = cls._run_record_key_from_row(row)
+            if key in seen:
+                continue
+            seen.add(key)
+            keys.append(key)
+            if len(keys) >= max(0, int(n)):
+                break
+        return set(keys)
+
+    @staticmethod
+    def _drop_rows_by_keys(
+        run_df: pd.DataFrame,
+        remove_keys: set[tuple[str, str, str]],
+    ) -> pd.DataFrame:
+        if run_df.empty or not remove_keys:
+            return run_df.copy()
+        rows = run_df.to_dict(orient="records")
+        kept_rows = [
+            row
+            for row in rows
+            if (
+                str(row.get("fold_name", "")),
+                str(row.get("run_label", "")),
+                str(row.get("config_signature", "")),
+            )
+            not in remove_keys
+        ]
+        return pd.DataFrame(kept_rows).reset_index(drop=True)
+
+    @staticmethod
+    def _collect_model_dirs_for_sweep(*, sweep_dir: Path, asset: str) -> dict[str, Path]:
+        out: dict[str, Path] = {}
+        folds_root = sweep_dir / "folds"
+        if not folds_root.exists():
+            return out
+        for models_dir in folds_root.glob("*/models"):
+            if not models_dir.exists() or not models_dir.is_dir():
+                continue
+            for candidate in models_dir.iterdir():
+                if not candidate.is_dir():
+                    continue
+                # Staging dir layout: models/{ASSET}/{VERSION}
+                if candidate.name == asset:
+                    for staged in candidate.iterdir():
+                        if staged.is_dir():
+                            out[staged.name] = staged
+                    continue
+                out[candidate.name] = candidate
+        return out
+
+    @staticmethod
+    def _safe_remove_path(path: Path) -> None:
+        if not path.exists():
+            return
+        if path.is_dir():
+            shutil.rmtree(path, ignore_errors=True)
+        elif path.is_file():
+            try:
+                path.unlink()
+            except OSError:
+                pass
+
+    @staticmethod
+    def _safe_read_parquet(path: Path) -> pd.DataFrame:
+        return pd.read_parquet(path)
+
+    @staticmethod
+    def _safe_write_parquet(path: Path, df: pd.DataFrame) -> None:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        df.to_parquet(path, index=False)
+
+    def _resolve_run_ids_by_versions(
+        self,
+        *,
+        asset: str,
+        sweep_name: str,
+        versions: set[str],
+    ) -> set[str]:
+        if not versions:
+            return set()
+        paths = load_data_paths()
+        silver_root = Path(paths.get("analytics_silver", Path("data/analytics/silver")))
+        dim_path = silver_root / "dim_run" / f"asset={asset}" / f"sweep_id={sweep_name}" / "dim_run.parquet"
+        if not dim_path.exists() or not dim_path.is_file():
+            return set()
+        try:
+            dim_df = self._safe_read_parquet(dim_path)
+        except Exception:
+            logger.warning("resume cleanup: unable to read dim_run for run_id resolution", extra={"path": str(dim_path)})
+            return set()
+        if "model_version" not in dim_df.columns or "run_id" not in dim_df.columns:
+            return set()
+        filt = dim_df[dim_df["model_version"].astype(str).isin(versions)]
+        return set(filt["run_id"].dropna().astype(str).tolist())
+
+    def _cleanup_analytics_run_ids(self, *, run_ids: set[str]) -> None:
+        if not run_ids:
+            return
+        paths = load_data_paths()
+        silver_root = Path(paths.get("analytics_silver", Path("data/analytics/silver")))
+        # Partition-by-run_id tables.
+        for table in ("bridge_run_features", "fact_split_timestamps_ref"):
+            table_root = silver_root / table
+            if not table_root.exists():
+                continue
+            for run_id in run_ids:
+                self._safe_remove_path(table_root / f"run_id={run_id}")
+
+        # Row-filtered parquet tables containing run_id.
+        row_tables = [
+            "dim_run",
+            "fact_run_snapshot",
+            "fact_config",
+            "fact_epoch_metrics",
+            "fact_split_metrics",
+            "fact_oos_predictions",
+            "fact_failures",
+            "fact_model_artifacts",
+            "fact_inference_predictions",
+            "fact_feature_contrib_local",
+        ]
+        for table in row_tables:
+            table_root = silver_root / table
+            if not table_root.exists():
+                continue
+            for parquet_path in table_root.rglob("*.parquet"):
+                try:
+                    df = self._safe_read_parquet(parquet_path)
+                except Exception:
+                    continue
+                if "run_id" not in df.columns:
+                    continue
+                kept = df[~df["run_id"].astype(str).isin(run_ids)].copy()
+                if len(kept) == len(df):
+                    continue
+                if kept.empty:
+                    self._safe_remove_path(parquet_path)
+                else:
+                    try:
+                        self._safe_write_parquet(parquet_path, kept)
+                    except Exception:
+                        logger.warning(
+                            "resume cleanup: failed to rewrite parquet during run_id cleanup",
+                            extra={"path": str(parquet_path)},
+                        )
+
+    def _build_merge_cleanup_plan(
+        self,
+        *,
+        existing_df: pd.DataFrame,
+        sweep_dir: Path,
+        sweep_name: str,
+        asset: str,
+        resume_policy: str,
+        rewind_n: int,
+        reconcile_orphans: bool,
+        cleanup_failed_or_incomplete: bool,
+    ) -> dict[str, Any]:
+        if existing_df.empty:
+            return {
+                "pruned_df": existing_df,
+                "removed_keys": set(),
+                "removed_versions": set(),
+                "orphan_versions": set(),
+                "run_ids_to_cleanup": set(),
+                "summary": {},
+            }
+
+        removed_keys: set[tuple[str, str, str]] = set()
+
+        # 1) Remove failed/incomplete historical rows when requested.
+        if cleanup_failed_or_incomplete:
+            for row in existing_df.to_dict(orient="records"):
+                status = str(row.get("status", "")).strip().lower()
+                version = str(row.get("version") or "").strip()
+                if status != "ok" or not version:
+                    removed_keys.add(self._run_record_key_from_row(row))
+
+        # 2) Rewind last N completed rows when requested.
+        if resume_policy in {"rewind_last", "rewind_last_n"}:
+            n = max(1, int(rewind_n))
+            removed_keys |= self._select_last_n_unique_keys(existing_df, n)
+
+        pruned_df = self._drop_rows_by_keys(existing_df, removed_keys)
+
+        removed_versions: set[str] = set()
+        for row in existing_df.to_dict(orient="records"):
+            key = self._run_record_key_from_row(row)
+            if key in removed_keys:
+                version = str(row.get("version") or "").strip()
+                if version:
+                    removed_versions.add(version)
+
+        # 3) Reconcile physical artifacts with official ledger.
+        model_dirs = self._collect_model_dirs_for_sweep(sweep_dir=sweep_dir, asset=asset)
+        expected_versions = set(
+            pruned_df.get("version", pd.Series(dtype=str)).dropna().astype(str).tolist()
+        )
+        orphan_versions: set[str] = set()
+        if reconcile_orphans:
+            orphan_versions = set(model_dirs.keys()) - expected_versions
+
+        versions_to_cleanup = removed_versions | orphan_versions
+        run_ids_to_cleanup = self._resolve_run_ids_by_versions(
+            asset=asset,
+            sweep_name=sweep_name,
+            versions=versions_to_cleanup,
+        )
+
+        return {
+            "pruned_df": pruned_df,
+            "removed_keys": removed_keys,
+            "removed_versions": removed_versions,
+            "orphan_versions": orphan_versions,
+            "versions_to_cleanup": versions_to_cleanup,
+            "run_ids_to_cleanup": run_ids_to_cleanup,
+            "model_dirs": model_dirs,
+            "summary": {
+                "resume_policy": resume_policy,
+                "rewind_n": int(rewind_n),
+                "removed_rows": int(len(removed_keys)),
+                "removed_versions": int(len(removed_versions)),
+                "orphan_versions": int(len(orphan_versions)),
+                "run_ids_to_cleanup": int(len(run_ids_to_cleanup)),
+            },
+        }
+
+    def _apply_merge_cleanup_plan(
+        self,
+        *,
+        plan: dict[str, Any],
+        dry_run_cleanup: bool,
+        sweep_dir: Path,
+    ) -> pd.DataFrame:
+        report = {
+            "executed_at_utc": datetime.now(UTC).isoformat(),
+            "dry_run_cleanup": bool(dry_run_cleanup),
+            "summary": plan.get("summary", {}),
+            "removed_versions": sorted(list(plan.get("removed_versions", set()))),
+            "orphan_versions": sorted(list(plan.get("orphan_versions", set()))),
+            "run_ids_to_cleanup": sorted(list(plan.get("run_ids_to_cleanup", set()))),
+        }
+        (sweep_dir / "resume_cleanup_report.json").write_text(
+            json.dumps(report, indent=2, ensure_ascii=False),
+            encoding="utf-8",
+        )
+
+        if dry_run_cleanup:
+            logger.info("merge resume cleanup dry-run completed", extra={"summary": report.get("summary", {})})
+            return plan["pruned_df"]
+
+        versions_to_cleanup: set[str] = set(plan.get("versions_to_cleanup", set()))
+        model_dirs: dict[str, Path] = dict(plan.get("model_dirs", {}))
+        for version in versions_to_cleanup:
+            path = model_dirs.get(version)
+            if path is not None:
+                self._safe_remove_path(path)
+
+        # Remove empty staging dirs left behind.
+        for p in (sweep_dir / "folds").glob("*/models/*"):
+            if p.is_dir() and p.name and not any(p.iterdir()):
+                self._safe_remove_path(p)
+
+        self._cleanup_analytics_run_ids(run_ids=set(plan.get("run_ids_to_cleanup", set())))
+        logger.info(
+            "merge resume cleanup applied",
+            extra={
+                "summary": plan.get("summary", {}),
+                "dry_run_cleanup": False,
+            },
+        )
+        return plan["pruned_df"]
+
+    @staticmethod
     def _is_valid_saved_model_artifacts(
         *,
         version_dir: Path,
@@ -489,6 +788,7 @@ class RunTFTModelAnalysisUseCase:
         baseline_config: dict[str, Any] | None = None,
     ) -> list[str]:
         try:
+            ensure_non_interactive_matplotlib_backend()
             import matplotlib.pyplot as plt
 
             from matplotlib.ticker import MaxNLocator
@@ -1228,7 +1528,7 @@ class RunTFTModelAnalysisUseCase:
 
     @staticmethod
     def _config_signature(config: dict[str, Any]) -> str:
-        normalized = {k: v for k, v in config.items() if k != "seed"}
+        normalized = {k: v for k, v in config.items() if k not in {"seed", "parent_sweep_id"}}
         return json.dumps(normalized, sort_keys=True, ensure_ascii=False)
 
     @staticmethod
@@ -1545,6 +1845,11 @@ class RunTFTModelAnalysisUseCase:
         features: str | None = None,
         continue_on_error: bool = False,
         merge_tests: bool = False,
+        resume_policy: str = "keep_completed",
+        rewind_n: int = 1,
+        reconcile_orphans: bool = True,
+        cleanup_failed_or_incomplete: bool = True,
+        dry_run_cleanup: bool = False,
         max_runs: int | None = None,
         output_subdir: str | None = None,
         analysis_config: dict[str, Any] | None = None,
@@ -1564,11 +1869,9 @@ class RunTFTModelAnalysisUseCase:
         if merge_tests and existing_runs_path.exists() and existing_runs_path.is_file():
             try:
                 existing_df = pd.read_csv(existing_runs_path)
-                existing_ok_index = self._build_existing_ok_index(existing_df)
             except Exception:
                 logger.exception("Failed to load existing sweep_runs.csv for merge/skip")
                 existing_df = pd.DataFrame()
-                existing_ok_index = {}
 
         analysis_config_path = sweep_dir / "analysis_config.json"
         if merge_tests and analysis_config_path.exists():
@@ -1593,6 +1896,39 @@ class RunTFTModelAnalysisUseCase:
                 json.dumps(analysis_config, indent=2, ensure_ascii=False),
                 encoding="utf-8",
             )
+
+        if merge_tests and not existing_df.empty:
+            resume_policy = self._normalize_resume_policy(
+                (analysis_config or {}).get("resume_policy", resume_policy)
+            )
+            rewind_n = int((analysis_config or {}).get("rewind_n", rewind_n) or 1)
+            reconcile_orphans = bool((analysis_config or {}).get("reconcile_orphans", reconcile_orphans))
+            cleanup_failed_or_incomplete = bool(
+                (analysis_config or {}).get(
+                    "cleanup_failed_or_incomplete",
+                    cleanup_failed_or_incomplete,
+                )
+            )
+            dry_run_cleanup = bool((analysis_config or {}).get("dry_run_cleanup", dry_run_cleanup))
+
+            cleanup_plan = self._build_merge_cleanup_plan(
+                existing_df=existing_df,
+                sweep_dir=sweep_dir,
+                sweep_name=sweep_name,
+                asset=asset,
+                resume_policy=resume_policy,
+                rewind_n=rewind_n,
+                reconcile_orphans=reconcile_orphans,
+                cleanup_failed_or_incomplete=cleanup_failed_or_incomplete,
+            )
+            existing_df = self._apply_merge_cleanup_plan(
+                plan=cleanup_plan,
+                dry_run_cleanup=dry_run_cleanup,
+                sweep_dir=sweep_dir,
+            )
+
+        if merge_tests and not existing_df.empty:
+            existing_ok_index = self._build_existing_ok_index(existing_df)
 
         if explicit_experiments is not None:
             experiments = list(explicit_experiments)
@@ -1731,6 +2067,8 @@ class RunTFTModelAnalysisUseCase:
                     )
                     cfg_with_seed = dict(exp.config)
                     cfg_with_seed["seed"] = seed
+                    # Ensure sweep lineage is persisted into training analytics records.
+                    cfg_with_seed.setdefault("parent_sweep_id", sweep_name)
                     run_label = f"{exp.run_label}|seed={seed}|fold={fold_name}"
                     config_signature = self._config_signature(cfg_with_seed)
                     existing_key = self._existing_run_key(

@@ -1,0 +1,4 @@
+interface:
+  display_name: "TCC Método"
+  short_description: "Redação metodológica reprodutível"
+  default_prompt: "Escreva ou revise o Capítulo 4 com foco em pipeline, protocolo e rastreabilidade."

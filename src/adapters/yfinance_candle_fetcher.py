@@ -9,7 +9,7 @@ from datetime import UTC, datetime, time
 
 import yfinance as yf
 
-from domain.time.utc import require_tz_aware, to_utc
+from src.domain.time.utc import require_tz_aware, to_utc
 from src.entities.candle import Candle
 from src.interfaces.candle_fetcher import CandleFetcher
 

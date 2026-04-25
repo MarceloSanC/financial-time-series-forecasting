@@ -1,0 +1,143 @@
+\chapter{Fundamentação teórica ou outro título/assunto que for pertinente}
+
+Com a crescente popularização de modelos de aprendizado profundo, tarefas relacionadas a NLP utilizando incorporação de palavras, do inglês word embeddings, são cada vez mais recorrentes (MIKOLOV, 2013). O método de representação distribuídas de palavras Word2Vec, proposto pela equipe de desenvolvimento da Google, é uma ferramenta que mapeia palavras para um espaço vetorial de baixa dimensão, chamado embedding matrix, além de reduzir o custo de cálculo, também relaciona as palavras de acordo com características definidas (JIN, 2020).
+
+O objetivo da tarefa de classificação de sentimentos é identificar a polaridade de sentimento presente em uma frase. No entanto, como as informações contidas nas palavras não são suficientes para entender completamente a frase, é necessário usar um codificador de frases para extrair as características relevantes e gerar uma representação em forma de vetor. Redes Neural Convolucional (CNN), originalmente desenvolvida para processar imagens, tem sido amplamente aplicada no campo do PLN nos últimos anos, mostrando resultados promissores (GOMEZ-ADORNO, 2019), (KRIZHEVSKY, 2012).
+
+A arquitetura da rede contendo conexões incompletas e compartilhamento de pesos reduz a complexidade do modelo, a existência de uma camada convolucional torna a CNN eficiente na captura de correlações espaciais locais, e a camada de pooling na rede pode reduzir significativamente o tempo de computação (KIM, 2014). A introdução do Word2Vec possibilitou o uso da CNN no processamento de texto, permitindo que a CNN obtenha informações locais no texto e faça classificação de sentimentos (PANG; LEE, 2014).
+
+Mas não é suficientemente confiável definir a polaridade de sentimento de uma frase considerando apenas as características locais das palavras. As características globais da frase são um indicador importante para determinar a polaridade do sentimento. Redes Neurais Recorrentes (RNN) são adequadas para extrair características de dados em sequência, e a Rede Neural de Memória Longa de Curto Prazo (LSTM) é uma melhoria baseada em RNN (HOCHREITER, 1998).
+
+A Rede Neural LSTM, soluciona o problema de explosão e desaparecimento do valor gradiente ao utilizar um mecanismo chamado gating, de maneira a manter a sequência de palavras, dependentes das informações de longa duração (ZHANG, 2019). Nas tarefas de NLP, uma vez que o texto em si tem a propriedade de sequência, é adequado utilizar o LSTM para processamento teórico. Muitos estudos também têm comprovado que o LSTM pode extrair de forma eficaz informações semânticas do texto (WEN et al., 2019; ZHANG et al., 2016; WANG et al., 2019).
+
+Jin et al. (2020) evidencia que a quantidade de dados utilizados no treinamento afeta diretamente a qualidade dos modelos de aprendizado profundo, o que não deixa de ser verdade para a tarefa de classificação de sentimentos. Existem ferramentas poderosas e especializadas disponíveis para realizar tarefas de varredura de páginas da internet, como BeautifulSoup e Scrapy em Python. Essas ferramentas permitem automatizar o processo de extração de dados de sites e lidar com estruturas de dados complexas e grandes volumes de dados. (MANIKANDAPRABHU, 2023).
+
+Contudo, obter quantidades suficientes de dados que resultem em resultados consistentes, exige alto custo de processamento e armazenamento de dados. A aprendizagem multitarefa (MTL) é um método que visa melhorar o desempenho da análise de sentimentos, principalmente quando não há dados de treinamento suficientes para uma única tarefa, mas há conjuntos de dados de tarefas relacionadas disponíveis (HESSEL et al., 2019).
+
+Diversas arquiteturas de MTL foram aplicadas em diferentes áreas de NLP. Liu, Qiu e Huang (2016) adotaram o framework de aprendizagem adversarial multitarefa (AMTL) para classificação de texto em múltiplas tarefas. Yousif et al. (2019) Realizaram a tarefa de classificação de sentimento de citações utilizando um framework de aprendizagem multitarefa totalmente compartilhado. Lu et al. (2020) utilizaram a aprendizagem multitarefa combinada com Variational Auto-Encoder (VAE) e alcançaram bons resultados para classificação de sentimento em múltiplas tarefas (JIN et al., 2020).
+
+{\color{red}
+Geralmente utilizado para construção da Fundamentação Teórica, este texto introdutório deve apresentar os grandes temas que serão tratados. Pode-se fazer uso dos subtítulos para compor esta introdução de capítulo de forma coerente e coesa.
+
+
+\section{Exposição do tema ou matéria}
+
+É a parte principal e mais extensa do trabalho. Deve apresentar a fundamentação teórica, a metodologia, os resultados e a discussão. Divide-se em seções e subseções conforme a NBR 6024 da ABNT (2012).
+
+Quanto à sua estrutura e projeto gráfico, segue as recomendações da norma para preparação de trabalhos acadêmicos, a NBR 14724 (ABNT, 2011), que prevê e orienta a formatação do texto.
+
+Observe que nos parágrafos anteriores as referências de citação da ABNT foram apresentadas em dois formatos. Os dois estão corretos, mas deve-se adotar apenas um deles e utilizar em todo o trabalho quando fizer a referência da mesma normalizadora.
+
+\subsection{Formatação do texto}
+
+No que diz respeito à estrutura do trabalho, a NBR 14724 (ABNT, 2011) determina que:
+
+\begin{enumerate}[label=\alph*)]
+    \item O texto deve ser justificado, digitado em cor preta, podendo utilizar outras cores somente para as ilustrações;
+    \item Utilizar papel branco ou reciclado para impressão;
+    \item Os elementos pré-textuais devem iniciar no anverso da folha, com exceção da ficha catalográfica ou ficha de identificação da obra;
+    \item Os elementos textuais e pós-textuais podem ser digitados no anverso e verso das folhas. Neste caso, prever, em \textit{Layout da Página, as Margens em Espelho};
+\end{enumerate}
+
+O Quadro 1 resume outras informações sobre a formatação de acordo com a NBR 14724:2011 da ABNT.\newpage
+
+\begin{quadro}[htb]
+\centering
+\caption{Exemplo de quadro}
+\label{quadro_modelo}
+
+\begin{tabular}{|c|c|}
+\cline{1-2}
+	Formato do papel  & A4\\ \cline{1-2}
+	
+	\multirow{2}{*}{Margens}& Superior 3 cm e Inferior 2 cm\\ 
+                            &  Esquerda 3 cm e Direita 2 cm\\ \cline{1-2}
+    
+    \multirow{5}{*}{Paginação}  & As páginas dos elementos pré-textuais devem ser\\ 
+                                &contadas, mas não numeradas. A numeração das páginas deve\\ 
+                                &constar no canto superior direito da página com a mesma \\   
+                                &fonte do texto, mas tamanho 10, figurando a partir da primeira \\ 
+                                &folha da parte textual (Introdução), sem contar a Capa\\ \cline{1-2}
+  
+  \multirow{4}{*}{Espaçamento}  & O texto deve ser redigido com  espaçamento entre linhas 1,5,\\
+                                & excetuando-se as citações de mais de três linhas, \\
+                                &  notas de rodapé, referências, legendas das ilustrações e das \\
+                                &  tabelas, identificação do trabalho e texto de aprovação \\ \cline{1-2}
+              
+  Fontes & Times New Roman ou Arial \\ \cline{1-2}
+  
+\multirow{5}{*}{Tamanho da fonte}& Fonte tamanho 12 para o texto, incluindo os títulos das\\
+                                &seções e subseções. As citações com mais de três linhas, notas\\ 
+                                &de rodapé, paginação, dados internacionais de catalogação,\\ 
+                                &legendas das ilustrações e das tabelas, devem ser de\\
+                                &tamanho menor 10.\\ \cline{1-2}
+                
+\multirow{2}{*}{Nota de rodapé} &Devem ser digitadas no campo criado pelo \\
+                                &automático do Word em Referências/Inserir Nota de Rodapé.\\ \cline{1-2}         
+\end{tabular}
+
+\vspace{0.2 cm}
+Fonte: Elaborado pelo autor.
+
+\end{quadro}
+
+Reforça-se a consulta à Normas ABNT, quando houver dúvidas sobre a formatação, não seguir modelos de outros trabalhos, que podem estar errados ou desatualizados.
+
+\subsection{Demais elementos apresentados no texto acadêmico}
+
+Independentemente do tipo de ilustração (quadro, desenho, figura, fotografia, mapa, entre outros), sua identificação aparece na parte superior, precedida da palavra designativa.
+
+\begin{citacao}
+Após a ilustração, na parte inferior, indicar a fonte consultada (elemento obrigatório, mesmo que seja produção do próprio autor), legenda, notas e outras informações necessárias à sua compreensão (se houver). A ilustração deve ser citada no texto e inserida o mais próximo possível do texto a que se refere.\cite[p. 11]{ABNT}
+\end{citacao}
+
+As \textit{equações e fórmulas} devem ser destacadas no texto para facilitar a leitura. Para numerá-las, usar algarismos arábicos entre parênteses e alinhados à direita. Pode-se adotar uma entrelinha maior do que a usada no texto \cite{ABNT}.
+
+Exemplo: \newline
+
+Com bordas, mas mantenha sem bordas no texto:
+
+\begin{dmath} \label{eq:ModeloEfeitos}
+X_{2} + Y_{2} = Z_{2}
+\end{dmath}
+
+Exemplo de tabela:
+
+De acordo com Instituto Brasileiro de Geografia e Estatística (IBGE, 1993), tabela é uma forma não discursiva de apresentar informações em que os números e/ou sua apresentação estatística representam a informação central. Como no exemplo aqui denominado de Tabela 1.
+
+\begin{table}[htbp]
+\centering
+\caption{Exemplo de quadro}
+\label{quadro_modelo}
+
+\begin{tabular}{ccccc}
+\cline{1-5}
+&&Número de riscos identificados no setor&\\ \cline{1-5}
+Setor                & Menor & Moderado & Sério & Total\\ \cline{1-5}
+Cais acostável       &   2   &   4      & 4     & 12\\ \cline{1-5}
+Pátio de contêineres &   0   &   5      & 5     & 10\\ \cline{1-5}
+Vias de circulação   &   0   &   3      & 4     & 7\\ \cline{1-5}
+Armazéns             &   0   &   5      & 2     & 7\\ \cline{1-5}
+Portões              &   0   &   3      & 3     & 6\\ \cline{1-5}
+Sede administrativa  &   0   &   3      & 1     & 4\\ \cline{1-5}
+        
+\end{tabular}
+
+\vspace{0.2 cm}
+Fonte: Elaborado pelo autor.
+\end{table}
+
+Observe-se que, para adequada visualização ou legibilidade da Tabela, a mesma foi reproduzida digitada no texto, assim, conserva-se o nome Tabela, como no original, mas caso seja feito uma imagem da Tabela do trabalho original (um print screen), a Ilustração deverá
+ser nomeada como Figura.
+
+Também que, na apresentação, as Tabelas deverão ter as linhas laterais abertas e se possível, as internas apenas marcadas por cores diferenciadoras. Enquanto os Quadros têm todas as linhas e bordas fechadas, com conteúdo descritivo.
+
+
+\begin{figure}[htb!]
+\centering
+\caption{Exemplo de figura}
+\includegraphics[width=0.8\linewidth, keepaspectratio=true]{3_Revisao_Teorica/10anos_campus_site.jpg}
+\caption*{Fonte: UFSC Joinville}
+\label{fig:UFSC}
+\end{figure}
+}  % {\color{red}

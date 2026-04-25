@@ -48,6 +48,8 @@ def _install_fake_training_modules(
     torch_load_raises: bool = False,
     load_from_checkpoint_raises: bool = False,
     predict_return_mode: str = "tensor",
+    raw_quantiles_available: bool = True,
+    forward_quantiles_available: bool = False,
 ):
     fake_torch = types.ModuleType("torch")
 
@@ -86,6 +88,9 @@ def _install_fake_training_modules(
     fake_pf_metrics = types.ModuleType("pytorch_forecasting.metrics")
     fake_pl = types.ModuleType("pytorch_lightning")
     fake_pl_callbacks = types.ModuleType("pytorch_lightning.callbacks")
+    fake_lightning = types.ModuleType("lightning")
+    fake_lightning_pytorch = types.ModuleType("lightning.pytorch")
+    fake_lightning_pytorch_callbacks = types.ModuleType("lightning.pytorch.callbacks")
 
     class _FakeDataset:
         def __init__(self, df, **kwargs):
@@ -108,6 +113,7 @@ def _install_fake_training_modules(
 
         def __init__(self):
             self._state = {"w": 1}
+            self.loss = _FakeQuantileLoss([0.1, 0.5, 0.9])
 
         @classmethod
         def from_dataset(cls, dataset, **kwargs):
@@ -123,6 +129,15 @@ def _install_fake_training_modules(
         def predict(self, dataloader, mode="prediction"):
             actual = np.concatenate([y[0].arr for _, y in dataloader], axis=0)
             offset = 0.9 if self._state.get("w") == 999 else 0.1
+            if mode == "raw":
+                if not raw_quantiles_available:
+                    return []
+                # Shape: [batch, horizon=1, quantiles=3]
+                q10 = actual + (offset - 0.1)
+                q50 = actual + offset
+                q90 = actual + (offset + 0.1)
+                qcube = np.stack([q10, q50, q90], axis=2)
+                return _FakeTensor(qcube)
             if predict_return_mode == "prediction_obj":
                 Prediction = namedtuple("Prediction", ["output", "x"])
                 return Prediction(output=_FakeTensor(actual + offset), x={})
@@ -134,6 +149,13 @@ def _install_fake_training_modules(
 
         def __call__(self, x):
             offset = 0.9 if self._state.get("w") == 999 else 0.1
+            if forward_quantiles_available:
+                actual = x.arr
+                q10 = actual + (offset - 0.1)
+                q50 = actual + offset
+                q90 = actual + (offset + 0.1)
+                qcube = np.stack([q10, q50, q90], axis=2)
+                return {"prediction": _FakeTensor(qcube)}
             return {"prediction": _FakeTensor(x.arr + offset)}
 
         def state_dict(self):
@@ -182,11 +204,22 @@ def _install_fake_training_modules(
     fake_pl_callbacks.ModelCheckpoint = _FakeModelCheckpoint
     fake_pl_callbacks.EarlyStopping = _FakeEarlyStopping
 
+    # Mirror the same fake API under the modern lightning.pytorch namespace.
+    fake_lightning_pytorch.Trainer = _FakeTrainer
+    fake_lightning_pytorch.seed_everything = _seed_everything
+    fake_lightning_pytorch_callbacks.Callback = _FakeCallback
+    fake_lightning_pytorch_callbacks.ModelCheckpoint = _FakeModelCheckpoint
+    fake_lightning_pytorch_callbacks.EarlyStopping = _FakeEarlyStopping
+    fake_lightning.pytorch = fake_lightning_pytorch
+
     monkeypatch.setitem(sys.modules, "torch", fake_torch)
     monkeypatch.setitem(sys.modules, "pytorch_forecasting", fake_pf)
     monkeypatch.setitem(sys.modules, "pytorch_forecasting.metrics", fake_pf_metrics)
     monkeypatch.setitem(sys.modules, "pytorch_lightning", fake_pl)
     monkeypatch.setitem(sys.modules, "pytorch_lightning.callbacks", fake_pl_callbacks)
+    monkeypatch.setitem(sys.modules, "lightning", fake_lightning)
+    monkeypatch.setitem(sys.modules, "lightning.pytorch", fake_lightning_pytorch)
+    monkeypatch.setitem(sys.modules, "lightning.pytorch.callbacks", fake_lightning_pytorch_callbacks)
     return {"FakeTFT": _FakeTFT}
 
 
@@ -505,3 +538,69 @@ def test_trainer_falls_back_to_manual_forward_for_empty_predict_output(
     )
     assert "val" in result.split_metrics
     assert result.split_metrics["val"]["rmse"] >= 0.0
+
+
+
+
+def test_trainer_uses_forward_quantile_fallback_when_raw_is_unavailable(monkeypatch, tmp_path: Path) -> None:
+    _install_fake_training_modules(
+        monkeypatch,
+        tmp_path,
+        raw_quantiles_available=False,
+        forward_quantiles_available=True,
+    )
+
+    df = pd.DataFrame(
+        {
+            "asset_id": ["AAPL", "AAPL"],
+            "time_idx": [0, 1],
+            "target_return": [0.1, 0.2],
+            "close": [10.0, 11.0],
+            "volume": [1000, 1100],
+            "day_of_week": [0, 1],
+            "month": [1, 1],
+        }
+    )
+
+    trainer = PytorchForecastingTFTTrainer()
+    result = trainer.train(
+        df,
+        df.copy(),
+        df.copy(),
+        feature_cols=["close", "volume"],
+        target_col="target_return",
+        time_idx_col="time_idx",
+        group_col="asset_id",
+        known_real_cols=["time_idx", "day_of_week", "month"],
+        config={"prediction_mode": "quantile"},
+    )
+    assert "val" in result.split_predictions
+    assert len(result.split_predictions["val"]["quantile_p10_matrix"]) > 0
+def test_trainer_raises_when_quantile_outputs_are_unavailable(monkeypatch, tmp_path: Path) -> None:
+    _install_fake_training_modules(monkeypatch, tmp_path, raw_quantiles_available=False)
+
+    df = pd.DataFrame(
+        {
+            "asset_id": ["AAPL", "AAPL"],
+            "time_idx": [0, 1],
+            "target_return": [0.1, 0.2],
+            "close": [10.0, 11.0],
+            "volume": [1000, 1100],
+            "day_of_week": [0, 1],
+            "month": [1, 1],
+        }
+    )
+
+    trainer = PytorchForecastingTFTTrainer()
+    with pytest.raises(RuntimeError, match="Quantile extraction failed"):
+        trainer.train(
+            df,
+            df.copy(),
+            df.copy(),
+            feature_cols=["close", "volume"],
+            target_col="target_return",
+            time_idx_col="time_idx",
+            group_col="asset_id",
+            known_real_cols=["time_idx", "day_of_week", "month"],
+            config={"prediction_mode": "quantile"},
+        )

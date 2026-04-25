@@ -10,7 +10,7 @@ from datetime import UTC, datetime
 
 import requests
 
-from domain.time.utc import require_tz_aware
+from src.domain.time.utc import require_tz_aware
 from src.entities.news_article import NewsArticle
 from src.interfaces.news_fetcher import NewsFetcher
 

@@ -1,0 +1,4 @@
+interface:
+  display_name: "TCC Resultados"
+  short_description: "Análise de resultados OOS e incerteza"
+  default_prompt: "Escreva ou revise o Capítulo 5 com evidências, métricas e comparação entre configurações."

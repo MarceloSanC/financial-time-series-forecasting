@@ -11,6 +11,7 @@ from typing import Any
 import pandas as pd
 
 from src.interfaces.model_repository import ModelRepository
+from src.utils.matplotlib_backend import ensure_non_interactive_matplotlib_backend
 from src.utils.path_policy import to_project_relative
 
 
@@ -128,6 +129,7 @@ class LocalTFTModelRepository(ModelRepository):
         analysis_out: dict[str, str] = {}
         if history:
             try:
+                ensure_non_interactive_matplotlib_backend()
                 import matplotlib.pyplot as plt
 
                 df_hist = pd.DataFrame(history)
@@ -162,6 +164,7 @@ class LocalTFTModelRepository(ModelRepository):
             ablation_df.to_csv(ablation_path, index=False)
             analysis_out["ablation_results_csv"] = to_project_relative(ablation_path)
             try:
+                ensure_non_interactive_matplotlib_backend()
                 import matplotlib.pyplot as plt
 
                 if "test_rmse" in ablation_df.columns and "experiment" in ablation_df.columns:

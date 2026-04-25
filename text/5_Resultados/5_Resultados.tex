@@ -1,0 +1,41 @@
+\chapter{Resultados e Discussão}
+
+% Guardrails do capitulo (fonte: docs/living-paper/chapter_structure_freeze.md)
+% Objetivo: apresentar resultados, comparacoes e interpretacoes com base em evidencias rastreaveis.
+% Escopo obrigatorio: resultados por horizonte/split, incerteza quantilica, comparacoes e robustez.
+% Fora de escopo: afirmacoes sem suporte empirico ou sem alinhamento temporal OOS.
+
+\section{Cenários experimentais avaliados}
+Esta rodada de resultados concentra-se na coorte experimental controlada com prefixo `0\_2\_3\_`, no ativo AAPL, com avaliação principal no horizonte \(h+1\). As comparações foram realizadas entre configurações explícitas de features e hiperparâmetros já persistidas no repositório analítico, mantendo escopo homogêneo para evitar mistura de coortes.
+
+Em termos de seleção preliminar, a shortlist congelada da rodada 0 registrou uma configuração campeã provisória e uma configuração de fallback, ambas na família de features de sentimento, com diferenças pequenas em ranking de erro e sinais distintos em métricas auxiliares de comparação pareada. Essa característica já indicava, desde a etapa de triagem, que a decisão final não poderia ser sustentada por um único indicador.
+
+\section{Resultados agregados por horizonte e split}
+No horizonte curto \(h+1\), os resultados agregados mostraram faixa de RMSE estreita entre candidatos, aproximadamente entre \(0{,}01335\) e \(0{,}01341\), conforme análise de dispersão por execução e partição. Essa proximidade sugere coorte de desempenho pontual relativamente homogêneo, sem separação robusta por ponto estimado isoladamente.
+
+Do ponto de vista de interpretação, o comportamento observado reforça a necessidade de leitura multievidência: métricas pontuais são necessárias para triagem, mas não suficientes para declaração de dominância. Assim, o ranking foi tratado como evidência inicial, a ser confrontada com calibração probabilística, testes estatísticos pareados e análise de estabilidade entre execuções.
+
+\section{Análise da incerteza (quantis, cobertura, largura de intervalo)}
+A avaliação probabilística indicou cobertura observada aproximada de \(0{,}75\) para cobertura nominal de \(0{,}80\) no intervalo quantílico analisado, caracterizando subcobertura no horizonte curto. Em paralelo, a relação entre largura de intervalo (MPIW) e cobertura (PICP) exibiu o comportamento esperado de trade-off: intervalos mais largos tendem a elevar cobertura, enquanto intervalos mais estreitos tendem a reduzir cobertura observada.
+
+Esse resultado tem implicação direta para decisão: não é metodologicamente adequado privilegiar apenas menor largura de intervalo nem apenas maior cobertura, mas buscar equilíbrio compatível com o objetivo de previsão. Em termos de validade, a interpretação foi guiada por critérios de previsão probabilística e calibração, e não por inspeção visual isolada de curvas \cite{GNEITING2007}.
+
+\section{Comparações entre configurações e feature sets}
+As comparações entre configurações e conjuntos de features, dentro da coorte controlada, indicaram ganhos incrementais e não dominância absoluta de uma única combinação. Em particular, as evidências apontam que as diferenças observadas são sensíveis ao critério adotado (erro pontual, calibração, robustez), reforçando que o melhor candidato depende do objetivo analítico (precisão central, confiabilidade probabilística ou equilíbrio entre ambos).
+
+Esse comportamento está alinhado com a literatura de previsão financeira fora da amostra, na qual ganhos preditivos tendem a ser moderados e dependentes de regime, janela e desenho de avaliação. Portanto, a discussão de desempenho foi conduzida com foco em utilidade comparativa e consistência de evidência, evitando conclusões de superioridade universal.
+
+\section{Análise estatística pareada (quando aplicável)}
+A análise estatística pareada foi conduzida somente após alinhamento temporal estrito por \textit{target timestamp}, condição necessária para comparabilidade válida entre modelos. No escopo analisado, a matriz de p-valores do teste de Diebold-Mariano apresentou predominância de valores elevados e apenas regiões pontuais de separação estatística, indicando ausência de dominância ampla na maior parte dos pares \cite{DIEBOLDMARIANO1995}.
+
+Consequentemente, a inferência final foi tratada como evidência de equivalência prática em grande parte da coorte, com separação estatística localizada em subconjuntos específicos. Essa leitura evita superinterpretação de diferenças marginais e mantém coerência com a regra metodológica de decisão baseada em múltiplos critérios.
+
+\section{Interpretabilidade e implicações}
+A análise de importância global de features no horizonte \(h+1\) mostrou contribuições distribuídas em banda estreita, sem uma variável claramente dominante em todo o escopo. Esse padrão sugere que o desempenho deriva de combinação de sinais, e não de dependência de um único atributo, o que é consistente com modelagem multivariada em ambientes financeiros com baixa relação sinal-ruído.
+
+No plano aplicado, a principal implicação é que a utilidade do modelo está menos em antecipar com precisão extremos de curto prazo e mais em oferecer previsão probabilística estável para suporte à decisão sob incerteza. Em outras palavras, o componente quantílico agrega valor interpretativo de risco mesmo quando a diferença de erro pontual entre candidatos é pequena.
+
+\section{Ameaças à validade dos resultados}
+As principais ameaças à validade incluem: (i) sensibilidade dos resultados ao recorte de ativo, horizonte e janela temporal, (ii) possibilidade de subpotência estatística para detectar diferenças pequenas entre candidatos, e (iii) risco de interpretação indevida quando comparações são feitas fora da mesma interseção temporal. Para mitigar esses riscos, a análise adotou coorte congelada, alinhamento temporal estrito e leitura conjunta de métricas pontuais, probabilísticas e pareadas.
+
+Adicionalmente, embora a infraestrutura de persistência favoreça rastreabilidade e reconstrução analítica, a generalização externa dos achados depende de replicação em outros ativos e períodos. Assim, as conclusões desta rodada devem ser entendidas como evidência robusta para o escopo experimental definido, e não como afirmação universal sobre desempenho relativo de arquiteturas ou famílias de features.

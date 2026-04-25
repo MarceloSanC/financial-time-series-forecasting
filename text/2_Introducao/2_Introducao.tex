@@ -1,0 +1,40 @@
+\chapter{Introdução} \label{chap: Intro}
+
+% Guardrails do capitulo (fonte: docs/living-paper/chapter_structure_freeze.md)
+% Objetivo: apresentar contexto, problema, justificativa, objetivos, delimitacao e estrutura do trabalho.
+% Escopo obrigatorio: forecasting financeiro com TFT, avaliacao OOS e incerteza quantilica.
+% Fora de escopo: tema central de classificacao de sentimento com CNN.
+
+\section{Contextualização e motivação}
+A previsão de séries temporais financeiras permanece como um problema de elevada relevância acadêmica e aplicada, dada a sua relação direta com decisão de investimento, gestão de risco e alocação de capital. Na literatura econômica, a Hipótese de Mercado Eficiente estabelece um referencial clássico segundo o qual os preços incorporam rapidamente a informação disponível, tornando a previsão sistemática um desafio metodológico relevante \cite{FAMA1991}. Em paralelo, a Hipótese de Mercados Adaptativos propõe que a dinâmica de mercado é evolutiva e dependente de contexto, abrindo espaço para modelos que capturem não linearidades e mudanças de regime \cite{LO2004}.
+
+Com o aumento de disponibilidade de dados e capacidade computacional, abordagens de aprendizado de máquina passaram a ocupar papel central em forecasting financeiro, especialmente em cenários multivariados e de múltiplos horizontes \cite{LIMZOHREN2021}. Nesse contexto, o Temporal Fusion Transformer (TFT) destaca-se por combinar modelagem temporal, seleção de variáveis e interpretabilidade em tarefas de previsão, tornando-se uma referência contemporânea para problemas com covariáveis heterogêneas \cite{LIMETAL2021TFT}.
+
+\section{Problema de pesquisa}
+Apesar dos avanços recentes, ainda é comum observar estudos com comparações pouco auditáveis entre configurações de features e hiperparâmetros, além de avaliações concentradas apenas em erro pontual. Esse cenário dificulta a distinção entre ganho real de modelagem e efeito de desenho experimental. Em previsão financeira, essa limitação é crítica, pois a utilidade prática depende não apenas de acurácia média, mas também de quantificação de incerteza e estabilidade fora da amostra.
+
+Sob a ótica de previsão probabilística, avaliar apenas ponto previsto é insuficiente; é necessário verificar qualidade distributiva, calibração e cobertura de intervalos \cite{GNEITING2007}. Em termos metodológicos, previsões quantílicas oferecem um arcabouço consolidado para representar incerteza em diferentes faixas de risco \cite{KOENKERBASSETT1978}. Adicionalmente, comparações entre modelos devem respeitar alinhamento temporal e teste estatístico apropriado de acurácia preditiva, como no framework de Diebold-Mariano \cite{DIEBOLDMARIANO1995}. Assim, este trabalho investiga se um protocolo reprodutível com TFT e saída quantílica melhora a confiabilidade da comparação entre configurações em ambiente fora da amostra.
+
+\section{Justificativa}
+Este estudo se justifica por três frentes complementares. Na frente científica, contribui para reduzir lacunas de comparabilidade e reprodutibilidade em forecasting financeiro ao integrar arquitetura, dados, métricas e rastreabilidade em um mesmo protocolo experimental. Na frente metodológica, adota o TFT como modelo principal por sua adequação a cenários multivariados com múltiplos horizontes e por oferecer mecanismos de interpretação relevantes para análise aplicada \cite{LIMETAL2021TFT}. Na frente prática, incorpora predição quantílica para suporte a decisão sob incerteza, condição essencial em contextos financeiros.
+
+Além disso, ao registrar de forma explícita configurações, partições temporais e artefatos de execução, o trabalho se alinha a recomendações contemporâneas de rigor experimental em aprendizado de máquina, favorecendo auditoria e repetibilidade dos resultados \cite{PINEAU2021REPRODUCIBILITY}.
+
+\section{Objetivos}
+\subsection{Objetivo geral}
+Investigar e avaliar um pipeline reprodutível de previsão de séries temporais financeiras baseado em Temporal Fusion Transformer, com predição quantílica e comparação sistemática de configurações de features e hiperparâmetros em ambiente fora da amostra.
+
+\subsection{Objetivos específicos}
+\begin{itemize}
+    \item Estruturar um fluxo integrado de dados financeiros, indicadores técnicos, sentimento agregado e fundamentos, com controle de consistência temporal e mitigação de leakage.
+    \item Implementar treinamento e inferência com Temporal Fusion Transformer em modo pontual e quantílico, com rastreabilidade completa de configurações e artefatos de execução.
+    \item Definir e aplicar protocolo experimental reprodutível, com particionamento temporal, múltiplas sementes e critérios padronizados de comparação entre experimentos.
+    \item Avaliar o desempenho preditivo com métricas pontuais e probabilísticas, incluindo análise de cobertura e largura de intervalos de predição.
+    \item Comparar configurações de features e hiperparâmetros com base em evidências fora da amostra, identificando ganhos de desempenho, robustez e limitações.
+\end{itemize}
+
+\section{Delimitação do estudo}
+O recorte desta pesquisa é delimitado pela previsão supervisionada de séries temporais financeiras com Temporal Fusion Transformer, utilizando dados de mercado e covariáveis estruturadas (indicadores técnicos, sentimento agregado e fundamentos) conforme disponibilidade do pipeline do projeto. A avaliação concentra-se em desempenho fora da amostra, com métricas pontuais e probabilísticas, incluindo análise de quantis e comparação entre configurações de features e hiperparâmetros em protocolo reprodutível. Não constitui objetivo deste trabalho comparar exaustivamente múltiplas arquiteturas profundas nem propor estratégia de trading em produção em tempo real.
+
+\section{Estrutura do trabalho}
+Além desta introdução, o Capítulo 3 apresenta a fundamentação teórica sobre previsão financeira, modelagem temporal com aprendizado profundo, predição probabilística e critérios de avaliação fora da amostra. O Capítulo 4 descreve o método, incluindo dados, engenharia de features, configuração do TFT, protocolo experimental, métricas e rastreabilidade. O Capítulo 5 consolida os resultados e a discussão, com análise comparativa entre configurações e avaliação de incerteza. Por fim, o Capítulo 6 sintetiza os achados, explicita limitações e apresenta direções de trabalhos futuros.

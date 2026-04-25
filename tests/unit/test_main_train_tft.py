@@ -18,6 +18,7 @@ def _base_args(config_json: str | None = None, features: str | None = None) -> N
         models_dir=None,
         max_encoder_length=None,
         max_prediction_length=None,
+        evaluation_horizons=None,
         batch_size=None,
         max_epochs=None,
         learning_rate=None,
@@ -318,3 +319,35 @@ def test_main_train_tft_uses_runs_subdir_as_default_models_dir(monkeypatch, tmp_
 
     assert Path(captured_repo_kwargs["base_dir"]) == (tmp_path / "models")
     assert captured_repo_kwargs["run_subdir"] == "runs"
+
+
+def test_main_train_tft_evaluation_horizons_override(monkeypatch, tmp_path: Path) -> None:
+    args = _base_args(features="BASELINE_FEATURES")
+    args.max_prediction_length = 30
+    args.evaluation_horizons = [1, 7, 30]
+
+    monkeypatch.setattr(main_train_tft, "load_data_paths", lambda: {"dataset_tft": tmp_path, "models": tmp_path})
+    monkeypatch.setattr(main_train_tft, "parse_args", lambda: args)
+    monkeypatch.setattr(main_train_tft, "ParquetTFTDatasetRepository", lambda **_: object())
+    monkeypatch.setattr(main_train_tft, "LocalTFTModelRepository", lambda **_: object())
+    monkeypatch.setattr(main_train_tft, "ParquetAnalyticsRunRepository", lambda **_: object())
+    monkeypatch.setattr(main_train_tft, "PytorchForecastingTFTTrainer", lambda: object())
+
+    captured: dict = {}
+
+    class _FakeUseCase:
+        def __init__(self, **kwargs):
+            pass
+
+        def execute(self, asset_id: str, **kwargs):
+            captured.update(kwargs)
+            return type(
+                "_R",
+                (),
+                {"asset_id": asset_id, "version": "v", "artifacts_dir": "d", "metrics": {"rmse": 1.0}},
+            )()
+
+    monkeypatch.setattr(main_train_tft, "TrainTFTModelUseCase", _FakeUseCase)
+    main_train_tft.main()
+
+    assert captured["training_config"]["evaluation_horizons"] == [1, 7, 30]

@@ -1,7 +1,7 @@
 
-from interfaces.candle_repository import CandleRepository
 from src.entities.candle import Candle
 from src.entities.technical_indicator_set import TechnicalIndicatorSet
+from src.interfaces.candle_repository import CandleRepository
 from src.interfaces.technical_indicator_calculator import (
     TechnicalIndicatorCalculatorPort,
 )

@@ -37,7 +37,7 @@ src/
   infrastructure/   # schemas and storage contracts
 ```
 
-For the full structure, see `docs/PROJECT_STRUCTURE.md`.
+For full architecture and navigation, see `docs/INDEX.md` and `docs/01_architecture/SYSTEM_OVERVIEW.md`.
 
 ## Repository Structure
 ```
@@ -105,12 +105,15 @@ make ci-local
 - CI workflows are defined in `.github/workflows/ci.yml`.
 
 ## Documentation Index
-- `docs/RUNNING_PIPELINE.md`
-- `docs/RUNNING_TESTS.md`
-- `docs/RUNNING_TFT_INFERENCE.md`
-- `docs/ANALYTICS_STORE_CHECKLIST.md`
-- `docs/PREDICTIONS_AND_METRICS_CHECKLIST.md`
-- `docs/FEATURES_SET_CHECKLIST.md`
+- `docs/INDEX.md`
+- `docs/ai/INDEX.md`
+- `docs/ai/AGENT_CORE.md`
+- `docs/06_runbooks/RUN_PIPELINE_QUICKSTART.md`
+- `docs/06_runbooks/RUN_TESTS.md`
+- `docs/06_runbooks/RUN_INFERENCE.md`
+- `docs/05_checklists/ANALYTICS_STORE_CHECKLIST.md`
+- `docs/05_checklists/PREDICTIONS_AND_METRICS_CHECKLIST.md`
+- `docs/05_checklists/FEATURES_SET_CHECKLIST.md`
 
 ## Academic Context
 This repository supports TCC research focused on:

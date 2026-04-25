@@ -1,0 +1,9 @@
+\begin{resumo}
+
+Neste trabalho, buscamos prever séries temporais financeiras de forma confiável, estimando também a incerteza das previsões e garantindo que os experimentos possam ser reproduzidos. O problema de pesquisa está associado à dificuldade de comparar configurações de modelos de forma justa em ambiente fora da amostra, especialmente quando a avaliação é restrita a métricas pontuais. Como resposta, foi desenvolvido um pipeline integrado de dados de mercado e covariáveis estruturadas, com engenharia de atributos e treinamento de modelos Temporal Fusion Transformer para previsão multihorizonte em modo pontual e quantílico. A metodologia adota partições temporais explícitas, controle de consistência temporal, critérios de qualidade de dados e persistência auditável de artefatos experimentais em camadas de persistência imutáveis e em camada analítica derivada e reconstruível. Na rodada inicial, dentro de uma coorte controlada, as configurações tiveram desempenho pontual muito parecido. A modelagem quantílica trouxe informação extra para análise de risco, mas houve subcobertura no horizonte curto em relação à cobertura nominal, indicando que os intervalos previstos ficaram mais estreitos do que o ideal nesse horizonte. Por isso, ainda é necessária análise estatística pareada para afirmar se um modelo realmente domina outro. Conclui-se que a combinação entre previsão quantílica, alinhamento temporal estrito e rastreabilidade de execução fortalece a defensabilidade acadêmica da avaliação preditiva.
+
+\textbf{[Nota de versão]} Este resumo é uma versão em evolução e será atualizado conforme o avanço do projeto e a consolidação de novas evidências e conclusões.
+
+\textbf{Palavras-chave}: Temporal Fusion Transformer. Previsão quantílica. Incerteza preditiva. Reprodutibilidade experimental. Avaliação fora da amostra.
+
+\end{resumo}	

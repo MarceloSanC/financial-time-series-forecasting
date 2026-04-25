@@ -1,0 +1,71 @@
+\chapter{Introdução} \label{chap: Intro}
+
+A busca por métodos que permitam prever o comportamento do mercado de ativos tem intrigado economistas, filósofos e investidores, desde os primórdios das transações contratuais. Essa busca fomentou o desenvolvimento da ciência econômica e de diferentes hipóteses teóricas, divididas principalmente entre Hipótese de Mercado Eficiente (HME) e Hipótese de Mercado Adaptativo (HMA) (PICASSO et al., 2018).
+De acordo com Fama (1991), a HME afirma que os preços das ações no mercado estão totalmente relacionados de forma racional com as informações disponíveis no presente e no passado e o preço atual é o mais justo possível, não havendo espaço para previsões dos preços. Portanto, a variação nos preços decorre, meramente, em função de notícias publicadas, de maneira a seguir um padrão imprevisível (PICASSO et al., 2018). \\
+Em contrapartida a HMA, é uma teoria que busca conciliar a eficiência de mercado com os aspectos comportamentais dos investidores, argumentando que o mercado financeiro não é exclusivamente racional, mas que os preços são influenciados também por fatores emocionais, como medo e ganância, regidos por princípios evolutivos, como competição, adaptação e seleção natural. Os investidores se ajustam às mudanças do ambiente financeiro, em um padrão de comportamento que revela indicações concretas para a gestão de carteiras, levando à compreensão da dinâmica dos mercados. (LO, 2004).\\
+Com o advento de computadores mais rápidos e vastas informações disponíveis na Internet, os mercados de ações se tornaram mais acessíveis tanto para investidores estratégicos quanto para o público em geral. Como a Internet fornece uma fonte primária de informações sobre eventos que têm um impacto significativo nos mercados de ações, as técnicas para extrair e utilizar informações para apoiar a tomada de decisões se tornaram uma tarefa crítica (YOO et al., 2005).\\
+Como afirma Bouktif et al. (2020), a análise de sentimentos pode ser usada para entender a opinião pública em relação a uma empresa, ativo ou produto, possibilitando classificar automaticamente os sentimentos de milhões de postagens de notícias ou tweets sem a necessidade de anotação manual. Uma possível abordagem para classificação de sentimentos é tradicionalmente realizada por meio do método de aprendizado de máquina supervisionado (BOUKTIF et al., 2020).\\
+A classificação de sentimentos usando aprendizado de máquina supervisionado é uma abordagem popular para analisar e categorizar dados de texto com base no sentimento expresso no texto. Essa tarefa envolve treinar um modelo de aprendizado de máquina em um conjunto de dados rotulado, em que cada amostra de texto está associada a um rótulo de sentimento (positivo, negativo, neutro), para posteriormente prever o sentimento de amostras não vistas durante o treinamento.\\
+Neste trabalho, apresenta-se o desenvolvimento de um modelo de aprendizado de máquina, baseado na arquitetura de Redes Neurais Convolucionais (CNN) responsável por classificar os sentimentos dos investidores em relação a ações presentes no índice S&P 500. Os dados de entrada do modelo são extraídos de textos de sites de notícias, redes sociais, fóruns e outros sites convenientes utilizando a ferramenta Web Scraper, e então pré-processados aplicando técnicas de processamento de linguagem natural (NLP).\\
+Devido a limitação de capacidade computacional para processar dados de todas as 500 empresas listadas no índice, restringiu-se a análise para as 5 empresas que ocupam maior porcentagem de capitalização de mercado, nomeadas, Apple, Microsoft, Google, Amazon, Berkshire Hathaway. Nas seções seguintes é apresentado a seleção das características de classificação adotadas para o vocabulário, bem como as métricas de avaliação de desempenho do modelo.\\
+
+{\color{red}
+\textbf{PARA MAIS INFORMAÇÔES CONSULTE O README.txt ou DOCUMENTAÇÂO DA ABNTEX2}
+
+A Introdução é um texto sucinto e direto, no qual deve constar, organizado em parágrafos, com textualidade (coesão e coerência) e sem vícios linguísticos:
+
+\begin{enumerate}[label=\alph*)]
+	\item Tema;
+	\item Problema;
+	\item Justificativa;
+    \item Informação das bases/linhas teóricas e/ou autores de referência que serão utilizados no trabalho;
+    \item Objetivo geral e se for o caso, alguns específicos;
+    \item Metodologia a ser seguida;
+    \item Resultados gerais.
+\end{enumerate}
+
+
+Não crie subtítulos para motivação ou metodologia. Motivação é justificativa e deve compor o texto.
+
+Para gerar o Sumário de acordo com a norma NBR 6027:2012 da ABNT, utilize esta sequência ao longo do trabalho para diferenciação gráfica nas divisões de seção e subseção:
+}
+
+{\color{red}
+\chapter{Seção PRIMÁRIA}
+\section{Seção Secundária}
+\subsection{Seção terciária}
+\subsubsection{\underline{Seção quaternária}}%Necessário função underline para atender a norma da ABNT
+\subsubsubsection{Seção quinaria}
+
+Para qualquer dúvida, consulte a norma, não siga exemplos de formatação observados em outros textos, pois podem estar desatualizados ou equivocados.
+}
+
+\section{Objetivo}
+Visando proporcionar melhor autonomia aos investidores, por meio do fornecimento de informações valiosas e confiáveis acerca do sentimento do mercado em relação a um ativo, os seguintes objetivos são propostos.
+
+{\color{red}
+Para resolver a problemática x....................................., propõe-se neste trabalho os seguintes objetivos.
+}
+
+\subsection{Objetivo Geral}
+Aplicar processamento de linguagem natural utilizando redes neurais Convolucionais para prever o sentimento do mercado acionário 
+
+{\color{red}
+Claro, sucinto, direto. Deve estar coerente com o que foi anunciado no título.
+}
+
+\subsection{Objetivos Específicos}
+\begin{itemize}
+    \item Definir sites de notícias e redes sociais relevantes para extração de dados de texto.
+    \item Classificar corretamente textos em adjetivos de sentimentos por meio de conceitos de PNL aplicados a um modelo de CNN.
+    \item Validar a acurácia das classificações geradas pelo algoritmo, com precisão maior que 90%.
+\end{itemize}
+
+{\color{red}
+\begin{itemize}
+    \item Utilize a lista de verbos indicada para composição de objetivos específicos;
+    \item Você pode encontrá-la no 1o slide da disciplina de PTCC;
+    \item Observe para não colocar a tarefa, mas sim o objetivo que deseja atingir com a mesma.
+\end{itemize}
+}
+

@@ -58,6 +58,26 @@ def _parse_quantile_levels(value: str) -> list[float]:
     return out
 
 
+def _parse_horizons(value: str) -> list[int]:
+    try:
+        parsed = json.loads(value)
+    except json.JSONDecodeError as exc:
+        raise argparse.ArgumentTypeError(
+            "evaluation-horizons must be a JSON list (e.g. '[1, 7, 30]')"
+        ) from exc
+    if not isinstance(parsed, list) or not parsed:
+        raise argparse.ArgumentTypeError("evaluation-horizons must be a non-empty list")
+    out: list[int] = []
+    for h in parsed:
+        if not isinstance(h, (int, float)):
+            raise argparse.ArgumentTypeError("evaluation-horizons values must be numeric")
+        hv = int(h)
+        if hv < 1:
+            raise argparse.ArgumentTypeError("evaluation-horizons values must be >= 1")
+        out.append(hv)
+    return out
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Train TFT model from dataset_tft with configurable feature sets and split."
@@ -103,6 +123,14 @@ def parse_args() -> argparse.Namespace:
         help=(
             f"Prediction horizon (>=1, <= encoder). Default: "
             f"{TFT_TRAINING_DEFAULTS['max_prediction_length']}"
+        ),
+    )
+    parser.add_argument(
+        "--evaluation-horizons",
+        type=_parse_horizons,
+        help=(
+            "Horizons to persist/evaluate as JSON list. "
+            f"Default: {TFT_TRAINING_DEFAULTS['evaluation_horizons']}"
         ),
     )
     parser.add_argument(
@@ -256,6 +284,11 @@ def parse_args() -> argparse.Namespace:
             f"Default: {TFT_TRAINING_DEFAULTS['compute_feature_importance']}"
         ),
     )
+    parser.add_argument(
+        "--parent-sweep-id",
+        type=str,
+        help="Optional sweep lineage identifier persisted in analytics (e.g. optuna_0_1_5_*).",
+    )
     parser.add_argument("--train-start", type=str, help="Train start date (yyyymmdd)")
     parser.add_argument("--train-end", type=str, help="Train end date (yyyymmdd)")
     parser.add_argument("--val-start", type=str, help="Validation start date (yyyymmdd)")
@@ -382,10 +415,13 @@ def main() -> None:
             training_config[key] = file_config[key]
     if "derived_feature_groups" in file_config:
         training_config["derived_feature_groups"] = file_config["derived_feature_groups"]
+    if "parent_sweep_id" in file_config and file_config["parent_sweep_id"] is not None:
+        training_config["parent_sweep_id"] = str(file_config["parent_sweep_id"])
 
     overrides = {
         "max_encoder_length": args.max_encoder_length,
         "max_prediction_length": args.max_prediction_length,
+        "evaluation_horizons": args.evaluation_horizons,
         "batch_size": args.batch_size,
         "max_epochs": args.max_epochs,
         "learning_rate": args.learning_rate,
@@ -413,6 +449,9 @@ def main() -> None:
     for key, value in overrides.items():
         if value is not None:
             training_config[key] = value
+    parent_sweep_id = getattr(args, "parent_sweep_id", None)
+    if parent_sweep_id is not None:
+        training_config["parent_sweep_id"] = str(parent_sweep_id)
     validate_tft_training_config(training_config)
 
     training_config["entrypoint"] = "src.main_train_tft"

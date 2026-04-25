@@ -1,0 +1,4 @@
+interface:
+  display_name: "TCC Conclusões"
+  short_description: "Síntese, limitações e trabalhos futuros"
+  default_prompt: "Escreva ou revise o Capítulo 6 sem extrapolar além das evidências."

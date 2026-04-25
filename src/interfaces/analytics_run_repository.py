@@ -56,6 +56,11 @@ class AnalyticsRunRepository(ABC):
         ...
 
     @abstractmethod
+    def append_fact_inference_predictions(self, rows: list[dict[str, Any]]) -> None:
+        """Append rows for fact_inference_predictions."""
+        ...
+
+    @abstractmethod
     def append_fact_failures(self, row: dict[str, Any]) -> None:
         """Append one fact_failures row."""
         ...

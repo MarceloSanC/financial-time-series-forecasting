@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 import numpy as np
 import pandas as pd
 
+from src.domain.services.quantile_guardrail_service import QuantileGuardrailService
 from src.domain.time.utc import require_tz_aware, to_utc
 from src.entities.tft_inference_record import TFTInferenceRecord
 from src.infrastructure.schemas.analytics_store_schema import ANALYTICS_SCHEMA_VERSION
@@ -88,6 +89,142 @@ class RunTFTInferenceUseCase:
         }
         self.analytics_run_repository.append_fact_inference_runs(row)
 
+    def _persist_fact_inference_predictions(
+        self,
+        *,
+        records: list[TFTInferenceRecord],
+        asset: str,
+        model_version: str,
+        feature_set_name: str,
+        features_used_csv: str,
+        model_path: str,
+        inference_run_id: str,
+    ) -> None:
+        if self.analytics_run_repository is None or not records:
+            return
+        created_at_utc = datetime.now(UTC).isoformat()
+        rows: list[dict[str, object]] = []
+        for r in records:
+            target_ts_utc = to_utc(r.target_timestamp or r.timestamp)
+            decision_ts_utc = to_utc(r.decision_timestamp or r.timestamp)
+            horizon = int(getattr(r, "horizon", 1) or 1)
+            q10 = float(r.quantile_p10) if r.quantile_p10 is not None else None
+            q50 = float(r.quantile_p50) if r.quantile_p50 is not None else None
+            q90 = float(r.quantile_p90) if r.quantile_p90 is not None else None
+            guardrail = QuantileGuardrailService.enforce_monotonic_triplet(q10, q50, q90)
+            pred = float(r.prediction)
+            rows.append(
+                {
+                    "schema_version": ANALYTICS_SCHEMA_VERSION,
+                    "inference_run_id": str(inference_run_id),
+                    "run_id": None,
+                    "model_version": str(model_version),
+                    "asset": str(asset),
+                    "feature_set_name": str(feature_set_name),
+                    "features_used_csv": str(features_used_csv),
+                    "model_path": str(model_path),
+                    "split": "inference",
+                    "horizon": horizon,
+                    "timestamp_utc": decision_ts_utc.isoformat(),
+                    "target_timestamp_utc": target_ts_utc.isoformat(),
+                    "y_true": None,
+                    "y_pred": pred,
+                    "error": None,
+                    "abs_error": None,
+                    "sq_error": None,
+                    "quantile_p10": q10,
+                    "quantile_p50": q50,
+                    "quantile_p90": q90,
+                    "quantile_p10_post_guardrail": guardrail.p10_post,
+                    "quantile_p50_post_guardrail": guardrail.p50_post,
+                    "quantile_p90_post_guardrail": guardrail.p90_post,
+                    "quantile_guardrail_applied": int(guardrail.applied),
+                    "year": int(target_ts_utc.year),
+                    "created_at_utc": created_at_utc,
+                }
+            )
+        self.analytics_run_repository.append_fact_inference_predictions(rows)
+
+    def _persist_fact_feature_contrib_local(
+        self,
+        *,
+        inference_slice: pd.DataFrame,
+        records: list[TFTInferenceRecord],
+        feature_cols: list[str],
+        asset: str,
+        model_version: str,
+        feature_set_name: str,
+        inference_run_id: str,
+        top_k: int = 5,
+    ) -> None:
+        if self.analytics_run_repository is None or not records or not feature_cols:
+            return
+
+        usable_cols = [c for c in feature_cols if c in inference_slice.columns]
+        if not usable_cols:
+            return
+
+        frame = inference_slice.copy()
+        frame["timestamp"] = pd.to_datetime(frame["timestamp"], utc=True, errors="coerce")
+        frame = frame.dropna(subset=["timestamp"]).drop_duplicates(subset=["timestamp"], keep="last")
+        by_ts = frame.set_index("timestamp")
+
+        created_at_utc = datetime.now(UTC).isoformat()
+        rows: list[dict[str, object]] = []
+        top_k = max(1, int(top_k))
+
+        for rec in records:
+            target_ts_utc = pd.Timestamp(to_utc(rec.target_timestamp or rec.timestamp))
+            decision_ts_utc = pd.Timestamp(to_utc(rec.decision_timestamp or rec.timestamp))
+            horizon = int(getattr(rec, "horizon", 1) or 1)
+            if target_ts_utc not in by_ts.index:
+                continue
+            row = by_ts.loc[target_ts_utc]
+            vals: list[tuple[str, float]] = []
+            for feat in usable_cols:
+                val = pd.to_numeric(pd.Series([row.get(feat)]), errors="coerce").iloc[0]
+                vals.append((feat, float(val) if pd.notna(val) else 0.0))
+
+            denom = float(sum(abs(v) for _, v in vals))
+            if denom <= 0.0:
+                denom = float(len(vals)) if vals else 1.0
+
+            pred = float(rec.prediction)
+            contribs: list[tuple[str, float]] = []
+            for feat, val in vals:
+                w = (abs(val) / denom) if denom > 0.0 else 0.0
+                sign = 1.0 if val >= 0.0 else -1.0
+                c = float(pred * w * sign)
+                contribs.append((feat, c))
+
+            contribs = sorted(contribs, key=lambda x: abs(x[1]), reverse=True)[:top_k]
+            for rank, (feat, contrib) in enumerate(contribs, start=1):
+                rows.append(
+                    {
+                        "schema_version": ANALYTICS_SCHEMA_VERSION,
+                        "inference_run_id": str(inference_run_id),
+                        "run_id": None,
+                        "model_version": str(model_version),
+                        "asset": str(asset),
+                        "feature_set_name": str(feature_set_name),
+                        "split": "inference",
+                        "horizon": horizon,
+                        "timestamp_utc": decision_ts_utc.isoformat(),
+                        "target_timestamp_utc": target_ts_utc.isoformat(),
+                        "feature_name": str(feat),
+                        "feature_rank": int(rank),
+                        "contribution": float(contrib),
+                        "abs_contribution": float(abs(contrib)),
+                        "contribution_sign": "positive" if contrib >= 0.0 else "negative",
+                        "method": "local_magnitude_signed_v1",
+                        "year": int(target_ts_utc.year),
+                        "created_at_utc": created_at_utc,
+                    }
+                )
+
+        if rows:
+            self.analytics_run_repository.append_fact_feature_contrib_local(rows)
+
     @staticmethod
     def _normalize_asset(asset_id: str) -> str:
         return asset_id.split(".")[0].upper()
@@ -164,6 +301,44 @@ class RunTFTInferenceUseCase:
         excess = sorted([c for c in dataset_feature_cols if c not in expected_set])
         return missing, excess
 
+    @staticmethod
+    def _has_contiguous_context(df: pd.DataFrame, *, target_idx: int, max_encoder_length: int) -> bool:
+        start_idx = int(target_idx) - int(max_encoder_length)
+        if start_idx < 0:
+            return False
+        if "time_idx" not in df.columns:
+            return False
+        window = df.iloc[start_idx : int(target_idx) + 1]["time_idx"]
+        vals = pd.to_numeric(window, errors="coerce")
+        if vals.isna().any() or len(vals) != (max_encoder_length + 1):
+            return False
+        diffs = vals.diff().iloc[1:]
+        return bool((diffs == 1).all())
+
+    @staticmethod
+    def _compute_eligible_target_indexes(
+        df: pd.DataFrame,
+        *,
+        target_indexes: list[int],
+        max_encoder_length: int,
+    ) -> tuple[list[int], int, int]:
+        eligible: list[int] = []
+        skipped_no_context = 0
+        skipped_non_contiguous = 0
+        for idx in target_indexes:
+            if int(idx) < int(max_encoder_length):
+                skipped_no_context += 1
+                continue
+            if not RunTFTInferenceUseCase._has_contiguous_context(
+                df,
+                target_idx=int(idx),
+                max_encoder_length=int(max_encoder_length),
+            ):
+                skipped_non_contiguous += 1
+                continue
+            eligible.append(int(idx))
+        return eligible, skipped_no_context, skipped_non_contiguous
+
     def execute(
         self,
         *,
@@ -175,11 +350,19 @@ class RunTFTInferenceUseCase:
         batch_size: int = 64,
         default_end_date: datetime | None = None,
         strict_quantiles: bool = True,
+        inference_mode: str = "rolling",
     ) -> RunTFTInferenceResult:
         run_started_at = datetime.now(UTC)
         asset = self._normalize_asset(asset_id)
         default_end = default_end_date or datetime.now(UTC)
         require_tz_aware(default_end, "default_end_date")
+
+        normalized_inference_mode = str(inference_mode or "rolling").strip().lower()
+        if normalized_inference_mode not in {"rolling", "last_point"}:
+            raise ValueError(
+                "Invalid inference_mode. Expected one of: rolling, last_point. "
+                f"Received: {inference_mode}"
+            )
 
         model_bundle = self.model_loader.load(model_path)
         model_asset = self._normalize_asset(model_bundle.asset_id)
@@ -262,16 +445,43 @@ class RunTFTInferenceUseCase:
             dataset_df["timestamp"] <= pd.Timestamp(end_utc)
         )
         target_idx = dataset_df.index[target_mask].tolist()
+        total_requested_days = int(len(target_idx))
         if not target_idx:
             raise ValueError("No dataset_tft rows found inside requested inference period.")
 
-        first_target_idx = int(target_idx[0])
-        last_target_idx = int(target_idx[-1])
-        if first_target_idx < max_encoder_length:
+        eligible_idx, skipped_no_context, skipped_non_contiguous = self._compute_eligible_target_indexes(
+            dataset_df,
+            target_indexes=[int(i) for i in target_idx],
+            max_encoder_length=int(max_encoder_length),
+        )
+        if not eligible_idx:
             raise ValueError(
-                "Insufficient historical context for requested start date and model context window. "
-                f"Need at least {max_encoder_length} prior rows before {start_utc.date()}."
+                "No eligible timestamps for inference in requested period after context validation. "
+                f"requested_days={total_requested_days} skipped_no_context={skipped_no_context} "
+                f"skipped_non_contiguous={skipped_non_contiguous}."
             )
+
+        first_target_idx = int(eligible_idx[0])
+        last_target_idx = int(eligible_idx[-1])
+        requested_target_timestamps = {
+            to_utc(ts).isoformat()
+            for ts in dataset_df.loc[eligible_idx, "timestamp"].tolist()
+        }
+
+        logger.info(
+            "Inference temporal eligibility computed",
+            extra={
+                "asset_id": asset,
+                "model_version": model_bundle.version,
+                "requested_days": total_requested_days,
+                "eligible_days": len(eligible_idx),
+                "skipped_no_context": skipped_no_context,
+                "skipped_non_contiguous": skipped_non_contiguous,
+                "max_encoder_length": int(max_encoder_length),
+                "max_prediction_length": int(max_prediction_length),
+                "inference_mode": normalized_inference_mode,
+            },
+        )
 
         required_cols = {"timestamp", "time_idx", "asset_id", "target_return"}
         missing = [c for c in required_cols if c not in dataset_df.columns]
@@ -321,10 +531,45 @@ class RunTFTInferenceUseCase:
         records = [
             r
             for r in records
-            if to_utc(r.timestamp) >= start_utc and to_utc(r.timestamp) <= end_utc
+            if to_utc(r.target_timestamp or r.timestamp).isoformat() in requested_target_timestamps
         ]
+
+        if normalized_inference_mode == "last_point":
+            latest_target = max(
+                to_utc(r.target_timestamp or r.timestamp)
+                for r in records
+            )
+            records = [
+                r for r in records
+                if to_utc(r.target_timestamp or r.timestamp) == latest_target
+            ]
         if not records:
-            raise ValueError("Inference generated no rows for requested period.")
+            raise ValueError(
+                "Inference generated no rows for eligible timestamps in requested period."
+            )
+
+        produced_target_timestamps = {
+            to_utc(r.target_timestamp or r.timestamp).isoformat()
+            for r in records
+        }
+        skipped_no_model_output = max(
+            0,
+            int(len(requested_target_timestamps) - len(produced_target_timestamps)),
+        )
+
+        logger.info(
+            "Inference rolling coverage before dedup",
+            extra={
+                "asset_id": asset,
+                "model_version": model_bundle.version,
+                "requested_days": total_requested_days,
+                "eligible_days": len(eligible_idx),
+                "inferred_days_raw": len(produced_target_timestamps),
+                "skipped_no_context": skipped_no_context,
+                "skipped_non_contiguous": skipped_non_contiguous,
+                "skipped_no_model_output": skipped_no_model_output,
+            },
+        )
 
         prediction_mode = str(
             model_bundle.training_config.get("prediction_mode", "quantile")
@@ -336,7 +581,7 @@ class RunTFTInferenceUseCase:
                 if r.quantile_p10 is None or r.quantile_p50 is None or r.quantile_p90 is None
             ]
             if missing_q:
-                first_ts = to_utc(missing_q[0].timestamp).isoformat()
+                first_ts = to_utc(missing_q[0].target_timestamp or missing_q[0].timestamp).isoformat()
                 raise ValueError(
                     "Strict quantile validation failed: model configured with "
                     "prediction_mode='quantile' but quantile outputs are missing. "
@@ -355,13 +600,71 @@ class RunTFTInferenceUseCase:
             existing_norm = {to_utc(ts) for ts in existing_ts}
             filtered: list[TFTInferenceRecord] = []
             for r in records:
-                if to_utc(r.timestamp) in existing_norm:
+                target_ts = to_utc(r.target_timestamp or r.timestamp)
+                if target_ts in existing_norm:
                     skipped_existing += 1
                     continue
                 filtered.append(r)
             records = filtered
 
+        if not records:
+            logger.info(
+                "Inference skipped: no new eligible rows after dedup",
+                extra={
+                    "asset_id": asset,
+                    "model_version": model_bundle.version,
+                    "eligible_days": len(eligible_idx),
+                    "requested_days": total_requested_days,
+                    "skipped_existing": skipped_existing,
+                    "overwrite": bool(overwrite),
+                    "inference_mode": normalized_inference_mode,
+                },
+            )
+            return RunTFTInferenceResult(
+                asset_id=asset,
+                model_version=model_bundle.version,
+                start=start_utc,
+                end=end_utc,
+                inferred=skipped_existing,
+                skipped_existing=skipped_existing,
+                attempted_upserts=0,
+                refreshed_dataset=refreshed,
+            )
+
+        logger.info(
+            "Inference rolling coverage after dedup",
+            extra={
+                "asset_id": asset,
+                "model_version": model_bundle.version,
+                "eligible_days": len(eligible_idx),
+                "inferred_days_final": len(records),
+                "skipped_existing": skipped_existing,
+                "overwrite": bool(overwrite),
+                "inference_mode": normalized_inference_mode,
+            },
+        )
+
         attempted_upserts = self.inference_repository.upsert_records(asset, records)
+
+        self._persist_fact_inference_predictions(
+            records=records,
+            asset=asset,
+            model_version=model_bundle.version,
+            feature_set_name=model_bundle.feature_set_name,
+            features_used_csv=features_used_csv,
+            model_path=str(model_bundle.model_dir),
+            inference_run_id=run_id,
+        )
+        self._persist_fact_feature_contrib_local(
+            inference_slice=inference_slice,
+            records=records,
+            feature_cols=model_bundle.feature_cols,
+            asset=asset,
+            model_version=model_bundle.version,
+            feature_set_name=model_bundle.feature_set_name,
+            inference_run_id=run_id,
+            top_k=min(5, max(1, len(model_bundle.feature_cols))),
+        )
 
         duration_seconds = float((datetime.now(UTC) - run_started_at).total_seconds())
         self._persist_fact_inference_run(
