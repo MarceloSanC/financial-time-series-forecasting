@@ -26,8 +26,9 @@ README synchronization note:
 - `04_evaluation/`: metrics, statistical tests, calibration/risk, plot interpretation.
 - `05_checklists/`: delivery checklists and completion criteria.
 - `06_runbooks/`: operational commands, expected outputs, troubleshooting.
-- `07_reports/`: report templates and living-paper material.
-- `08_governance/`: contribution rules, versioning policy, roadmap.
+- `07_reports/`: report templates, living-paper material, and phase gates.
+  - `phase-gates/`: auditorias e gates de entrada por fase (A, B, C...) — artefatos datados de ciclo de vida.
+- `08_governance/`: governance, branch/commit/PR flow, versioning, reproducibility, roadmap.
 - `ai/`: agent-focused skills, context, and workflow guidance.
 
 ## Canonical Files In Current Project State
@@ -39,6 +40,7 @@ README synchronization note:
 - Inference pipeline (legacy params doc): `docs/03_modeling/INFERENCE_PIPELINE.md`
 - Sweeps runbook: `docs/06_runbooks/RUN_SWEEPS.md`
 - Sweep purge runbook: `docs/06_runbooks/RUN_SWEEPS.md` (section 11)
+- Governance and versioning: `docs/08_governance/GOVERNANCE_AND_VERSIONING.md`
 
 ## Documentation Rules
 - One topic, one source of truth.
