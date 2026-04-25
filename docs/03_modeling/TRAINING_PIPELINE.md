@@ -1,5 +1,12 @@
 # Treino TFT - Parametros
 
+> **Nota de escopo:** este documento e referencia operacional dos parametros
+> CLI do treinamento. Para descricao conceitual do pipeline (fluxo de dados,
+> camadas, contratos), ver `01_architecture/DATA_FLOW.md` e
+> `01_architecture/ANALYTICS_STORE_ARCHITECTURE.md`. Para politica de sweeps
+> e selecao de candidatos, ver `03_modeling/SWEEPS_AND_SELECTION.md`. Para
+> politica de horizontes, ver `03_modeling/MULTI_HORIZON.md`.
+
 Este documento centraliza os parametros customizaveis do `src.main_train_tft`.
 Os defaults e limites sao definidos em `src/infrastructure/schemas/model_artifact_schema.py`.
 

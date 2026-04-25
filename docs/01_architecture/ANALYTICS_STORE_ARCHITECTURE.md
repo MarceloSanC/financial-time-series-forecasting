@@ -1,10 +1,64 @@
 # Analytics Store Architecture
 
-## Layers
-- Silver: atomic and traceable records
-- Gold: aggregated decision-ready tables
+## Proposito
+Documentar as camadas, os contratos e os principios da analytics store
+(Parquet silver + DuckDB/Parquet gold), que e o substrato de toda decisao
+estatistica do projeto sem necessidade de retrain. Nao cobre o catalogo de
+metricas (ver `04_evaluation/`) nem o fluxo end-to-end (ver `DATA_FLOW.md`).
 
-## Principles
-- Schema-versioned tables
-- Append-only facts (except explicit reprocess)
-- Contract tests and quality gates
+## Conceitos-chave
+- **Silver:** fatos atomicos (uma linha por evento) e dimensoes (`dim_run`,
+  `fact_config`, `fact_oos_predictions`, `fact_split_metrics`,
+  `fact_epoch_metrics`, etc.). Source of truth.
+- **Gold:** tabelas derivadas e agregadas para decisao
+  (`gold_prediction_metrics_by_config`, `gold_dm_pairwise_results`,
+  `gold_mcs_results`, `gold_model_decision_final`, etc.).
+- **`run_id`:** identidade logica deterministica de um experimento — hash
+  estavel de `(asset, feature_set_hash, trial_number, fold, seed,
+  model_version, config_signature, split_signature, pipeline_version)`.
+- **`schema_version`:** coluna obrigatoria em toda `dim_*`/`fact_*` para
+  evolucao de schema com retrocompatibilidade controlada.
+- **Fingerprints:** `dataset_fingerprint`, `split_fingerprint`,
+  `feature_set_hash`, `config_signature` — hashes que garantem que dois runs
+  com o mesmo `run_id` realmente usaram exatamente os mesmos dados/configs.
+- **Scope:** filtro por `parent_sweep_id` (ou `config_signature`) para
+  garantir que comparacoes estatisticas usem coortes homogeneas.
+
+## Decisoes e escolhas
+- **Silver Parquet como source of truth, DuckDB reconstruivel.** *Why:*
+  Parquet e portavel e auditavel; DuckDB acelera consultas analiticas mas pode
+  ser regenerado a qualquer momento sem perda de informacao.
+- **Append-only por padrao em fatos; upsert apenas em reprocessamento explicito.**
+  *Why:* preserva historico completo para auditoria; reprocessamento e operacao
+  consciente, nao silenciosa.
+- **`run_id` deterministico (hash de campos canonicos).** *Why:* mesmo experimento
+  sempre gera mesmo `run_id`, permitindo deduplicacao e idempotencia.
+- **Particionamento Parquet por `asset` + chaves de alta cardinalidade.** *Why:*
+  consultas analiticas filtram quase sempre por ativo; reduz I/O em uma ordem
+  de grandeza.
+- **`parent_sweep_id` propagado ate as tabelas gold de decisao.** *Why:* sem
+  isso, qualquer agregacao mistura coortes silenciosamente — invalida DM/MCS.
+
+## Contratos minimos por linha (exemplos)
+
+| Tabela | Grao logico | Chaves obrigatorias |
+|---|---|---|
+| `dim_run` | 1 linha por run | `run_id`, `parent_sweep_id`, `asset`, `model_version`, `created_at_utc`, `status` |
+| `fact_config` | 1 linha por run | `run_id`, `prediction_mode`, `loss_name`, `quantile_levels_json` |
+| `fact_oos_predictions` | 1 linha por (`run_id`, `split`, `horizon`, `target_timestamp`) | + `y_true`, `y_pred`, `quantile_p10/50/90`, `quantile_p*_post_guardrail` |
+| `gold_prediction_metrics_by_config` | 1 linha por (`config_signature`, `split`, `horizon`) | + agregados (mean/std/iqr) por metrica |
+| `gold_dm_pairwise_results` | 1 linha por par de candidatos | `parent_sweep_id`, `aligned_timestamps`, `dm_stat`, `pvalue_adj_holm` |
+
+## Fonte da verdade (codigo)
+- `src/infrastructure/schemas/analytics_store_schema.py` — definicao de schemas
+- `src/use_cases/refresh_analytics_store_use_case.py` — materializacao gold
+- `src/use_cases/validate_analytics_quality_use_case.py` — quality gates
+- `src/adapters/parquet_analytics_run_repository.py` — leitura/escrita silver
+- `src/domain/services/scope_spec.py` — governanca de escopo
+
+## Documentos relacionados
+- `01_architecture/DATA_FLOW.md` — fluxo end-to-end raw -> processed -> silver -> gold
+- `02_data/DATA_CONTRACTS.md` — contratos detalhados de chaves e fingerprints
+- `02_data/QUALITY_GATES.md` — checks aplicados durante refresh
+- `05_checklists/ANALYTICS_STORE_CHECKLIST.md` — historico de implementacao
+- `01_architecture/decisions/ADR-0001-analytics-store.md` — decisao arquitetural inicial
