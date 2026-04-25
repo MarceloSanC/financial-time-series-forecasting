@@ -8,8 +8,9 @@
 
 ## Commit Message Convention
 - Follow the existing project guide in:
-  - `docs/08_governance/GIT_AND_VERSIONING_GUIDE.md`
-- Default policy when commits are requested: one commit per file (unless explicitly requested otherwise).
+  - `docs/08_governance/GOVERNANCE_AND_VERSIONING.md`
+- Keep commits scoped, coherent, and reviewable.
+- Do not include files outside the task scope.
 
 ## Documentation Update Rule
 Any change in one of these requires docs update in the same PR:

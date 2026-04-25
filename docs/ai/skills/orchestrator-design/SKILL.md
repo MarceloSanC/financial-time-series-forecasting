@@ -97,4 +97,4 @@ Example commands:
 - `docs/ai/AGENT_CORE.md`
 - `docs/ai/skills/module-implementation-clean-arch/SKILL.md`
 - `docs/05_checklists/*`
-- `docs/08_governance/GIT_AND_VERSIONING_GUIDE.md`
+- `docs/08_governance/GOVERNANCE_AND_VERSIONING.md`

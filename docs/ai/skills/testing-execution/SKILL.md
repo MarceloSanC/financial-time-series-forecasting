@@ -109,4 +109,4 @@ Example command set:
 - `docs/ai/skills/skill-creator/SKILL.md`
 - `docs/ai/AGENT_CORE.md`
 - `docs/ai/skills/testing-implementation/SKILL.md`
-- `docs/08_governance/GIT_AND_VERSIONING_GUIDE.md`
+- `docs/08_governance/GOVERNANCE_AND_VERSIONING.md`
