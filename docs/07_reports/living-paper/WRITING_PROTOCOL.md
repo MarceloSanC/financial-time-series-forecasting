@@ -10,10 +10,10 @@ Garantir que toda nova escrita mantenha:
 - qualidade academica sem perda de contexto entre sessoes.
 
 ## 2) Fontes canonicas (ordem de prioridade)
-1. `docs/living-paper/00_outline.md`
-2. `docs/living-paper/chapter_structure_freeze.md`
-3. `docs/living-paper/tcc_mapping.md`
-4. `docs/living-paper/evidence_log.md`
+1. `docs/07_reports/living-paper/00_outline.md`
+2. `docs/07_reports/living-paper/chapter_structure_freeze.md`
+3. `docs/07_reports/living-paper/tcc_mapping.md`
+4. `docs/07_reports/living-paper/evidence_log.md`
 5. `text/2_Introducao/...` ate `text/6_Conclusoes/...`
 
 Regra: em caso de conflito, atualizar primeiro o `00_outline.md` e propagar depois.
@@ -68,8 +68,8 @@ Use este bloco como prompt-base quando iniciar uma nova rodada:
 
 """
 Contexto fixo:
-- Siga `docs/living-paper/WRITING_PROTOCOL.md`.
-- Preserve alinhamento com `docs/living-paper/00_outline.md` e `docs/living-paper/chapter_structure_freeze.md`.
+- Siga `docs/07_reports/living-paper/WRITING_PROTOCOL.md`.
+- Preserve alinhamento com `docs/07_reports/living-paper/00_outline.md` e `docs/07_reports/living-paper/chapter_structure_freeze.md`.
 - Nao altere escopo central (TFT + OOS + quantis + reproducibilidade).
 
 Tarefa:

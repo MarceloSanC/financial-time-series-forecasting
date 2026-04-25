@@ -13,21 +13,36 @@ predito por horizonte, com base em artefatos persistidos.
 - Quantis por linha (`quantile_p10`, `quantile_p50`, `quantile_p90`)
 - Verdade-terreno `y_true` (splits supervisionados)
 
-### Computation
+### Computation: Interval Calibration
 - Cobertura nominal: `0.80` (intervalo p10-p90)
 - `PICP = mean(quantile_p10 <= y_true <= quantile_p90)`
 - `MPIW = mean(quantile_p90 - quantile_p10)`
 - `coverage_error = PICP - 0.80`
 - `confidence_calibrated` conforme formula em `METRICS_DEFINITIONS.md`
 
+### Computation: Marginal Quantile Calibration
+Para quantis individuais, nao usar o termo PICP. O criterio correto e a taxa
+empirica de cobertura marginal:
+
+- `coverage_q10 = mean(y_true <= quantile_p10)`; alvo nominal `0.10`
+- `coverage_q50 = mean(y_true <= quantile_p50)`; alvo nominal `0.50`
+- `coverage_q90 = mean(y_true <= quantile_p90)`; alvo nominal `0.90`
+- `quantile_coverage_error_qtau = coverage_qtau - tau`
+
 ### Calibration Interpretation
-- `coverage_error ~ 0`: calibracao adequada
-- `coverage_error < 0`: under-coverage (otimista demais)
-- `coverage_error > 0`: over-coverage (intervalos conservadores)
+- `coverage_error ~ 0`: cobertura intervalar adequada para p10-p90
+- `coverage_error < 0`: under-coverage intervalar (otimista demais)
+- `coverage_error > 0`: over-coverage intervalar (intervalos conservadores)
+- `coverage_qtau ~ tau`: calibracao marginal adequada do quantil `tau`
+- `coverage_qtau < tau`: quantil previsto esta alto demais para o nivel nominal
+- `coverage_qtau > tau`: quantil previsto esta baixo demais para o nivel nominal
 
 ## Calibration Acceptance Thresholds
 Para decisao oficial, aplicar por horizonte e coorte:
 - `abs(coverage_error) <= 0.02` (target)
+- bandas de calibracao marginal por quantil devem ser declaradas no
+  pre-registro (default sugerido para debate: p10 in [0.07, 0.13],
+  p50 in [0.45, 0.55], p90 in [0.87, 0.93])
 - `MPIW > 0` e finito
 - Sem colapso de cobertura (`PICP` nao proximo de 0 em todos modelos)
 - Contrato quantilico valido (`p10 <= p50 <= p90`)

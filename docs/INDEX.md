@@ -10,7 +10,8 @@ README synchronization note:
 - Then `docs/00_overview/PROJECT_OVERVIEW.md` for scope and goals.
 - Use `docs/06_runbooks/*` for execution commands.
 - Use `docs/05_checklists/*` as implementation and validation gates.
-- Use `docs/04_evaluation/*` for metric/statistical definitions.
+- Use `docs/04_evaluation/*` for metrics, baselines, calibration, statistical
+  tests, and explainability definitions.
 - Use `docs/ai/*` for agent-specific workflow and reusable skills.
 
 ## AI Playbook
@@ -23,7 +24,8 @@ README synchronization note:
 - `01_architecture/`: architecture, data flow, and technical decisions (ADR).
 - `02_data/`: data sources, contracts, feature sets, and quality gates.
 - `03_modeling/`: training, inference, sweeps, multi-horizon strategy.
-- `04_evaluation/`: metrics, statistical tests, calibration/risk, plot interpretation.
+- `04_evaluation/`: metrics, baselines, statistical tests, calibration/risk,
+  explainability, plot interpretation.
 - `05_checklists/`: delivery checklists and completion criteria.
 - `06_runbooks/`: operational commands, expected outputs, troubleshooting.
 - `07_reports/`: report templates, living-paper material, and phase gates.
@@ -41,6 +43,9 @@ README synchronization note:
 - Sweeps runbook: `docs/06_runbooks/RUN_SWEEPS.md`
 - Sweep purge runbook: `docs/06_runbooks/RUN_SWEEPS.md` (section 11)
 - Governance and versioning: `docs/08_governance/GOVERNANCE_AND_VERSIONING.md`
+- Baselines contract: `docs/04_evaluation/BASELINES.md`
+- Calibration and risk contract: `docs/04_evaluation/CALIBRATION_AND_RISK.md`
+- Explainability contract: `docs/04_evaluation/EXPLAINABILITY.md`
 
 ## Documentation Rules
 - One topic, one source of truth.

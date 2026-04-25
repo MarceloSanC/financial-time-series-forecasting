@@ -2,7 +2,7 @@
 
 Este e o ponto de entrada da documentacao. Leia este arquivo antes de qualquer outro.
 
-Ultima atualizacao: 2026-04-23.
+Ultima atualizacao: 2026-04-25.
 
 ---
 
@@ -30,7 +30,8 @@ Veja `docs/00_overview/STRATEGIC_DIRECTION.md` §4.4 para claims aceitos vs proi
 - Previsao supervisionada de retorno diario do ativo AAPL.
 - Horizontes h+1 e h+7 como principais; h+30 como suplementar se N efetivo suficiente.
 - Previsao quantilica (p10, p50, p90) com guardrail monotonico e auditoria before/after.
-- Comparacao com baselines simples (random walk, media historica, AR(1), EWMA-vol).
+- Comparacao com baseline primario pre-declarado e baselines simples complementares
+  (random walk/zero-return, media historica, AR(1), EWMA-vol e/ou quantis historicos).
 - Analise de contribuicao de features via VSN weights, permutation importance e ablation.
 - Analytics Store reproduzivel com rastreabilidade de experimentos sem retrain.
 
@@ -50,10 +51,10 @@ Veja `docs/00_overview/STRATEGIC_DIRECTION.md` §4.4 para claims aceitos vs proi
 | Pipeline de dados | Ingestao, features (PRICE/TECHNICAL/SENTIMENT/FUNDAMENTAL), dataset TFT | Operacional |
 | Treinamento TFT | Sweep exploratório Round 0; candidato unico Round 1 | Round 0 concluido |
 | Analytics Store | Parquet silver + DuckDB gold; metricas reproduziveis sem retrain | Operacional |
-| Baselines | Random walk, media historica, AR(1), EWMA-vol como candidatos comparaveis | A implementar (Fase A) |
+| Baselines | Baseline primario pre-declarado + baselines complementares conforme `04_evaluation/BASELINES.md` | A implementar (Fase A) |
 | Pre-registro | Documento versionado antes da rodada confirmatoria | A criar (Fase A) |
 | Auditoria de leakage | Verificacao de `time_varying_known_reals`, scalers, HPO vs OOS | A executar (Fase A) |
-| Analise probabilistica | Calibracao (PICP, MPIW, reliability diagram), DM/MCS, Holm-Bonferroni | A executar (Fase B) |
+| Analise probabilistica | Calibracao marginal por quantil, PICP intervalar, MPIW, reliability diagram, DM/MCS, Holm-Bonferroni | A executar (Fase B) |
 | Analise de contribuicao | VSN, permutation importance, ablation explicativa por familia | A executar (Fase C) |
 | TCC / Artigo | Documento academico com resultados, limitacoes e conclusoes defensaveis | Em escrita |
 
@@ -61,10 +62,14 @@ Veja `docs/00_overview/STRATEGIC_DIRECTION.md` §4.4 para claims aceitos vs proi
 
 ## Criterios de sucesso
 
-- Candidato TFT produz intervalos p10-p90 com PICP dentro de tolerancia pre-declarada
-  para pelo menos um horizonte h in {1, 7} (H1 calibracao).
-- Pinball loss menor que pelo menos um baseline com significancia estatistica (DM+HAC,
-  Holm-Bonferroni) em pelo menos um horizonte (H2 superioridade).
+- Candidato TFT produz calibracao marginal por quantil dentro de tolerancia
+  pre-declarada para p10/p50/p90 e PICP intervalar adequado para p10-p90 em pelo
+  menos um horizonte h in {1, 7} (H1 calibracao).
+- Pinball loss menor que o baseline primario pre-declarado com significancia
+  estatistica em pelo menos um horizonte (H2a superioridade primaria).
+- Pinball loss menor que todos os baselines simples pre-declarados com
+  significancia estatistica em pelo menos um horizonte (H2b evidencia forte
+  adicional).
 - Contribuicao de familias de indicadores e heterogenea e detectavel consistentemente
   em >= 2 dos 3 metodos de analise (H3 heterogeneidade de contribuicao).
 - Todos os resultados reproduziveis a partir de artefatos persistidos, sem retrain.
@@ -84,7 +89,7 @@ docs/
   01_architecture/      <- Clean Architecture, data flow, ADRs
   02_data/              <- fontes, contratos, feature sets, quality gates
   03_modeling/          <- parametros de treino, inferencia, multi-horizonte
-  04_evaluation/        <- definicoes de metricas, testes estatisticos, calibracao
+  04_evaluation/        <- metricas, baselines, testes, calibracao, explicabilidade
   04_specs/             <- contratos de payload (inferencia explicavel)
   05_checklists/        <- gates de implementacao e validacao
   06_runbooks/          <- comandos operacionais, exemplos, troubleshooting
@@ -112,7 +117,9 @@ docs/
 | Alinhamento OOS pareado | inner join por `asset+split+horizon+target_timestamp` | ADR-0002 |
 | Modelo | TFT (pytorch-forecasting) em modo quantilico | `03_modeling/TRAINING_PIPELINE.md` |
 | Candidato final | all-features poda minima + hiperparametros Round 0 | `STRATEGIC_DIRECTION.md` §4.2 |
-| Analise de features | VSN + permutation + ablation (nao selecao por OOS) | `STRATEGIC_DIRECTION.md` §4.3 |
+| Baselines | Primario fixado no pre-registro; complementares canonicos documentados | `04_evaluation/BASELINES.md` |
+| Calibracao | Calibracao marginal por quantil + PICP intervalar | `04_evaluation/CALIBRATION_AND_RISK.md` |
+| Analise de features | VSN + permutation + ablation (nao selecao por OOS) | `04_evaluation/EXPLAINABILITY.md` |
 | Escopo de decisao | `scope_mode=cohort_decision` com `scope_sweep_prefix` explicito | `AGENT_CORE.md` |
 | Governanca anti-p-hacking | Pre-registro versionado antes de rodada confirmatoria | `STRATEGIC_DIRECTION.md` §5 (A.3) |
 

@@ -1,8 +1,8 @@
 # Living Paper - Outline
 
 Status: draft vivo para alimentar TCC (ABNT) e artigo estilo ML.
-Ultima revisao estrategica: 2026-04-23 (alinhado com `docs/00_overview/STRATEGIC_DIRECTION.md`).
-Protocolo operacional de escrita: `docs/living-paper/WRITING_PROTOCOL.md`.
+Ultima revisao estrategica: 2026-04-25 (alinhado com `docs/00_overview/STRATEGIC_DIRECTION.md`).
+Protocolo operacional de escrita: `docs/07_reports/living-paper/WRITING_PROTOCOL.md`.
 
 ## Objetivo do arquivo
 Este arquivo funciona como ancora conceitual do projeto de escrita.
@@ -33,8 +33,9 @@ ou afirmacoes causais).
 O diferencial do trabalho nao e "prever o mercado com alta acuracia", mas:
 - produzir um protocolo experimental reproduzivel e auditavel para forecasting
   financeiro com TFT e predicao quantilica;
-- reportar calibracao probabilistica honesta (PICP, MPIW, reliability diagram)
-  por horizonte, comparada a baselines explicitos;
+- reportar calibracao probabilistica honesta (calibracao marginal por quantil,
+  PICP intervalar, MPIW, reliability diagram) por horizonte, comparada a baselines
+  explicitos;
 - quantificar, de forma metodologicamente defensavel, quais familias de indicadores
   contribuem para a previsao do modelo — sem confundir contribuicao preditiva com
   causalidade.
@@ -77,22 +78,26 @@ Pergunta secundaria:
 ## 6) Contribuicoes esperadas
 - Protocolo reproduzivel de avaliacao probabilistica para forecasting financeiro
   com TFT, incluindo governance de escopo, pre-registro e artefatos versionados.
-- Analise de calibracao probabilistica (PICP, MPIW, reliability diagram por quantil)
-  comparada a baselines explicitos por horizonte.
+- Analise de calibracao probabilistica (calibracao marginal por quantil, PICP
+  intervalar, MPIW, reliability diagram) comparada a baselines explicitos por
+  horizonte.
 - Caracterizacao da contribuicao relativa de familias de indicadores via tres
   metodos complementares: VSN weights, permutation importance, ablation explicativa.
 - Analytics Store reproduzivel que permite comparacao entre configuracoes sem retrain.
 
-## 7) Hipoteses de trabalho (v2 — 2026-04-23)
+## 7) Hipoteses de trabalho (v3 - 2026-04-25)
 
-- **H1 (calibracao):** O candidato TFT all-features produz, para pelo menos um
-  horizonte h in {1, 7}, intervalos de predicao (p10-p90) com PICP dentro das
-  bandas de tolerancia pre-declaradas por quantil.
+- **H1 (calibracao):** O candidato TFT all-features produz, para pelo menos
+  um horizonte h in {1, 7}, calibracao marginal por quantil dentro de tolerancia
+  pre-declarada para p10/p50/p90 e PICP intervalar adequado para p10-p90.
 
-- **H2 (superioridade):** Para pelo menos um horizonte h in {1, 7}, o candidato
-  TFT all-features apresenta pinball loss menor que cada baseline (random walk,
-  media historica, AR(1), EWMA-vol para quantis) de forma estatisticamente
-  significativa (DM com HAC, Holm-Bonferroni corrigido).
+- **H2a (superioridade primaria):** Para pelo menos um horizonte h in {1, 7},
+  o candidato TFT all-features apresenta pinball loss menor que o baseline
+  primario pre-declarado de forma estatisticamente significativa.
+
+- **H2b (evidencia forte adicional):** Para pelo menos um horizonte h in {1, 7},
+  o candidato TFT all-features apresenta pinball loss menor que todos os
+  baselines simples pre-declarados de forma estatisticamente significativa.
 
 - **H3 (heterogeneidade de contribuicao):** A contribuicao agregada das familias
   de indicadores (PRICE, TECHNICAL, SENTIMENT, FUNDAMENTAL) e heterogenea entre
@@ -108,7 +113,7 @@ hipotese foi refutada tem valor explicativo proprio.
   delimitacoes); hipoteses para Metodo e Resultados.
 - Uso Artigo: Abstract/Introduction/Contributions/Hypotheses.
 
-## 9) Objetivos do trabalho (v2 — 2026-04-23)
+## 9) Objetivos do trabalho (v3 - 2026-04-25)
 
 Objetivo geral:
 - Avaliar rigorosamente a calibracao probabilistica de um Temporal Fusion Transformer
@@ -125,8 +130,9 @@ Objetivos especificos:
 3. Definir e aplicar protocolo experimental reproduzivel com pre-registro versionado,
    particionamento temporal, multiplas sementes, alinhamento estrito por
    `target_timestamp` e comparacao contra baselines explicitos.
-4. Avaliar calibracao probabilistica com metricas completas (PICP, MPIW, pinball,
-   reliability diagram) e comparar com baselines via DM com HAC e Holm-Bonferroni.
+4. Avaliar calibracao probabilistica com metricas completas (calibracao marginal
+   por quantil, PICP intervalar, MPIW, pinball, reliability diagram) e comparar
+   com baselines via DM com HAC e Holm-Bonferroni.
 5. Caracterizar a contribuicao relativa de familias de indicadores via VSN weights,
    permutation importance e ablation explicativa, reportando convergencias e
    divergencias entre os tres metodos.

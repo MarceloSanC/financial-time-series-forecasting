@@ -13,6 +13,23 @@ Entrada e saida esperadas:
 - Entrada: artefatos analiticos persistidos (silver/gold), metricas e logs de evidencias.
 - Saida: secao de Resultados e Discussao do TCC e Results/Analysis do artigo.
 
+## Status apos pivo metodologico de 2026-04-23/2026-04-25
+
+Este arquivo contem evidencia exploratoria de diagnostico probabilistico da
+Round 0, especialmente sobre crossing quantilico e qualidade de artefatos. Esses
+achados permanecem uteis como auditoria e motivacao metodologica, mas nao devem
+ser usados como evidencia confirmatoria de superioridade do modelo final.
+
+Para o TCC/artigo:
+- Round 0 entra como exploracao de hiperparametros, diagnostico de pipeline e
+  justificativa dos gates de qualidade.
+- Fase B deve preencher os resultados confirmatorios do candidato all-features
+  pruned contra o baseline primario pre-declarado e baselines complementares.
+- Fase C deve preencher a analise de contribuicao/explicabilidade via VSN,
+  permutation importance e ablation explicativa.
+- Comparacoes antigas entre feature sets nao devem ser apresentadas como selecao
+  confirmatoria de modelo.
+
 ## Estrutura sugerida
 - Configuracoes avaliadas
 - Resultados principais por horizonte/split
