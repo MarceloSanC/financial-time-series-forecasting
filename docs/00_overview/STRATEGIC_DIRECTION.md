@@ -1,6 +1,6 @@
 # Strategic Direction
 
-Status: vivo (living). Ultima revisao estrategica: 2026-04-23.
+Status: vivo (living). Ultima revisao estrategica: 2026-04-25.
 
 Este documento registra o direcionamento estrategico atual do projeto apos
 reavaliacao critica do escopo, dos objetivos e do caminho de execucao. Ele
@@ -11,8 +11,11 @@ entra ou nao entra no TCC e no artigo.
 Ordem de leitura recomendada apos este documento:
 1. `docs/00_overview/PROJECT_OVERVIEW.md`
 2. `docs/07_reports/living-paper/00_outline.md`
-3. `docs/05_checklists/PREDICTIONS_AND_METRICS_CHECKLIST.md`
-4. `docs/05_checklists/ANALYTICS_STORE_CHECKLIST.md`
+3. `docs/04_evaluation/BASELINES.md`
+4. `docs/04_evaluation/CALIBRATION_AND_RISK.md`
+5. `docs/04_evaluation/EXPLAINABILITY.md`
+6. `docs/05_checklists/PREDICTIONS_AND_METRICS_CHECKLIST.md`
+7. `docs/05_checklists/ANALYTICS_STORE_CHECKLIST.md`
 
 ---
 
@@ -133,6 +136,14 @@ e resultado publicavel mesmo quando o ponto medio nao supera naive.
   - remover features com > 30% missing em treino;
   - remover derivadas redundantes (ex.: `MA_5` e `EMA_5` juntos: manter apenas uma,
     criterio a priori documentado).
+  - remover qualquer feature sem disponibilidade temporal comprovada no momento
+    da inferencia;
+  - para fundamentals, respeitar data real de publicacao/disponibilidade, nao
+    apenas data de fechamento do periodo contabil;
+  - para sentimento, respeitar timestamp de coleta/publicacao e corte da sessao
+    usada para construir o alvo;
+  - congelar lista final de features e regras de poda no pre-registro antes da
+    rodada confirmatoria.
 - **Hiperparametros:** tomados da vizinhanca das top-3 configuracoes da Round 0
   que ja incluiram conjuntos amplos de features. Sem re-otimizacao por feature set.
 - **Treinamento:** mesma semente e mesmo split para candidato e baselines.
@@ -155,6 +166,10 @@ Cada uma dessas medidas responde a pergunta "quais familias importam" de angulo
 diferente. Convergencia entre as tres fortalece o claim; divergencia vira
 limitacao declarada.
 
+Hierarquia de evidencia para contribuicao: global e por horizonte > agregada por
+regime > local pontual. Explicacoes locais sao ilustrativas, nao generalizaveis,
+e nunca devem ser escritas como causalidade.
+
 ### 4.4 Claims aceitos vs proibidos
 
 **Aceitos (defensaveis):**
@@ -171,6 +186,16 @@ limitacao declarada.
 - "Este resultado vale para outros ativos."
 - "Features selecionadas pelo nosso metodo sao as melhores features para
   previsao de retorno."
+
+**Resultados validos mesmo com hipoteses refutadas:**
+- Se o TFT nao superar o baseline primario, o trabalho ainda pode concluir sobre
+  limites empiricos do TFT em AAPL sob protocolo OOS auditavel.
+- Se o ponto medio nao melhorar RMSE/DA, mas os intervalos forem calibrados, o
+  resultado sustenta contribuicao probabilistica, nao superioridade pontual.
+- Se a calibracao falhar, o resultado sustenta diagnostico metodologico sobre
+  risco, cobertura e limites do pipeline atual.
+- Se VSN, permutation e ablation divergirem, a conclusao correta e instabilidade
+  de contribuicao preditiva, nao irrelevancia definitiva de uma familia.
 
 ---
 
@@ -206,6 +231,10 @@ Preencher veredictos por modulo antes de abrir qualquer treino confirmatorio.
 - Implementar e persistir em `fact_oos_predictions` com mesmo grao dos candidatos TFT:
   random walk, media historica (janela longa), AR(1), EWMA de volatilidade
   (para quantis probabilisticos honestos).
+- O baseline primario deve ser declarado no pre-registro antes da rodada
+  confirmatoria. Recomendacao default a confirmar no pre-registro: random
+  walk/zero-return para retorno; complementares: media historica, AR(1),
+  EWMA-vol e/ou quantis historicos.
 - **Artefato:** `gold_dm_pairwise_results` e `gold_mcs_results` atualizados
   incluindo baselines como candidatos comparaveis.
 
@@ -215,8 +244,8 @@ Preencher veredictos por modulo antes de abrir qualquer treino confirmatorio.
   janela de treino, seed), metrica primaria por horizonte (proposta: pinball loss
   agregado como primaria; DA e RMSE como secundarias), baselines oficiais,
   regra de desempate, threshold de relevancia pratica (ex.: Δpinball >= 3%),
-  criterio de calibracao minima (PICP bands pre-declaradas), politica para
-  conflito entre horizontes.
+  criterio de calibracao minima (calibracao marginal por quantil e PICP intervalar
+  pre-declarados), politica para conflito entre horizontes.
 - **Criterio de aceite:** commit hash do pre-registro referenciado no artefato
   final de Fase B. Qualquer mudanca pos-commit deve ser justificada em emenda
   datada no proprio arquivo.
@@ -236,22 +265,26 @@ nao evidencia primaria.
 **B.1 Execucao**
 - Treinar candidato unico "all-features poda minima" com 5 seeds x 3 folds.
 - Treinar/persistir baselines com mesmas seeds e folds.
-- Cobrir horizontes h=1, h=7, h=30 (sujeito a N_effective; ver B.3).
+- Cobrir h=1 e h=7 como horizontes principais. h=30 e suplementar por padrao
+  e so entra em claim principal se N_effective e dependencia temporal permitirem
+  inferencia minimamente defensavel (ver B.3).
 
 **B.2 Metricas e decisao estatistica**
-- Metricas por horizonte: pinball (primaria), PICP, MPIW, RMSE, DA, coverage_error.
+- Metricas por horizonte: pinball (primaria recomendada para pre-registro),
+  calibracao marginal por quantil, PICP intervalar, MPIW, RMSE, DA, coverage_error.
 - **Calibracao como gate de elegibilidade**: candidato so entra em comparacao
-  estatistica se PICP estiver nas bandas pre-declaradas (proposta: p10 in [0,07; 0,13];
-  p50 in [0,45; 0,55]; p90 in [0,87; 0,93]). Candidatos fora sao reportados como
-  "rejeitados por calibracao" com justificativa.
+  estatistica se a calibracao marginal por quantil estiver nas bandas
+  pre-declaradas (proposta: p10 in [0,07; 0,13]; p50 in [0,45; 0,55];
+  p90 in [0,87; 0,93]) e o PICP do intervalo p10-p90 atender o criterio
+  pre-registrado. Candidatos fora sao reportados como "rejeitados por
+  calibracao" com justificativa.
 - DM pairwise TFT vs cada baseline, com HAC/HLN para amostras pequenas.
 - Holm-Bonferroni sobre o conjunto de DMs reportados.
 - Reliability diagram com bootstrap (1000 resamples) por quantil e por horizonte.
 
 **B.3 Transparencia de amostra**
 - Reportar `n_common` por horizonte. Se N_effective de h+30 < 100, declarar como
-  limitacao e considerar remover h+30 do claim principal, mantendo-o apenas
-  como ilustracao.
+  limitacao e manter h+30 apenas como resultado suplementar.
 
 **B.4 Sensibilidade de janela temporal (escopo reduzido)**
 - Rodar **2** janelas alternativas (uma curta, uma longa) com o candidato unico
@@ -334,12 +367,16 @@ As hipoteses H1-H3 do `00_outline.md` atual estao formuladas em torno de
 substituido no proximo update do outline por:
 
 - **H1 (reformulada):** O candidato TFT all-features produz, para pelo menos
-  um horizonte h in {1, 7}, intervalos de predicao com PICP dentro de tolerancia
-  pre-declarada por quantil.
-- **H2 (reformulada):** Para pelo menos um horizonte h in {1, 7}, o candidato
-  TFT all-features apresenta pinball loss menor que cada baseline (random walk,
-  media historica, AR(1), EWMA-vol) de forma estatisticamente significativa
-  (DM com HAC, Holm-corrigido).
+  um horizonte h in {1, 7}, calibracao marginal por quantil dentro de tolerancia
+  pre-declarada para p10/p50/p90 e PICP intervalar adequado para p10-p90.
+- **H2a (reformulada, primaria):** Para pelo menos um horizonte h in {1, 7}, o
+  candidato TFT all-features apresenta pinball loss menor que o baseline primario
+  pre-declarado, de forma estatisticamente significativa (DM com HAC/HLN,
+  Holm-corrigido quando aplicavel).
+- **H2b (reformulada, evidencia forte adicional):** Para pelo menos um horizonte
+  h in {1, 7}, o candidato TFT all-features apresenta pinball loss menor que todos
+  os baselines simples pre-declarados (random walk/zero-return, media historica,
+  AR(1), EWMA-vol e/ou quantis historicos), de forma estatisticamente significativa.
 - **H3 (reformulada):** A contribuicao agregada das familias de features
   (PRICE, TECHNICAL, SENTIMENT, FUNDAMENTAL) e **heterogenea** entre horizontes,
   detectavel consistentemente em pelo menos dois dos tres metodos (VSN,
@@ -356,16 +393,29 @@ Refutar honestamente e academicamente preferivel a forcar um claim frageis.
 - `docs/05_checklists/POST_ROUND1_MODEL_SELECTION_CHECKLIST.md` (removido em 2026-04-23).
 
 **Este documento reformula (deve ser propagado):**
-- `docs/07_reports/living-paper/00_outline.md` - hipoteses H1/H2/H3, objetivos
+- `docs/07_reports/living-paper/00_outline.md` - hipoteses H1/H2a/H2b/H3, objetivos
   e recorte precisam ser reescritos conforme Secao 2 e Secao 7 deste arquivo.
-- `docs/00_overview/PROJECT_OVERVIEW.md` - esta basicamente vazio; deve ser
-  preenchido referenciando este documento.
+- `docs/00_overview/PROJECT_OVERVIEW.md` - deve permanecer sincronizado com
+  H1/H2a/H2b/H3, escopo e roadmap deste documento.
+- `docs/07_reports/living-paper/tcc_mapping.md` - deve mapear capitulos do TCC
+  para fontes primarias atualizadas e distinguir Round 0 exploratoria, Fase B
+  confirmatoria e Fase C explicativa.
+- `docs/07_reports/living-paper/30_results_and_analysis.md` - deve marcar Round 0
+  como evidencia exploratoria e reservar claims confirmatorios para Fase B.
+- `docs/07_reports/living-paper/40_limitations_and_conclusion.md` - deve
+  consolidar limitacoes antes da escrita final das conclusoes.
 - `docs/05_checklists/CHECKLISTS.md` e `docs/INDEX.md` - referencias ao
   checklist removido foram atualizadas para apontar para este arquivo.
 
 **Este documento depende de (continuam validos):**
+- `docs/04_evaluation/BASELINES.md` - contrato canonico de baselines.
+- `docs/04_evaluation/CALIBRATION_AND_RISK.md` - semantica de calibracao
+  marginal por quantil, PICP intervalar, MPIW e risco.
+- `docs/04_evaluation/EXPLAINABILITY.md` - contrato canonico de contribuicao
+  preditiva e explicabilidade.
 - `docs/05_checklists/PREDICTIONS_AND_METRICS_CHECKLIST.md` - catalogo de metricas.
 - `docs/05_checklists/ANALYTICS_STORE_CHECKLIST.md` - contrato de dados.
+- `docs/07_reports/phase-gates/A_code_audit.md` - gate operacional da Fase A.
 - `docs/07_reports/external-reviews/claude_scope_governance_review_2026-04-09.md`
   - review externo cujas recomendacoes P0 permanecem em vigor.
 - `docs/ai/AGENT_CORE.md` - regras globais de governanca de escopo.

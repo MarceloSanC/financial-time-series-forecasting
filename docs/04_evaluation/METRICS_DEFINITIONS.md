@@ -29,6 +29,9 @@ Agregacao por (`run_id`, `split`, `horizon`) e derivados superiores.
 ## Probabilistic Metrics
 - `pinball_q = mean(max(q*(y_true-y_pred_q), (q-1)*(y_true-y_pred_q)))`
 - `mean_pinball = mean(pinball_q10, pinball_q50, pinball_q90)`
+- `coverage_q10 = mean(y_true <= quantile_p10)` (alvo nominal 0.10)
+- `coverage_q50 = mean(y_true <= quantile_p50)` (alvo nominal 0.50)
+- `coverage_q90 = mean(y_true <= quantile_p90)` (alvo nominal 0.90)
 - `picp = mean(covered_80)`
 - `mpiw = mean(pred_interval_width)`
 - `coverage_nominal = 0.8` (intervalo p10-p90)
