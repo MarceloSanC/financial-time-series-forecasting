@@ -1,63 +1,59 @@
-# ?? Primeiros Passos
+# Primeiros Passos
 
-Este guia explica como configurar e executar o projeto localmente (Windows).
+Guia rapido para configurar e rodar o pipeline localmente (Windows).
 
-## Pr?-requisitos
-
+## Pre-requisitos
 - Windows 10/11
 - Python 3.12+
 - Git (opcional)
-- pyenv (opcional, recomendado para padronizar versao local)
+- `make` (recomendado)
+- pyenv (opcional, para padronizar versao local)
 
-## Configura??o
+## Setup
 
-1. Clone o reposit?rio (ou baixe o ZIP):
-```
+1. Clone o repositorio:
+```bash
 git clone https://github.com/MarceloSanC/tcc-sentiment-analysis.git
 cd tcc-sentiment-analysis
 ```
 
-2. Instale o `make` (via winget):
-```
+2. Instale `make` (winget):
+```powershell
 winget install GnuWin32.Make
 ```
 
-3. Configure o ambiente:
-```
+3. Configure permissao de script e bootstrap:
+```powershell
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 .\setup.ps1
 ```
 
-> O script `setup.ps1`:
-> - Adiciona `make` ao PATH
-> - Verifica Python 3.12+
-> - Ativa o ambiente virtual (se `.venv` existir)
-
-4. Crie o ambiente virtual (se ainda n?o existir):
-```
+4. Crie a venv (se necessario) e rode setup novamente:
+```powershell
 python -m venv .venv
 .\setup.ps1
 ```
 
-5. Instale as depend?ncias:
-```
+5. Instale dependencias:
+```bash
 make install
 ```
 
-Pronto! O projeto est? configurado.
-
-## Padronizacao com pyenv (recomendado)
-
-Este repositorio versiona `.python-version` com a versao alvo do projeto.
-
-Se voce usa pyenv:
+## Sanity Check
+```bash
+make lint
+make test
 ```
+
+## Padronizacao com pyenv (opcional)
+```bash
 pyenv install 3.12.10
 pyenv local 3.12.10
 ```
 
-Isso reduz divergencias de ambiente antes da migracao completa para Docker.
-
-## Checklist do MVP
-
-Consulte `docs/MVP_CHECKLIST.md` para o roadmap e o status atual.
+## Proximos Passos
+- Pipeline completo: `docs/06_runbooks/RUN_DATASET.md`
+- Treino: `docs/06_runbooks/RUN_TRAINING.md`
+- Inferencia: `docs/06_runbooks/RUN_INFERENCE.md`
+- Analytics quality gate: `docs/06_runbooks/RUN_REFRESH_ANALYTICS.md`
+- Tracking de implementacao: `docs/05_checklists/CHECKLISTS.md`

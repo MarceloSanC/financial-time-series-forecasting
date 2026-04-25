@@ -3,6 +3,23 @@
 Direcionamento estrategico atual (supersede o antigo checklist pos-rodada):
 `docs/00_overview/STRATEGIC_DIRECTION.md`
 
+Documentacao canonica relacionada (sem substituir checkboxes deste arquivo):
+- Dados e contratos:
+  - `docs/02_data/DATA_SOURCES.md`
+  - `docs/02_data/DATA_CONTRACTS.md`
+  - `docs/02_data/FEATURE_SETS.md`
+  - `docs/02_data/QUALITY_GATES.md`
+- Modelagem:
+  - `docs/03_modeling/TRAINING_PIPELINE.md`
+  - `docs/03_modeling/INFERENCE_PIPELINE.md`
+  - `docs/03_modeling/MULTI_HORIZON.md`
+  - `docs/03_modeling/SWEEPS_AND_SELECTION.md`
+- Avaliacao:
+  - `docs/04_evaluation/METRICS_DEFINITIONS.md`
+  - `docs/04_evaluation/CALIBRATION_AND_RISK.md`
+  - `docs/04_evaluation/STATISTICAL_TESTS.md`
+  - `docs/04_evaluation/PLOT_INTERPRETATION.md`
+
 # → CHECKLIST Etapas MVP
 
 - [x] **Etapa 0: Setup e Validação do Ambiente**
