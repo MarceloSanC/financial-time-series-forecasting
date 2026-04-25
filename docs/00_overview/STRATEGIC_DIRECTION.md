@@ -178,7 +178,41 @@ limitacao declarada.
 
 Cada fase tem escopo, criterio de aceite e artefato versionado.
 
+### Contexto dos sweeps exploratórios (0_X_X)
+
+Os sweeps das rodadas `0_X_X` foram executados sob um pipeline com um bug de
+fallback silencioso (corrigido em commit `f7901a4`, 2026-04-03): quando a extracao
+de quantis falhava, o sistema persistia `quantile_p10 = quantile_p50 = quantile_p90 = y_pred`
+sem aviso. Consequencia: 85–98% das predicoes OOS tem MPIW=0.
+
+**O que esses sweeps permitem concluir (valido):**
+- Feature set nao e o driver de performance pontual: delta RMSE entre melhor e pior
+  feature set = 0,42%; feature set explica < 0,01% da variancia total de RMSE.
+- DM cross-feature-set: 0/5.239 pares significativos apos Holm (p-adj=1,0 para todos).
+- MCS: 82–100% das configs incluidas no MCS por sweep.
+- DA ≈ 51–52%, RMSE ≈ 0,019 para AAPL — consistente com a literatura para ativos de alta liquidez.
+- Esses resultados justificam a estrategia all-features e orientam a vizinhanca de
+  hiperparametros para a Fase B.
+
+**O que nao e valido:**
+- Qualquer conclusao sobre PICP, MPIW, pinball ou calibracao probabilistica dos runs
+  pré-`f7901a4`. Essas metricas sao artefato do bug, nao do modelo.
+
+Evidencia detalhada: `docs/07_reports/living-paper/evidence_log.md` (entradas 2026-04-24).
+
+---
+
 ### Fase A - Sanidade (bloqueante, ~2 semanas)
+
+**A.0 Gate de degeneracao de quantis** (1 dia, **obrigatorio antes de qualquer treino confirmatorio**)
+- Verificar nos primeiros runs de validacao do candidato all-features:
+  `% linhas com p10 == p90 (MPIW=0)` deve ser `< 5%` no OOS.
+- Se ultrapassar 5%: revisar `_extract_quantiles` no adapter de treino e confirmar
+  que o pipeline usa o codigo pós-`f7901a4`.
+- Identificar nos sweeps 0_2_3 os top-k configs com MPIW > 0 (nao-degenerados) como
+  ponto de partida de hiperparametros para a Fase B.
+- **Artefato:** registro da taxa de degeneracao no primeiro run confirmatorio,
+  em `docs/07_reports/external-reviews/degeneracao_gate_<date>.md`.
 
 **A.1 Auditoria de leakage** (3 dias)
 - Inspecionar `time_varying_known_reals` no TFT: features derivadas de

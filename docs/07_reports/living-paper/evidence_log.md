@@ -332,6 +332,119 @@ Hipoteses levantadas para explicar a causa raiz:
 - Uso no texto (TCC/Artigo/Ambos):
   - Ambos.
 
+- Data: 2026-04-24
+- Questao/Hipotese: Degeneracao de quantis nos sweeps 0_X_X — causa raiz e impacto nas conclusoes.
+- Experimento/Execucao:
+  - Inspecao de `data/analytics/silver/fact_oos_predictions/asset=AAPL/` (arquivos por feature_set e ano).
+  - Medicao de `quantile_p10 == quantile_p50 == quantile_p90` por arquivo e feature_set.
+  - Cruzamento com git log de `src/adapters/pytorch_forecasting_tft_trainer.py`.
+  - Inspecao de `data/analytics/gold/gold_prediction_metrics_by_config.parquet` e
+    `gold_dm_pairwise_results.parquet`.
+- Configuracao-chave:
+  - Escopo: todos os runs do analytics store (dim_run asset=AAPL), com enfase em
+    runs pré-ScopeSpec (parent_sweep_id=NULL, criados 2026-03-08 a 2026-03-15) e
+    runs 0_2_3 (criados 2026-04-02 a 2026-04-03).
+  - Arquivo inspecionado: `fact_oos_predictions/asset=AAPL/feature_set_name=BTSF/year=2019/`.
+- Resultado observado:
+  - BTSF (2019 test): 36.278/42.493 linhas (85,4%) com p10 = p50 = p90 = y_pred (MPIW = 0).
+  - B-only (2019 test): 73.033/74.278 linhas (98,3%) degeneradas.
+  - Nas 14,6% nao-degeneradas do BTSF: PICP = 0,762 e MPIW = 0,033 — faixa razoavel
+    para retornos com std = 0,015.
+  - Gold PICP reportado (0,01–0,16) e artefato do MPIW=0 agregado, nao calibracao ruim.
+  - Git: commit `f7901a4` (2026-04-03 13:07:40) removeu o fallback permissivo que causou isso.
+    Código removido:
+      ```
+      except Exception:
+          q10_np, q50_np, q90_np = None, None, None   # silencioso
+      if q10_np is None: q10_np = preds_matrix.copy() # fallback = y_pred
+      if q50_np is None: q50_np = preds_matrix.copy()
+      if q90_np is None: q90_np = preds_matrix.copy()
+      ```
+  - Todos os runs pré-ScopeSpec rodaram com esse codigo. A maioria dos runs 0_2_3
+    tambem (sweep iniciou 2026-04-02; fix commitado 13:07:40 do ultimo dia).
+- Interpretacao:
+  - O TFT nao colapsou probabilisticamente. O pipeline falhou silenciosamente ao
+    extrair quantis e preencheu p10/p50/p90 com a predicao pontual. As metricas
+    de RMSE/MAE/DA sao validas (vinham de `preds_matrix`, nao afetado pelo bug).
+    As metricas de PICP/MPIW/pinball de todos os runs anteriores a `f7901a4` sao
+    invalidas para qualquer claim probabilistico.
+  - Pipeline corrigido: codigo atual lanca RuntimeError se quantis nao forem
+    extraidos, sem fallback silencioso.
+- Conclusao:
+  - Status: causa confirmada (evidencia de codigo + git + dados).
+  - Runs pré-ScopeSpec: RMSE/MAE/DA validos; PICP/MPIW/pinball invalidos.
+  - Runs 0_2_3: idem (maioria sob codigo antigo).
+  - Runs futuros (0_2_4 em diante): pipeline corrigido — PICP/MPIW/pinball validos.
+- Possiveis correcoes/melhorias:
+  - Gate de degeneracao obrigatorio antes de qualquer sweep: % linhas com MPIW=0 < 5%.
+  - Implementar como check no quality gate (oos_quantile_block_a_acceptance ja detecta).
+- Artefatos (paths):
+  - `data/analytics/silver/fact_oos_predictions/asset=AAPL/**`
+  - `data/analytics/gold/gold_prediction_metrics_by_config.parquet`
+  - `src/adapters/pytorch_forecasting_tft_trainer.py` (commit `f7901a4`)
+- Uso no texto (TCC/Artigo/Ambos):
+  - Ambos. Secao de Metodo (limitacao do protocolo exploratório) e Resultados
+    (justificativa para rejeitar claims probabilisticos das rodadas 0_X_X).
+
+- Data: 2026-04-24
+- Questao/Hipotese: O que os sweeps exploratórios 0_X_X permitem concluir validamente?
+- Experimento/Execucao:
+  - Analise de `gold_prediction_metrics_by_config.parquet` (test, h=1): 6.900 configs,
+    12 feature sets, sweep 0_2_3 (675 runs com parent_sweep_id) + pré-ScopeSpec (6.225 runs).
+  - Analise de `gold_dm_pairwise_results.parquet`: 17.730 pares DM, sendo 5.239
+    cross-feature-set (parent_sweep_ids distintos).
+  - Analise de `gold_mcs_results.parquet`: 1.129 configs avaliadas por sweep.
+  - Decomposicao de variancia: variância entre feature sets vs variância total de RMSE.
+- Configuracao-chave:
+  - Filtro: todos os runs com parent_sweep_id nao-nulo (0_2_3) + pré-ScopeSpec
+    (parent_sweep_id=NULL, mas config_signature disjunto — zero overlap confirmado).
+  - Metricas avaliadas: RMSE, MAE, DA (pontuais); PICP, MPIW, pinball (probabilisticas).
+- Resultado observado (pontuais):
+  - Delta RMSE entre melhor (BTSF, 0,018893) e pior (BF, 0,018973) feature set: 0,42%.
+  - Feature set explica < 0,01% da variancia total de RMSE
+    (ratio between/total = 0,0063; R² ≈ 0,00%).
+  - Variancia ENTRE configs dentro do mesmo feature set: RMSE range 83–87% do minimo —
+    ~200x maior que a variancia entre feature sets.
+  - DM cross-feature-set: 0/5.239 pares significativos apos Holm (todos p-adj = 1,0).
+  - MCS: 82–100% das configs incluidas no MCS por sweep (teste nao rejeita quase nenhum modelo).
+  - DA media: 51–52% em todos os feature sets.
+  - RMSE medio: ~0,019 (consistente com literatura para ativos liquidos de alta eficiencia).
+- Resultado observado (probabilisticas):
+  - PICP medio por feature set: 0,012–0,161 (nominal: 0,80). Invalido.
+  - Causa: 85–98% das predicoes com MPIW = 0 (degeneracao por fallback de pipeline).
+  - Ver entrada anterior (2026-04-24, degeneracao de quantis) para causa raiz.
+- Interpretacao:
+  - Para metricas pontuais: os sweeps 0_X_X demonstram de forma consistente que a
+    escolha de feature set nao e o driver de performance — hiperparametros dominam.
+    Isso e evidencia exploratoria pre-registro, declaravel como tal no TCC.
+  - Para metricas probabilisticas: nenhuma conclusao defensavel pode ser extraida.
+  - A estrategia all-features motivada por esses dados e metodologicamente correta:
+    se feature set nao importa pontualmente e nao e possivel comparar probabilisticamente,
+    o principio de parcimonia aponta para treinar com todas as familias e deixar o
+    modelo (VSN) decidir o que usar.
+- Conclusao:
+  - Status: conclusoes delimitadas confirmadas.
+  - Claim valido para TCC: "Testaram-se 12 combinacoes de familias de indicadores.
+    Nenhuma diferenca estatisticamente significativa foi detectada em RMSE/MAE entre
+    feature sets (DM Holm; 5.239 pares cross-FS, todos p-adj=1,0). Delta maximo
+    entre melhor e pior feature set: 0,42% do RMSE medio. A variancia dominante e
+    explicada por hiperparametros (~200x maior). Com base nessa evidencia exploratoria,
+    optou-se por treinar o candidato final com todas as familias de indicadores
+    disponiveis."
+  - Claims invalidos: qualquer coisa sobre PICP, MPIW, pinball ou calibracao
+    probabilistica desses sweeps.
+- Possiveis correcoes/melhorias:
+  - Rodar os top-k configs nao-degenerados (MPIW > 0) com o pipeline corrigido
+    para ter uma baseline de calibracao exploratoria antes da Fase B.
+- Artefatos (paths):
+  - `data/analytics/gold/gold_prediction_metrics_by_config.parquet`
+  - `data/analytics/gold/gold_dm_pairwise_results.parquet`
+  - `data/analytics/gold/gold_mcs_results.parquet`
+  - `data/analytics/silver/dim_run/asset=AAPL/`
+- Uso no texto (TCC/Artigo/Ambos):
+  - Ambos. Secao de Metodo (justificativa da estrategia all-features) e Resultados
+    (analise exploratoria — nao confirmatoria).
+
 - Data: 2026-04-08
 - Questao/Hipotese: Implementacao modular do Bloco A (contrato quantilico) para uso recorrente no quality gate.
 - Experimento/Execucao:
