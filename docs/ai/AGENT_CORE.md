@@ -94,13 +94,12 @@ If behavior/contracts/paths change, update as needed:
 - `README.md` (onboarding-impacting changes)
 
 ## Commit Rules
-- Follow `docs/08_governance/GIT_AND_VERSIONING_GUIDE.md`.
-- Default when commits are requested: one commit per file.
-- Group multiple files only when explicitly requested by user.
-- Message skeleton (required):
-  - `<tipo>(<escopo>): <título curto>`
-  - `[descricao geral da alteracao/criacao]`
-  - `- [itemN] one bullet per concrete responsibility`
+- Follow `docs/08_governance/GOVERNANCE_AND_VERSIONING.md`.
+- Start new tasks from an updated `main` with a clean working tree whenever feasible.
+- Use scoped branches with the pattern `<tipo>/<area>-<objetivo>`.
+- Keep commits coherent and reviewable; do not include files outside the task scope.
+- Commit message format (required): `<tipo>(<escopo>): <resumo no imperativo>`.
+- Open changes through PRs into `main`; verify scope, CI, tests, conflicts, and unresolved comments before merge.
 
 ## Definition of Done
 1. Requested outcome is implemented.

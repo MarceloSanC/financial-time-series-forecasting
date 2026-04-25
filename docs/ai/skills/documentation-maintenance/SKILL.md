@@ -90,4 +90,4 @@ Example commands:
 - `docs/ai/AGENT_CORE.md`
 - `docs/ai/skills/documentation-authoring/SKILL.md`
 - `docs/INDEX.md`
-- `docs/08_governance/GIT_AND_VERSIONING_GUIDE.md`
+- `docs/08_governance/GOVERNANCE_AND_VERSIONING.md`
