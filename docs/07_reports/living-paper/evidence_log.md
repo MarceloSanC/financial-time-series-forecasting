@@ -1,3 +1,13 @@
+---
+title: Evidence Log
+scope: Log rastreavel de evidencias empiricas do projeto, com template padronizado (Data, Questao/Hipotese, Experimento, Configuracao-chave, Resultado, Interpretacao, Artefatos, Uso no texto). Toda afirmacao relevante no TCC/artigo deve ter entrada aqui.
+update_when:
+  - evidencia empirica nova for gerada (entrada nova)
+  - hipotese for refutada/suportada (entrada de fechamento)
+  - resultado experimental novo precisar de rastro auditavel
+canonical_for: [evidence_log, empirical_evidence, hypothesis_tracking, experimental_traceability]
+---
+
 # Evidence Log
 
 Objetivo: registrar evidencias de forma rastreavel para suportar afirmacoes no TCC e no artigo.

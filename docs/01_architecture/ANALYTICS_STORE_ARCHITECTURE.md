@@ -1,3 +1,14 @@
+---
+title: Analytics Store Architecture
+scope: Camadas, contratos e principios da analytics store (Parquet silver source-of-truth + Parquet/DuckDB gold reconstruivel). Inclui tabela de contratos minimos por tabela e referencia ADRs.
+update_when:
+  - nova camada (alem de silver/gold) for introduzida
+  - politica de append-only/upsert mudar
+  - particionamento canonico mudar
+  - contrato minimo de tabela silver/gold for revisado
+canonical_for: [analytics_store, silver_layer, gold_layer, parquet_duckdb, table_contracts]
+---
+
 # Analytics Store Architecture
 
 ## Proposito

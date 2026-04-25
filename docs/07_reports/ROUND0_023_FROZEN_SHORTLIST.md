@@ -1,3 +1,12 @@
+---
+title: Round 0 (0_2_3) Frozen Shortlist
+scope: Shortlist congelada da Round 0 (sweep 0_2_3) com champion provisorio + fallback selecionados pre-Round 1. Documento historico congelado — nao deve ser re-rankeado pos-fato.
+update_when:
+  - nunca apos congelamento (documento historico)
+  - apenas se nova rodada Round 0 (ex.: 0_3_X) gerar nova shortlist (criar arquivo novo, nao editar este)
+canonical_for: [round0_023_frozen_shortlist, frozen_candidates_023]
+---
+
 # Round 0 (0_2_3) Frozen Shortlist
 
 Purpose: freeze provisional champion + fallback from Round 0 for Round 1 confirmation (`1_X_X`).

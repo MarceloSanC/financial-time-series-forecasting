@@ -1,3 +1,13 @@
+---
+title: System Overview
+scope: Estrutura de diretorios `src/` do projeto e organizacao da Clean Architecture (entities, interfaces, use_cases, adapters, infrastructure). Mapeia onde cada tipo de codigo mora.
+update_when:
+  - novo diretorio top-level for criado em src/
+  - nova camada da Clean Architecture for adicionada
+  - convencao de organizacao de codigo mudar
+canonical_for: [system_overview, src_structure, clean_architecture, code_layout]
+---
+
 # 🗂 Estrutura do Projeto
 
 O projeto segue Clean Architecture. Diretórios principais:

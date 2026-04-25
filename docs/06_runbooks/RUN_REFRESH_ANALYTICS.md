@@ -1,3 +1,13 @@
+---
+title: Run Refresh Analytics
+scope: Refresh do analytics store via `src.main_refresh_analytics_store`, incluindo flag `--fail-on-quality` (gate de saude global) e flags de escopo por sweep/coorte. Comando canonico para regenerar tabelas gold.
+update_when:
+  - novo flag de escopo for adicionado ao main_refresh_analytics_store
+  - politica de fail-on-quality mudar
+  - novo modo de refresh (incremental, full) for introduzido
+canonical_for: [run_refresh_analytics, fail_on_quality_command, scope_filter_flags]
+---
+
 # Refresh Analytics Store
 
 ## Command

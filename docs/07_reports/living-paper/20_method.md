@@ -1,3 +1,14 @@
+---
+title: Living Paper - Method
+scope: Base textual para o Capitulo 4 do TCC (Metodo) e Method do artigo. Descreve dados, features, modelo TFT, treinamento, inferencia, protocolo experimental, metricas e rastreabilidade.
+update_when:
+  - protocolo experimental for revisado (splits, seeds, folds)
+  - novo metodo for incorporado (ex.: nova analise estatistica)
+  - descricao de pipelines mudar
+  - secao de reprodutibilidade for atualizada
+canonical_for: [living_paper_method, tcc_chapter_4_source, experimental_protocol_source]
+---
+
 # 20 - Method
 
 ## Objetivo deste arquivo

@@ -1,3 +1,12 @@
+---
+title: Business Report (Glossary for Stakeholders)
+scope: Glossario tecnico simplificado para stakeholders nao-tecnicos. Definicoes em linguagem de negocio, distinto do GLOSSARY tecnico em 00_overview/.
+update_when:
+  - novo termo precisar de versao para stakeholders
+  - definicao de negocio mudar
+canonical_for: [business_glossary, stakeholder_terminology]
+---
+
 # → Glossary
 
 - OOS: Out-of-sample

@@ -1,3 +1,14 @@
+---
+title: Inference Pipeline (CLI parameters)
+scope: Referencia operacional dos parametros CLI do `src.main_infer_tft` (defaults, ranges, exemplos). Para descricao conceitual de inferencia, ver MULTI_HORIZON e ANALYTICS_STORE_ARCHITECTURE.
+update_when:
+  - nova flag CLI for adicionada ao main_infer_tft
+  - default ou range de parametro existente mudar
+  - politica de seed/dropout em inferencia mudar
+  - formato de model-path ou contrato de loading mudar
+canonical_for: [inference_pipeline, main_infer_tft_cli, inference_parameters]
+---
+
 # Inferencia TFT - Parametros
 
 Este documento centraliza os parametros do `src.main_infer_tft`.

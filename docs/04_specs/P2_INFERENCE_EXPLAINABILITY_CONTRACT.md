@@ -1,3 +1,14 @@
+---
+title: P2 Inference Explainability Contract
+scope: Schema versionado canonico da resposta de inferencia explicavel em producao (`p2.inference_explainability.v1`). Define payload por horizonte com p10/p50/p90, risk_summary, feature_contributions, explanation_text e explanation_reliability.
+update_when:
+  - schema do payload mudar (nova versao p2.inference_explainability.vN)
+  - novo campo for adicionado ao contrato
+  - politica de top_k ou full contributions mudar
+  - restricao semantica da explicacao for revisada
+canonical_for: [p2_inference_contract, inference_payload_schema, explainability_contract, explanation_reliability]
+---
+
 # P2 Inference Explainability Contract
 
 Objetivo: definir o contrato tecnico canonico da inferencia explicavel em producao, incluindo previsao multi-horizonte, risco e explicabilidade local por feature.

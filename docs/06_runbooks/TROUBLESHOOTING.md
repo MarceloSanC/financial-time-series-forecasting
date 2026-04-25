@@ -1,3 +1,13 @@
+---
+title: Troubleshooting
+scope: Solucao de problemas comuns no setup do ambiente local (PATH, make, venv, Windows, Linux). Catalogo de erros e fixes verificados.
+update_when:
+  - novo erro recorrente for diagnosticado
+  - fix de erro existente mudar
+  - dependencia de OS for adicionada/removida
+canonical_for: [troubleshooting, common_errors, setup_fixes]
+---
+
 # 🛠 Solução de Problemas Comuns
 
 ## `make : O termo 'make' não é reconhecido...`

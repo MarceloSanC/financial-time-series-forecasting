@@ -1,3 +1,13 @@
+---
+title: Metrics Definitions
+scope: Formulas, agregacoes e implementacao canonica das metricas pontuais (RMSE, MAE, DA, bias) e probabilisticas (pinball, PICP, MPIW, cobertura por quantil). Para semantica de termos, ver GLOSSARY. Para criterios de aceitacao, ver CALIBRATION_AND_RISK.
+update_when:
+  - nova metrica for adicionada ao pipeline
+  - formula de metrica existente mudar (agregacao, ponderacao, escala)
+  - mapeamento metrica -> coluna nas tabelas gold mudar
+canonical_for: [metrics, metric_formulas, rmse, mae, pinball, picp, mpiw, coverage]
+---
+
 # Metrics Definitions
 
 Objetivo: definir formulas, agregacoes e implementacao canonica das metricas.

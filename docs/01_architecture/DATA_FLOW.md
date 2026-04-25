@@ -1,3 +1,14 @@
+---
+title: Data Flow
+scope: Fluxo end-to-end de dados (raw -> processed -> silver -> gold) com paths concretos, sequencia operacional e responsabilidades por camada. Nao cobre schema (ver ANALYTICS_STORE_ARCHITECTURE) nem CLI (ver 06_runbooks/).
+update_when:
+  - nova camada de dados for introduzida (alem de raw/processed/silver/gold)
+  - paths de armazenamento mudarem
+  - sequencia operacional canonica mudar
+  - politica de particionamento for revisada
+canonical_for: [data_flow, raw_processed_silver_gold, partitioning_policy]
+---
+
 # Data Flow
 
 ## Proposito

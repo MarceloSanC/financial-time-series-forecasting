@@ -1,3 +1,13 @@
+---
+title: Pipeline Quickstart
+scope: Setup do ambiente local (clone, venv, deps, sanity check). Comandos primeiros passos para configurar Python, make e dependencias antes de rodar o pipeline. Para ordem operacional dos sub-pipelines, ver RUN_DATASET.md.
+update_when:
+  - dependencias minimas (Python, make) mudarem
+  - comando de bootstrap mudar
+  - novo passo de sanity check for adicionado
+canonical_for: [pipeline_quickstart, environment_setup, local_bootstrap]
+---
+
 # Primeiros Passos
 
 Guia rapido para configurar e rodar o pipeline localmente (Windows).

@@ -1,3 +1,14 @@
+---
+title: Features Set Checklist
+scope: Tracking de features implementadas por componente do pipeline (build_dataset, technical, sentiment, fundamentals), incluindo backlog de features derivadas. Para registry canonico e regras anti-leakage, ver 02_data/FEATURE_SETS.md.
+update_when:
+  - nova feature for implementada
+  - feature for movida entre familias
+  - backlog de features derivadas for atualizado
+  - status de implementacao (checkbox) for atualizado
+canonical_for: [features_set_checklist, feature_implementation_tracking, feature_backlog]
+---
+
 # Checklist de Features por Use Case/Componente
 
 Objetivo: centralizar as features do projeto TFT por componente, incluindo o que ja existe e o backlog de features derivadas sem novas fontes de dados.

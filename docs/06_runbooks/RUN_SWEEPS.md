@@ -1,3 +1,13 @@
+---
+title: Run Sweeps
+scope: Execucao de sweeps Optuna e explicit-config (param_sweep, optuna_sweep, test_pipeline). Inclui secao de purge de sweeps. Para politica de selecao e governanca de coorte, ver 03_modeling/SWEEPS_AND_SELECTION.md.
+update_when:
+  - novo entry-point de sweep for adicionado
+  - politica de purge mudar
+  - flags de execucao de sweep mudarem
+canonical_for: [run_sweeps, sweep_execution, sweep_purge]
+---
+
 # Rodando Analise de Modelo (Sweeps)
 
 Este guia documenta o uso do pipeline de analise de hiperparametros via:

@@ -1,3 +1,13 @@
+---
+title: Experiment Tracking Policy
+scope: Politica de IDs e rastreabilidade de experimentos (`run_id` deterministico, `execution_id` por tentativa fisica, `parent_sweep_id`, fingerprints). Define o que deve ser persistido para reproducao auditavel.
+update_when:
+  - composicao do hash de `run_id` ou `execution_id` mudar
+  - politica de tracking (que IDs sao obrigatorios) mudar
+  - novo campo de rastreabilidade for adicionado
+canonical_for: [experiment_tracking_policy, run_id_policy, execution_id_policy, tracking_ids]
+---
+
 # Experiment Tracking Policy
 
 ## Required IDs

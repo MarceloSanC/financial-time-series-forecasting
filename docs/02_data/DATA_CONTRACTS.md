@@ -1,3 +1,14 @@
+---
+title: Data Contracts
+scope: Contratos de dados do analytics store. Define `run_id` deterministico, `execution_id`, fingerprints (`dataset_fingerprint`, `split_fingerprint`, `feature_set_hash`, `config_signature`), `schema_version` e regras de evolucao de schema com retrocompatibilidade.
+update_when:
+  - composicao do hash de `run_id` mudar
+  - nova fingerprint for adicionada
+  - politica de versionamento de schema mudar
+  - regras de upsert/append-only forem revisadas
+canonical_for: [data_contracts, run_id, fingerprints, schema_version, schema_evolution]
+---
+
 # Data Contracts
 
 ## Purpose

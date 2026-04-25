@@ -1,3 +1,14 @@
+---
+title: Living Paper - Results and Analysis
+scope: Base textual para o Capitulo 5 do TCC (Resultados) e Results/Analysis do artigo. Consolida resultados por horizonte/split, analise de incerteza, comparacoes pareadas e investigacao de hipoteses (ex.: H1-H7 de quantis).
+update_when:
+  - novo resultado experimental relevante for gerado (Fase B/C)
+  - hipotese investigada gerar nova evidencia
+  - criterios de aceite (Gates A/B/C/D) forem atualizados
+  - nova rodada confirmatoria for concluida
+canonical_for: [living_paper_results, tcc_chapter_5_source, results_analysis_source, hypothesis_h1_h7]
+---
+
 # 30 - Results and Analysis
 
 ## Objetivo deste arquivo

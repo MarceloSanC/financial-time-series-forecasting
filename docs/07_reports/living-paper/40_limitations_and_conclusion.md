@@ -1,3 +1,13 @@
+---
+title: Living Paper - Limitations and Conclusion
+scope: Base textual para o Capitulo 6 do TCC (Conclusoes) e Discussion/Limitations/Conclusion do artigo. Consolida limitacoes (single-asset, single-period, nao-causal, N efetivo h+30 baixo), ameacas a validade e trabalhos futuros.
+update_when:
+  - nova limitacao for identificada na Fase B/C
+  - sintese de achados for gerada
+  - lista de trabalhos futuros for revisada
+canonical_for: [living_paper_conclusion, tcc_chapter_6_source, limitations_source, future_work_source]
+---
+
 # 40 - Limitations and Conclusion
 
 ## Objetivo deste arquivo

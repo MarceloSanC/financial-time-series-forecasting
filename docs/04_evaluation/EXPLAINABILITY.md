@@ -1,3 +1,14 @@
+---
+title: Explainability
+scope: Hierarquia de evidencia para contribuicao de features (global > regime > local), metodos canonicos (VSN weights, permutation importance, ablation explicativa), criterios de estabilidade e linguagem permitida vs proibida. Veta claims causais a partir de importancia preditiva.
+update_when:
+  - hierarquia de evidencia for revisada
+  - novo metodo de explicabilidade for adotado
+  - linguagem permitida vs proibida for atualizada
+  - criterios de estabilidade entre seeds/folds mudarem
+canonical_for: [explainability, feature_contribution, vsn_weights, permutation_importance, ablation_analysis]
+---
+
 # Explainability
 
 Objetivo: definir como interpretar e reportar contribuicao preditiva de features

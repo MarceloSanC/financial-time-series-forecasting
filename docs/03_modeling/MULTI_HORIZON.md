@@ -1,3 +1,14 @@
+---
+title: Multi-Horizon Strategy
+scope: Politica de previsao multi-horizonte (h+1, h+7, h+30): horizontes oficiais, contrato de persistencia por linha de predicao, validacoes obrigatorias e tratamento de N efetivo. Inclui justificativa de h+30 como suplementar.
+update_when:
+  - lista de horizontes oficiais mudar
+  - contrato de persistencia de horizonte mudar
+  - politica de h+30 (suplementar vs principal) mudar
+  - regras de N_effective serem revisadas
+canonical_for: [multi_horizon, horizon_policy, h_plus_n, n_effective, target_timestamp]
+---
+
 # Multi-Horizon Strategy
 
 ## Proposito

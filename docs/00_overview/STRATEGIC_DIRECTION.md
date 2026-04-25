@@ -1,3 +1,16 @@
+---
+title: Strategic Direction
+scope: Direcao estrategica viva do projeto. Define objetivo cientifico atual, pivo metodologico, hipoteses (H1/H2a/H2b/H3), claims aceitos vs proibidos, roadmap fases A-D e calibracao de expectativas. Documento mais critico do projeto — supersede planos anteriores.
+update_when:
+  - mudar objetivo cientifico, escopo ou claim central
+  - alterar hipoteses (H1/H2a/H2b/H3) ou metrica primaria
+  - mudar definicao do candidato unico (poda, hiperparametros, baselines)
+  - alterar fases do roadmap (A/B/C/D) ou criterios de gate
+  - mudar lista de claims aceitos vs proibidos
+  - calibracao de expectativas (Secao 3) ficar obsoleta com nova evidencia
+canonical_for: [strategic_direction, hypotheses, methodological_pivot, roadmap, claims_policy]
+---
+
 # Strategic Direction
 
 Status: vivo (living). Ultima revisao estrategica: 2026-04-25.

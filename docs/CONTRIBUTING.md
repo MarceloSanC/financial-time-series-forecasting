@@ -1,3 +1,13 @@
+---
+title: Contributing Guide
+scope: Checklist de pull request, convencao de commit (delega para GOVERNANCE_AND_VERSIONING) e regra de obrigatoriedade de update de docs por tipo de mudanca (AI workflow, paths, schemas, metricas, CLI, artefatos).
+update_when:
+  - checklist de PR mudar
+  - regra de obrigatoriedade de docs update for revisada
+  - novo tipo de mudanca exigir docs no mesmo PR
+canonical_for: [contributing, pr_checklist, docs_update_obligation]
+---
+
 # Contributing Guide
 
 ## Pull Request Checklist

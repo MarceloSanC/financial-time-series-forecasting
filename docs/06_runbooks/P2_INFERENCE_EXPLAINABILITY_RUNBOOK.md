@@ -1,3 +1,13 @@
+---
+title: P2 Inference Explainability Runbook
+scope: Operacionalizacao da inferencia explicavel em producao — geracao, validacao e monitoramento. Para schema do payload, ver 04_specs/P2_INFERENCE_EXPLAINABILITY_CONTRACT.md.
+update_when:
+  - fluxo operacional de inferencia explicavel mudar
+  - novo gate de validacao for adicionado a pipeline P2
+  - politica de monitoramento mudar
+canonical_for: [p2_inference_runbook, inference_explainability_operation, p2_quality_gates]
+---
+
 # P2 Inference Explainability Runbook
 
 Objetivo: operacionalizar geracao, validacao e monitoramento da inferencia explicavel em producao.

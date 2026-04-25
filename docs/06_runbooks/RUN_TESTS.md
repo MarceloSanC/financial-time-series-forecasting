@@ -1,3 +1,13 @@
+---
+title: Run Tests
+scope: Comandos de execucao de testes pytest (unitarios, integracao, marker `not integration`, coverage). Pre-requisito para CI passar.
+update_when:
+  - novo marker pytest for adicionado
+  - politica de cobertura mudar (threshold, exclusoes)
+  - novo grupo de testes for criado (smoke, e2e, contract)
+canonical_for: [run_tests, pytest_commands, test_markers]
+---
+
 # 🧪 Executando Testes
 
 O projeto usa `pytest` para testes unitários e de integração.

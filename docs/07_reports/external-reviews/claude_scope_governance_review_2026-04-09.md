@@ -1,3 +1,12 @@
+---
+title: Claude Scope Governance Review 2026-04-09
+scope: Review externo (Claude) datado de 2026-04-09 sobre governanca de escopo e rigor metodologico do projeto. Diagnostica sintomas estruturais (mistura de coortes, semantica de quantis, leakage potencial) e propoe arquitetura ScopeSpec incremental. Documento historico congelado.
+update_when:
+  - nunca apos publicacao (documento historico de review externo)
+  - novas rodadas de review externo viram arquivos novos, nao editam este
+canonical_for: [external_review_2026_04_09, scope_governance_review, claude_audit_2026_04_09]
+---
+
 # Auditoria Técnica: Forecasting de Retornos com TFT — Governança de Escopo e Rigor Metodológico
 
 ---
