@@ -1,6 +1,6 @@
 ---
 title: Troubleshooting
-scope: Solucao de problemas comuns no setup do ambiente local (PATH, make, venv, Windows, Linux). Catalogo de erros e fixes verificados.
+scope: Catalogo incremental de erros recorrentes e fixes verificados. Atualmente cobre setup local, PATH/make, autenticacao Git, PYTHONPATH e problemas simples de dados.
 update_when:
   - novo erro recorrente for diagnosticado
   - fix de erro existente mudar

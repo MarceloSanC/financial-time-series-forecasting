@@ -37,9 +37,6 @@ This section is the canonical entrypoint for agent-focused documentation.
 - `docs/ai/skills/tcc-resultados-writer/SKILL.md` -> specialized guidance for results and discussion chapter writing
 - `docs/ai/skills/tcc-conclusoes-writer/SKILL.md` -> specialized guidance for conclusions and future work chapter writing
 
-## Companion Docs
-- `docs/ai/WORKFLOW.md` (light pointer to workflow skill)
-
 ## Usage Order
 1. Load `docs/ai/AGENT_CORE.md`.
 2. Load required task skill(s) from `docs/ai/skills/*`.

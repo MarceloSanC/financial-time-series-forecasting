@@ -35,7 +35,8 @@ one-line scope so you can decide in seconds whether the doc is impacted.
 ## AI Playbook
 - `ai/INDEX.md`: AI playbook entrypoint.
 - `ai/AGENT_CORE.md`: always-on baseline rules for AI agents.
-- `ai/WORKFLOW.md`: workflow note (delegates to canonical workflow guidance).
+- `ai/skills/workflow-governance/SKILL.md`: workflow guidance for implementation
+  tasks.
 
 ---
 
@@ -156,20 +157,20 @@ Documentacao operacional command-first. Nao explica teoria; mostra como rodar.
 Camada cientifica e narrativa. Living paper como fonte do TCC, evidence log
 como rastro empirico, phase-gates como auditorias datadas.
 
-- [`07_reports/BUSINESS_REPORT.md`](07_reports/BUSINESS_REPORT.md) : glossario de negocio para stakeholders
-  nao-tecnicos.
-- [`07_reports/PROJECT_FULL_TECHNICAL_REVIEW_2026-03-30.md`](07_reports/PROJECT_FULL_TECHNICAL_REVIEW_2026-03-30.md) : snapshot de
-  revisao tecnica em 2026-03-30 (historico, congelado).
-- [`07_reports/REPORT_TEMPLATE_FINAL.md`](07_reports/REPORT_TEMPLATE_FINAL.md) : template em branco para relatorios
-  finais por rodada.
-- [`07_reports/RESULTS_SUMMARY_YYYYMMDD.md`](07_reports/RESULTS_SUMMARY_YYYYMMDD.md) : template em branco para resumo
-  de resultados datado por execucao.
 - [`07_reports/ROUND0_023_FROZEN_SHORTLIST.md`](07_reports/ROUND0_023_FROZEN_SHORTLIST.md) : shortlist congelada da
   Round 0 (sweep 0_2_3) com champion provisorio + fallback.
 - [`07_reports/SWEEP_0_2_3_PLOTS_ANALYSIS.md`](07_reports/SWEEP_0_2_3_PLOTS_ANALYSIS.md) : log de analise dos plots do
   sweep 0_2_3 (datado, exploratorio).
+- [`07_reports/external-reviews/PROJECT_FULL_TECHNICAL_REVIEW_2026-03-30.md`](07_reports/external-reviews/PROJECT_FULL_TECHNICAL_REVIEW_2026-03-30.md)
+  : snapshot de revisao tecnica em 2026-03-30 (historico, congelado).
 - [`07_reports/external-reviews/claude_scope_governance_review_2026-04-09.md`](07_reports/external-reviews/claude_scope_governance_review_2026-04-09.md)
   : review externo de governanca de escopo e rigor metodologico (2026-04-09).
+
+#### `07_reports/templates/` — templates de relatorio
+- [`07_reports/templates/REPORT_TEMPLATE_FINAL.md`](07_reports/templates/REPORT_TEMPLATE_FINAL.md)
+  : template em branco para relatorios finais por rodada.
+- [`07_reports/templates/RESULTS_SUMMARY_YYYYMMDD.md`](07_reports/templates/RESULTS_SUMMARY_YYYYMMDD.md)
+  : template em branco para resumo de resultados datado por execucao.
 
 #### `07_reports/living-paper/` — base do TCC e do artigo
 - [`07_reports/living-paper/00_outline.md`](07_reports/living-paper/00_outline.md) : tese, pergunta, hipoteses
@@ -214,7 +215,8 @@ cientifica do projeto.
 - [`ai/AGENT_CORE.md`](ai/AGENT_CORE.md) : baseline always-on com regras globais
   (Expert Response Policy, Non-Negotiable Data Rules, Scope Governance,
   Documentation Sync Rules).
-- [`ai/WORKFLOW.md`](ai/WORKFLOW.md) : nota concisa sobre workflow (delega para CLAUDE.md raiz).
+- [`ai/skills/workflow-governance/SKILL.md`](ai/skills/workflow-governance/SKILL.md)
+  : workflow padrao para tarefas de implementacao e validacao.
 
 ### Documentos raiz
 - [`CONTRIBUTING.md`](CONTRIBUTING.md) : checklist de pull request e regras de contribuicao.
@@ -228,3 +230,6 @@ cientifica do projeto.
 - Any metric or table used in decisions must have a documented definition.
 - Every canonical doc starts with YAML frontmatter declaring `scope`,
   `update_when` and `canonical_for`.
+- Historical/frozen documents may use `update_when: nunca`; when grep returns
+  matches in those files, treat them as historical references unless the task is
+  explicitly to annotate, move, supersede or correct that snapshot.
