@@ -94,6 +94,9 @@ multi-horizonte.
   contrato de persistencia por linha, validacoes obrigatorias.
 - [`03_modeling/SWEEPS_AND_SELECTION.md`](03_modeling/SWEEPS_AND_SELECTION.md) : familias de sweeps (Optuna e
   explicit-config), governanca de coorte, status atual da Round 0/1.
+- [`03_modeling/P2_INFERENCE_EXPLAINABILITY_CONTRACT.md`](03_modeling/P2_INFERENCE_EXPLAINABILITY_CONTRACT.md)
+  : schema versionado da resposta de inferencia explicavel para producao
+  (multi-horizonte, risco, contribuicao local).
 
 ### `04_evaluation/` — Metricas, Baselines, Estatistica e Explicabilidade
 Nucleo academico do projeto. Toda metrica, baseline, teste ou claim de
@@ -113,13 +116,6 @@ interpretabilidade usado no TCC deve estar definido aqui.
   linguagem permitida vs proibida, estabilidade minima.
 - [`04_evaluation/PLOT_INTERPRETATION.md`](04_evaluation/PLOT_INTERPRETATION.md) : criterios pass/fail para os 8
   graficos canonicos da analise (heatmap, boxplot, DM matrix, calibration, etc.).
-
-### `04_specs/` — Especificacoes de Contrato
-Contratos formais para integracoes externas (payload de inferencia, etc.).
-
-- [`04_specs/P2_INFERENCE_EXPLAINABILITY_CONTRACT.md`](04_specs/P2_INFERENCE_EXPLAINABILITY_CONTRACT.md) : schema versionado da
-  resposta de inferencia explicavel para producao (multi-horizonte, risco,
-  contribuicao local).
 
 ### `05_checklists/` — Gates e Tracking
 Checklists rastreiam execucao e progresso. Nao sao fonte de definicao

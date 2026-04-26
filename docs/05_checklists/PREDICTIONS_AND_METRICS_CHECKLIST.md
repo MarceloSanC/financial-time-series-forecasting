@@ -438,7 +438,7 @@ Objetivo: padronizar a resposta de inferencia para o usuario final com previsao 
 - [x] Suportar `top_k` e opcao de contribuicoes completas (`full`) por feature.
 - [x] Documentar restricoes semanticas da explicacao (fatores associados, nao causalidade forte).
 
-Referencia: `docs/04_specs/P2_INFERENCE_EXPLAINABILITY_CONTRACT.md`
+Referencia: `docs/03_modeling/P2_INFERENCE_EXPLAINABILITY_CONTRACT.md`
 
 ### 12.2 Persistencia e rastreabilidade
 - [x] Persistir previsoes por horizonte em `fact_inference_predictions`.
