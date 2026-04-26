@@ -1,3 +1,14 @@
+---
+title: Phase A Code Audit (Pre-Experiment Gate)
+scope: Gate de entrada da Fase A (sanidade) com veredictos por modulo P0 (M1-M5: train_use_case, trainer, build_dataset, inference, refresh_analytics). Bloqueante para qualquer treino confirmatorio da Fase B.
+update_when:
+  - veredicto de algum modulo P0 mudar (GREEN/YELLOW/RED)
+  - novo achado for registrado
+  - nova questao for adicionada a um modulo
+  - status de gate de saida (criterio de Fase B) mudar
+canonical_for: [phase_a_code_audit, pre_phase_b_gate, p0_module_verdicts]
+---
+
 # Phase A — Code Audit (Pre-Experiment Gate)
 
 **Status:** pendente

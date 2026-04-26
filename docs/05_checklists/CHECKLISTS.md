@@ -1,3 +1,13 @@
+---
+title: MVP Development Checklists
+scope: Checklist detalhada do MVP por etapa de desenvolvimento (etapas 0-N), com checkboxes de progresso, criterios de aceite e justificativa academica por etapa. Aponta para docs canonicos para definicoes — checkboxes rastreiam execucao.
+update_when:
+  - nova etapa do MVP for definida
+  - criterio de aceite de etapa mudar
+  - status (checkbox) for atualizado apos implementacao
+canonical_for: [mvp_checklist, development_etapas, mvp_progress_tracking]
+---
+
 # → CHECKLISTS (DETAILED) USED IN EACH DEVELOPMENT PHASE
 
 Direcionamento estrategico atual (supersede o antigo checklist pos-rodada):

@@ -1,3 +1,13 @@
+---
+title: Predictions and Metrics Checklist
+scope: Tracking de implementacao da camada de saida do modelo (Y) — chaves de identificacao, predicoes pontuais e quantilicas, derivados, catalogo de metricas, regras de alinhamento OOS. Para formulas canonicas, ver 04_evaluation/METRICS_DEFINITIONS.md.
+update_when:
+  - nova metrica for adicionada ao pipeline (atualizar tracking)
+  - novo gate quantitativo (Gate A/B/C/D) for definido
+  - status de implementacao (checkbox) for atualizado
+canonical_for: [predictions_metrics_checklist, prediction_output_tracking, metrics_implementation_tracking]
+---
+
 # Predictions and Metrics Checklist (Inference Output - Y)
 
 Objetivo: definir, de forma canonica, os dados de saida do modelo (Y) necessarios para analise interpretavel, estimativa estatistica de retorno esperado e comparacao robusta entre modelos sem retraining.

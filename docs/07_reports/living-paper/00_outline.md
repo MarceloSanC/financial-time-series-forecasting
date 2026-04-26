@@ -1,3 +1,14 @@
+---
+title: Living Paper Outline
+scope: Ancora conceitual do projeto de escrita do TCC e artigo. Consolida tese central, problema, pergunta, recorte, contribuicoes, hipoteses (H1/H2a/H2b/H3) e objetivos. Toda alteracao de escopo deve ser refletida primeiro em STRATEGIC_DIRECTION e depois aqui.
+update_when:
+  - tese, problema, pergunta de pesquisa ou recorte mudarem
+  - hipoteses (H1/H2a/H2b/H3) forem reformuladas
+  - objetivos especificos mudarem
+  - secao de contribuicoes esperadas for revisada
+canonical_for: [living_paper_outline, tcc_thesis, research_question, hypotheses, paper_objectives, paper_contributions]
+---
+
 # Living Paper - Outline
 
 Status: draft vivo para alimentar TCC (ABNT) e artigo estilo ML.

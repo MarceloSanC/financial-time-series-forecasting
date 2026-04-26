@@ -1,3 +1,13 @@
+---
+title: Glossary
+scope: Definicoes canonicas dos termos tecnicos recorrentes (PICP, MPIW, pinball, DM, MCS, VSN, scope_mode, run_id etc.). Vocabulario de uma linha por termo. Para formulas e thresholds, ver 04_evaluation/METRICS_DEFINITIONS.md.
+update_when:
+  - novo termo tecnico for introduzido no projeto
+  - definicao semantica de termo existente mudar
+  - sigla nova for adotada no codigo ou nos docs
+canonical_for: [glossary, terminology, vocabulary]
+---
+
 # Glossary
 
 Definicoes canonicas dos termos tecnicos recorrentes neste projeto.

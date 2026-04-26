@@ -1,3 +1,14 @@
+---
+title: Sweeps and Selection
+scope: Familias de sweeps (Optuna e explicit-config), governanca de coorte via parent_sweep_id e ScopeSpec, politica de Round 0 (exploratoria) vs Round 1 (confirmatoria) e status atual dos sweeps executados.
+update_when:
+  - nova familia de sweep for adicionada
+  - politica de objetivo Optuna (robust_score, val_loss) mudar
+  - convencao de prefixo Round 0/1/2 mudar
+  - status atual dos sweeps for atualizado
+canonical_for: [sweeps, optuna, explicit_config_sweeps, parent_sweep_id, round_naming, sweep_governance]
+---
+
 # Sweeps and Selection
 
 ## Proposito

@@ -1,3 +1,14 @@
+---
+title: Project Overview
+scope: Entrada executiva curta. Resumo de objetivo, escopo (em/fora), entregaveis com status, criterios de sucesso, estrutura de diretorios e proximos passos. Para detalhes estrategicos, ver STRATEGIC_DIRECTION.md.
+update_when:
+  - status de entregaveis mudar (tabela de entregaveis)
+  - criterios de sucesso forem redefinidos
+  - estrutura de diretorios docs/ mudar
+  - escopo (em/fora) for alterado em STRATEGIC_DIRECTION
+canonical_for: [project_overview, deliverables_status, docs_structure_summary]
+---
+
 # Project Overview
 
 Este e o ponto de entrada da documentacao. Leia este arquivo antes de qualquer outro.

@@ -1,3 +1,13 @@
+---
+title: Roadmap and TODO Guide
+scope: Padrao oficial para uso de TODOs no codigo (formato, quando criar, quando nao criar) e backlog tecnico organizado por area (Clean Architecture, Feature Engineering, Normalizacao/Leakage, Validacao Estatistica, Testes, Performance, Reprodutibilidade).
+update_when:
+  - convencao de formato de TODO mudar
+  - novo item de backlog tecnico for adicionado
+  - item de backlog for concluido (atualizar checkbox)
+canonical_for: [roadmap, todo_guide, technical_backlog, todo_format]
+---
+
 # TODO Guide
 
 Este documento define o padrão oficial para uso de TODOs no projeto.

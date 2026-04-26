@@ -1,3 +1,12 @@
+---
+title: Sweep 0_2_3 Plot Analysis Log
+scope: Log de analise dos plots gerados para o sweep 0_2_3 (AAPL). Documento datado de exploracao — nao serve como evidencia confirmatoria. Reclassificado como exploratorio apos pivo de 2026-04-23.
+update_when:
+  - reanalise dos plots do sweep 0_2_3 acontecer
+  - nova interpretacao for adicionada ao log historico
+canonical_for: [sweep_023_plots_analysis, sweep_023_exploratory_analysis]
+---
+
 # Sweep 0_2_3 - Plot Analysis Log
 
 ## Scope

@@ -1,3 +1,13 @@
+---
+title: Troubleshooting
+scope: Catalogo incremental de erros recorrentes e fixes verificados. Atualmente cobre setup local, PATH/make, autenticacao Git, PYTHONPATH e problemas simples de dados.
+update_when:
+  - novo erro recorrente for diagnosticado
+  - fix de erro existente mudar
+  - dependencia de OS for adicionada/removida
+canonical_for: [troubleshooting, common_errors, setup_fixes]
+---
+
 # 🛠 Solução de Problemas Comuns
 
 ## `make : O termo 'make' não é reconhecido...`

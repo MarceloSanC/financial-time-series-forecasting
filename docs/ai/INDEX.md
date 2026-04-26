@@ -1,3 +1,14 @@
+---
+title: AI Playbook Index
+scope: Entrypoint canonico da documentacao para agentes de IA. Lista AGENT_CORE (sempre obrigatorio), catalogo de skills disponiveis em docs/ai/skills/* e ordem de carregamento (AGENT_CORE -> skill da tarefa).
+update_when:
+  - novo skill for adicionado em docs/ai/skills/
+  - skill existente for renomeado/removido
+  - ordem de carregamento (Usage Order) mudar
+  - source-of-truth boundaries forem revisados
+canonical_for: [ai_playbook_index, ai_skills_catalog, ai_loading_order]
+---
+
 # AI Playbook Index
 
 This section is the canonical entrypoint for agent-focused documentation.
@@ -25,9 +36,6 @@ This section is the canonical entrypoint for agent-focused documentation.
 - `docs/ai/skills/tcc-metodo-writer/SKILL.md` -> specialized guidance for methodology chapter writing
 - `docs/ai/skills/tcc-resultados-writer/SKILL.md` -> specialized guidance for results and discussion chapter writing
 - `docs/ai/skills/tcc-conclusoes-writer/SKILL.md` -> specialized guidance for conclusions and future work chapter writing
-
-## Companion Docs
-- `docs/ai/WORKFLOW.md` (light pointer to workflow skill)
 
 ## Usage Order
 1. Load `docs/ai/AGENT_CORE.md`.

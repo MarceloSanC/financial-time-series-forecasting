@@ -1,3 +1,14 @@
+---
+title: Feature Sets
+scope: Registry canonico de features por familia (PRICE/TECHNICAL/SENTIMENT/FUNDAMENTAL), com `warmup_count`, `anti_leakage_tag`, `null_policy` e regras de poda all-features. Source of truth para o conjunto de entrada do TFT.
+update_when:
+  - nova feature for adicionada ao pipeline
+  - familia nova for criada (alem de PRICE/TECHNICAL/SENTIMENT/FUNDAMENTAL)
+  - regras de poda mudarem (correlacao, missing, derivadas)
+  - tag anti-leakage ou warmup_count de feature existente mudar
+canonical_for: [feature_sets, feature_registry, feature_families, anti_leakage_tags, all_features_pruning]
+---
+
 # Feature Sets
 
 ## Purpose

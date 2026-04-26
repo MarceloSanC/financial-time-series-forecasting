@@ -1,3 +1,13 @@
+---
+title: TCC Chapter Structure Freeze (ABNT)
+scope: Macroestrutura congelada de capitulos do TCC ABNT (cap 1 pre-textuais, cap 2 introducao, cap 3 fundamentacao teorica, cap 4 metodo, cap 5 resultados, cap 6 conclusoes). Define limites de conteudo por capitulo e arquivos LaTeX correspondentes.
+update_when:
+  - estrutura de capitulos do TCC mudar (novo capitulo, divisao de capitulo)
+  - secoes congeladas dentro de um capitulo forem revisadas
+  - novo arquivo LaTeX for criado em text/
+canonical_for: [chapter_structure_freeze, tcc_abnt_structure, latex_chapter_layout]
+---
+
 # Chapter Structure Freeze (TCC ABNT)
 
 Status: estrutura congelada para reescrita do conteudo, mantendo o formato ABNT atual.

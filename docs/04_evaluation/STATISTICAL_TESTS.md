@@ -1,3 +1,14 @@
+---
+title: Statistical Tests
+scope: Protocolo estatistico para comparacao OOS entre modelos. Define DM (Diebold-Mariano), MCS (Model Confidence Set), pairwise win-rate, ajuste Holm para multiplas comparacoes e regras obrigatorias de alinhamento temporal por `target_timestamp`.
+update_when:
+  - novo teste estatistico for adicionado (Giacomini-White, Clark-West etc.)
+  - politica de multiple testing mudar (Holm, Bonferroni, FDR)
+  - regras de alinhamento OOS forem revisadas
+  - thresholds default de significancia mudarem
+canonical_for: [statistical_tests, dm_test, mcs, win_rate, multiple_testing, oos_alignment]
+---
+
 # Statistical Tests
 
 Objetivo: definir protocolo estatistico para comparacao entre modelos usando

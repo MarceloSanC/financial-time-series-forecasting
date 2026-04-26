@@ -1,3 +1,14 @@
+---
+title: TCC Mapping (chapter -> source files)
+scope: Mapa mecanico capitulo/secao do TCC LaTeX (text/) -> arquivo-fonte primaria do living paper ou doc canonico. Coluna Status (pronto/parcial/pendente) vira backlog vivo de escrita. Inclui gaps P0 antes da escrita final.
+update_when:
+  - novo capitulo/secao for adicionado a estrutura do TCC
+  - status de uma secao mudar (parcial -> pronto, pendente -> parcial)
+  - fonte primaria de uma secao mudar
+  - novo gap P0 for identificado
+canonical_for: [tcc_mapping, tcc_writing_backlog, chapter_to_source_routing]
+---
+
 # TCC Mapping - capitulos -> arquivos-fonte
 
 Mapa direto entre os capitulos do texto LaTeX (`text/`) e os artefatos do

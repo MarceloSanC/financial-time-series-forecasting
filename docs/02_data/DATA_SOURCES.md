@@ -1,3 +1,14 @@
+---
+title: Data Sources
+scope: Fontes externas usadas no projeto (yfinance para candles, finnhub/alpha vantage para news, alpha vantage para fundamentals) e caminho canonico de ingestao de cada uma.
+update_when:
+  - nova fonte de dados externa for integrada
+  - fonte existente for substituida ou descontinuada
+  - politica de incremental/refetch mudar
+  - chave de API ou autenticacao mudar
+canonical_for: [data_sources, external_apis, ingestion_path, yfinance, finnhub, alpha_vantage]
+---
+
 # Data Sources
 
 ## Purpose

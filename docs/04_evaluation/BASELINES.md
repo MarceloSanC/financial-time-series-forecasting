@@ -1,3 +1,14 @@
+---
+title: Baselines
+scope: Contrato canonico de baselines admissiveis (random walk, AR(1), media historica, EWMA-vol, quantis historicos), regras de comparabilidade, decisao H2a/H2b e usos proibidos. O baseline primario de uma rodada e declarado no pre-registro, nao aqui.
+update_when:
+  - mudar lista de baselines admissiveis
+  - mudar criterios de comparabilidade ou regras de persistencia
+  - mudar regra de decisao H2a/H2b
+  - novo tipo de uso proibido for identificado
+canonical_for: [baselines, baseline_comparison, comparability_rules, h2a_h2b]
+---
+
 # Baselines
 
 Objetivo: definir o contrato canonico para baselines usados em comparacoes OOS

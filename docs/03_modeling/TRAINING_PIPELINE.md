@@ -1,3 +1,14 @@
+---
+title: Training Pipeline (CLI parameters)
+scope: Referencia operacional dos parametros CLI do `src.main_train_tft` (defaults, ranges, exemplos, configuracao via JSON). Para descricao conceitual do pipeline, ver MULTI_HORIZON, SWEEPS_AND_SELECTION e DATA_FLOW.
+update_when:
+  - nova flag CLI for adicionada ao main_train_tft
+  - default ou range de parametro existente mudar
+  - politica de splits/seeds default mudar
+  - schema de config-json mudar
+canonical_for: [training_pipeline, main_train_tft_cli, training_parameters]
+---
+
 # Treino TFT - Parametros
 
 > **Nota de escopo:** este documento e referencia operacional dos parametros

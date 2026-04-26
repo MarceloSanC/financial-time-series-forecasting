@@ -1,3 +1,13 @@
+---
+title: Writing Protocol (TCC + Artigo)
+scope: Protocolo operacional para sessoes de escrita do TCC e artigo. Define fontes canonicas em ordem de prioridade, prompts padronizados, regra de propagacao (atualizar 00_outline primeiro) e checklist de sincronizacao por sessao.
+update_when:
+  - ordem de fontes canonicas mudar
+  - novo prompt padronizado for adicionado
+  - regra de propagacao for revisada
+canonical_for: [writing_protocol, tcc_writing_rules, paper_writing_session_protocol]
+---
+
 # Writing Protocol (TCC + Artigo)
 
 Status: padrao oficial para futuras sessoes de escrita.

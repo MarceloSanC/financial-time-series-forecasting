@@ -1,3 +1,13 @@
+---
+title: Analytics Store Checklist
+scope: Tracking de implementacao da analytics store em 3 niveis (run-level, epoch-level, timestamp-level) com schemas, contratos e quality gates. Para definicoes canonicas, ver 01_architecture/ANALYTICS_STORE_ARCHITECTURE.md e 02_data/DATA_CONTRACTS.md.
+update_when:
+  - nova tabela silver/gold for adicionada
+  - status de implementacao (checkbox) for atualizado
+  - novo campo obrigatorio for adicionado a tabela existente
+canonical_for: [analytics_store_checklist, analytics_store_implementation_tracking]
+---
+
 # Analytics Store Checklist (DuckDB + Parquet)
 
 Objetivo: coletar dados suficientes para analises futuras sem retraining, em 3 niveis:

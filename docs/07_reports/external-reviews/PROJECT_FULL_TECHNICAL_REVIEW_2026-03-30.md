@@ -1,3 +1,11 @@
+---
+title: Project Full Technical Review 2026-03-30
+scope: Snapshot de revisao tecnica abrangente do projeto datado de 2026-03-30. Documento historico congelado — nao deve ser editado, serve como referencia de estado em ponto fixo do tempo.
+update_when:
+  - nunca (documento historico congelado)
+canonical_for: [historical_review_2026_03_30]
+---
+
 # Project Full Technical Review (v0)
 
 Data da revisao: 2026-03-30  

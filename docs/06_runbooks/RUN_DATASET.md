@@ -1,3 +1,14 @@
+---
+title: Run Dataset Pipeline
+scope: Sequencia operacional dos 7 sub-pipelines de ingestao e construcao do dataset TFT (candles, news, scoring, sentimento, indicadores tecnicos, fundamentals, dataset). Inclui pre-requisitos de variaveis de ambiente e configuracao.
+update_when:
+  - novo sub-pipeline for adicionado a sequencia
+  - ordem dos sub-pipelines mudar
+  - nova variavel de ambiente obrigatoria for introduzida
+  - comando CLI de algum sub-pipeline for renomeado
+canonical_for: [run_dataset, dataset_pipeline_order, ingestion_pipelines, sub_pipelines]
+---
+
 # Executando o Pipeline
 
 Este projeto é dividido em **7 pipelines principais**, executados nesta ordem:

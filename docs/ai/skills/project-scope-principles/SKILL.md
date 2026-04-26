@@ -91,5 +91,4 @@ Example checks:
 - `docs/ai/AGENT_CORE.md`
 - `docs/05_checklists/ANALYTICS_STORE_CHECKLIST.md`
 - `docs/05_checklists/PREDICTIONS_AND_METRICS_CHECKLIST.md`
-- `docs/07_reports/PROJECT_FULL_TECHNICAL_REVIEW_2026-03-30.md`
-- `docs/07_reports/BUSINESS_REPORT.md`
+- `docs/07_reports/external-reviews/PROJECT_FULL_TECHNICAL_REVIEW_2026-03-30.md`

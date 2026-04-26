@@ -1,3 +1,13 @@
+---
+title: Plot Interpretation Guide
+scope: Criterios pass/fail e fonte de validacao para os 8 graficos canonicos da analise (heatmap por horizonte, boxplot por fold/seed, DM matrix, calibration curve, MPIW vs PICP, OOS timeseries, importancia global, contribuicoes locais).
+update_when:
+  - novo grafico canonico for adicionado a analise
+  - criterio de aceite de grafico existente mudar
+  - tabela gold de validacao for renomeada
+canonical_for: [plot_interpretation, plot_acceptance_criteria, canonical_plots]
+---
+
 # Plot Interpretation Guide
 
 Objetivo: padronizar leitura, criterio de aceite e fonte de validacao para cada

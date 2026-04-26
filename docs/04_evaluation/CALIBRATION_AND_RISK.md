@@ -1,3 +1,14 @@
+---
+title: Calibration and Risk
+scope: Metodologia de calibracao probabilistica (calibracao marginal por quantil, PICP intervalar, MPIW), bandas de aceitacao para gate de elegibilidade e metricas de risco (VaR, ES). Distincao explicita entre cobertura intervalar (PICP do p10-p90) e calibracao marginal por quantil individual.
+update_when:
+  - bandas de tolerancia de calibracao marginal mudarem
+  - thresholds de coverage_error/MPIW serem revisados
+  - nova metrica de risco for adicionada (VaR, ES, downside)
+  - politica de gate de elegibilidade por calibracao mudar
+canonical_for: [calibration, risk_metrics, marginal_quantile_calibration, interval_picp, var_es]
+---
+
 # Calibration and Risk
 
 Objetivo: definir metodologia de calibracao e criterios de aceite para risco

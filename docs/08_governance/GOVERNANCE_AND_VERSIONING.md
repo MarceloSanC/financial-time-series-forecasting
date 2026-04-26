@@ -1,3 +1,14 @@
+---
+title: Governance and Versioning
+scope: Documento canonico de governanca de processo. Define fluxo branch/commit/PR, formato de mensagem de commit, politica de versionamento (`pipeline_version`, `schema_version`, `model_version`, `sweep_id`) e politica de reprodutibilidade.
+update_when:
+  - fluxo de branch/commit/PR mudar
+  - formato de mensagem de commit ou template de PR mudar
+  - politica de versionamento (qualquer dos IDs) mudar
+  - politica de reprodutibilidade for revisada
+canonical_for: [governance, versioning_policy, reproducibility_policy, branch_commit_pr_flow, pipeline_version, schema_version, model_version, sweep_id]
+---
+
 # Governance and Versioning
 
 This is the canonical governance document for branch workflow, commits, pull

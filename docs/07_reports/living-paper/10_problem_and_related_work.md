@@ -1,3 +1,13 @@
+---
+title: Living Paper - Problem and Related Work
+scope: Base textual para o Capitulo 3 do TCC (Fundamentacao Teorica) e Related Work do artigo. Cobre previsao de series financeiras, modelagem com deep learning, TFT, predicao quantilica, avaliacao OOS e reprodutibilidade.
+update_when:
+  - revisao de literatura for expandida
+  - novas referencias bibliograficas centrais forem incorporadas
+  - delimitacao do escopo da revisao mudar
+canonical_for: [living_paper_related_work, tcc_chapter_3_source, literature_review_source]
+---
+
 # 10 - Problem and Related Work
 
 ## Objetivo deste arquivo

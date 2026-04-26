@@ -1,3 +1,13 @@
+---
+title: Run Inference
+scope: Guia operacional da inferencia TFT (etapa 10 da pipeline) com modelo treinado aplicado a dados novos. Para parametros CLI completos, ver 03_modeling/INFERENCE_PIPELINE.md.
+update_when:
+  - fluxo operacional de inferencia mudar
+  - novo cenario de inferencia (rolling, batch) for adicionado
+  - politica de overwrite/idempotencia mudar
+canonical_for: [run_inference, inference_runbook, rolling_inference]
+---
+
 # Executando Inferencia TFT
 
 Este guia cobre a etapa 10 da pipeline: inferencia com modelo TFT treinado em dados novos.

@@ -1,3 +1,14 @@
+---
+title: Quality Gates
+scope: Catalogo de checks aplicados durante o refresh do analytics store (integridade temporal, cobertura, contratos quantilicos, scope governance). Define quando o pipeline deve falhar (`--fail-on-quality`) e quando deve apenas avisar.
+update_when:
+  - novo check de qualidade for adicionado
+  - threshold de check existente mudar
+  - politica de fail vs warn mudar
+  - novo modo de escopo for introduzido
+canonical_for: [quality_gates, validation_checks, fail_on_quality, scope_aware_quality]
+---
+
 # Quality Gates
 
 ## Purpose
