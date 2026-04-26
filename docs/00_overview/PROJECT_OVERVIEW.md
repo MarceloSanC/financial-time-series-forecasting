@@ -101,7 +101,6 @@ docs/
   02_data/              <- fontes, contratos, feature sets, quality gates
   03_modeling/          <- parametros de treino, inferencia, multi-horizonte
   04_evaluation/        <- metricas, baselines, testes, calibracao, explicabilidade
-  04_specs/             <- contratos de payload (inferencia explicavel)
   05_checklists/        <- gates de implementacao e validacao
   06_runbooks/          <- comandos operacionais, exemplos, troubleshooting
   07_reports/           <- living-paper (TCC/artigo), reviews externos, plots
