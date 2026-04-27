@@ -220,6 +220,8 @@ Cada fase tem escopo, criterio de aceite e artefato versionado.
 
 **Artefato de gate:** `docs/07_reports/phase-gates/A_code_audit.md`
 Preencher veredictos por modulo antes de abrir qualquer treino confirmatorio.
+O artefato detalha o gate operacional em modulos M1-M7, incluindo auditoria do
+estado do Analytics Store e capacidade operacional da Fase B.
 
 **A.0 Gate de degeneracao de quantis** (1 dia, obrigatorio antes de qualquer treino confirmatorio)
 - Verificar nos primeiros runs de validacao do candidato all-features:

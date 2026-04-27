@@ -189,7 +189,7 @@ como rastro empirico, phase-gates como auditorias datadas.
 
 #### `07_reports/phase-gates/` — auditorias datadas de ciclo de vida
 - [`07_reports/phase-gates/A_code_audit.md`](07_reports/phase-gates/A_code_audit.md) : auditoria pre-Fase B com
-  veredictos por modulo (M1-M5).
+  veredictos por modulo (M1-M7).
 
 ### `08_governance/` — Processo, Versao e Pre-registro
 Controle de processo: branch/commit/PR, versionamento, reprodutibilidade,
