@@ -304,12 +304,12 @@ de forma reproduzivel, a Fase B nao deve comecar.
 
 | # | Questao | Fonte/consulta | Veredicto |
 |---|---|---|---|
-| Q1 | O pipeline consegue executar 1 candidato explicito `all-features` com N seeds x K folds sem depender de selecao por feature set? | `main_train_tft`, sweeps | |
-| Q2 | Baselines podem ser persistidos em `fact_oos_predictions` no mesmo grao do TFT, com `run_id`, `parent_sweep_id`, `split`, `horizon`, `target_timestamp` e quantis quando aplicavel? | schema/repositorios | |
-| Q3 | A poda minima all-features esta implementada ou pode ser congelada por lista pre-registrada sem usar OOS? | feature registry/pre-registro | |
-| Q4 | `h=1` e `h=7` funcionam end-to-end com quantis nao degenerados apos o fix `f7901a4`? | smoke test multi-horizonte | |
-| Q5 | Um smoke test reduzido consegue treinar, inferir, persistir e atualizar gold sem violar gates criticos? | execucao curta | |
-| Q6 | O smoke test multi-horizonte produz quantis nao degenerados em volume suficiente para validar o caminho H>1? Reportar `n_rows`, `% p10==p90`, `% p10==p50==p90` e exemplos por horizonte. Se `n_rows >= 1000`, aplicar `% p10==p90 < 5%` como gate. Se `n_rows < 1000`, tratar como diagnostico e exigir validacao com volume maior antes da liberacao da Fase B. | smoke test + `quantile_contract_analyzer` | |
+| Q1 | O pipeline consegue executar 1 candidato explicito `all-features` com N seeds x K folds sem depender de selecao por feature set? | `main_train_tft`, sweeps | YELLOW |
+| Q2 | Baselines podem ser persistidos em `fact_oos_predictions` no mesmo grao do TFT, com `run_id`, `parent_sweep_id`, `split`, `horizon`, `target_timestamp` e quantis quando aplicavel? | schema/repositorios | RED |
+| Q3 | A poda minima all-features esta implementada ou pode ser congelada por lista pre-registrada sem usar OOS? | feature registry/pre-registro | YELLOW |
+| Q4 | `h=1` e `h=7` funcionam end-to-end com quantis nao degenerados apos o fix `f7901a4`? | smoke test multi-horizonte | YELLOW |
+| Q5 | Um smoke test reduzido consegue treinar, inferir, persistir e atualizar gold sem violar gates criticos? | execucao curta | RED |
+| Q6 | O smoke test multi-horizonte produz quantis nao degenerados em volume suficiente para validar o caminho H>1? Reportar `n_rows`, `% p10==p90`, `% p10==p50==p90` e exemplos por horizonte. Se `n_rows >= 1000`, aplicar `% p10==p90 < 5%` como gate. Se `n_rows < 1000`, tratar como diagnostico e exigir validacao com volume maior antes da liberacao da Fase B. | smoke test + `quantile_contract_analyzer` | RED |
 
 **Nota sobre volume do smoke test:** se for necessario aumentar `n_rows`, usar
 janela OOS maior ou multiplos ativos reais que satisfaçam os mesmos criterios de
@@ -323,11 +323,83 @@ publication/collection timestamp de sentimento e corte da sessao usada para
 construir o alvo). Se nao houver rebuild e as features ja estiverem congeladas,
 auditar pelo dataset/feature registry e registrar a decisao.
 
-**Veredicto geral:** ___
+**Veredicto geral:** RED
 
 **Achados:**
 
+- Q1: `main_train_tft` aceita config explicita, `--seed`,
+  `--parent-sweep-id`, `--max-prediction-length` e
+  `--evaluation-horizons`. `main_tft_param_sweep` suporta `replica_seeds` e
+  `walk_forward.folds`, e propaga `parent_sweep_id` como `sweep_name`.
+  Portanto, e operacionalmente possivel rodar um candidato unico com N seeds x
+  K folds usando uma configuracao fixa e uma string de features all-features.
+  O veredicto e YELLOW porque o caminho confirmatorio preferencial ainda precisa
+  ser escolhido e validado: explicit-config deve ser avaliado primeiro; OFAT
+  com `max_runs=1` deve ser tratado como fallback.
+- Q1: `main_train_tft` sozinho executa uma rodada unica; a orquestracao N seeds
+  x K folds fica em `main_tft_param_sweep`/`RunTFTModelAnalysisUseCase`.
+- Q2: existe contrato documental em `docs/04_evaluation/BASELINES.md`, mas nao
+  foi encontrada implementacao de baselines estatisticos (`zero_return`,
+  random walk, media historica, AR(1), EWMA-vol ou quantis historicos) que
+  persista previsoes no mesmo grao de `fact_oos_predictions`. As referencias a
+  "baseline" no sweep se referem a configuracao default do TFT/OFAT, nao a
+  baseline estatistico comparavel.
+- Q3: a lista all-features pode ser derivada por criterios pre-definidos e
+  congelada por tokens de grupo
+  (`BASELINE_FEATURES`, `TECHNICAL_FEATURES`, `SENTIMENT_FEATURES`,
+  `FUNDAMENTAL_FEATURES`, `MOMENTUM_LIQUIDITY_FEATURES`,
+  `VOLATILITY_ROBUST_FEATURES`, `REGIME_FEATURES`,
+  `SENTIMENT_DYNAMICS_FEATURES`, `FUNDAMENTAL_DERIVED_FEATURES`). O dataset
+  atual de AAPL possui todas as 55 features desses grupos. Porem, nao foi
+  encontrado calculo operacional da poda por criterios de
+  `STRATEGIC_DIRECTION.md` §4.2 (disponibilidade temporal, missing > 30%,
+  correlacao > 0,95 e redundancia derivada). Para AAPL, isso pode ser feito
+  uma vez antes do pre-registro; para multiplos ativos, o ideal e transformar
+  essa verificacao em quality gate deterministico do dataset.
+- Q4: testes unitarios confirmam propagacao de `evaluation_horizons=[1,7,30]`
+  no CLI e alinhamento de persistencia para `h=7`/`h=30` em
+  `_persist_fact_oos_predictions`. Isso valida o contrato de persistencia em
+  unidade, mas nao substitui smoke test end-to-end com treino real e
+  `max_prediction_length >= 7`.
+- Q5/Q6: smoke test reduzido nao foi executado nesta primeira passagem do M7.
+  O veredicto RED aqui significa bloqueio por dependencia sequencial, nao falha
+  executada: pela ordem recomendada da Fase A, o smoke test completo deve
+  ocorrer depois de M2/M3 e depois da implementacao dos baselines estatisticos
+  de Q2. Executar smoke confirmatorio sem baseline persistido ainda nao valida
+  a capacidade completa da Fase B.
+- Validacao executada nesta passagem: testes unitarios direcionados de
+  multi-horizonte, guardrail, CLI de horizontes e sweep builder passaram
+  (`6 passed`).
+
 **Acao (se YELLOW/RED):**
+
+- Antes da Fase B, implementar ou adicionar um runner de baselines que persista
+  `zero_return`/random walk, media historica, AR(1), EWMA-vol e/ou quantis
+  historicos no mesmo grao de `fact_oos_predictions`, com `run_id`,
+  `parent_sweep_id`, `split`, `horizon`, `target_timestamp_utc` e quantis
+  quando aplicavel.
+- Avaliar a pipeline explicit-config como caminho preferencial para Round 1:
+  uma configuracao fixa all-features, N seeds, K folds e `parent_sweep_id`
+  unico. Usar OFAT com `max_runs=1` apenas como fallback se explicit-config nao
+  suportar o caso confirmatorio.
+- Validar por unit test ou execucao controlada que `main_tft_param_sweep
+  --max-runs 1` com N seeds x K folds gera N x K runs esperados, e nao apenas
+  1 run total, caso OFAT seja usado como fallback.
+- Calcular a lista all-features podada para AAPL aplicando os criterios de
+  `STRATEGIC_DIRECTION.md` §4.2 (disponibilidade temporal, missing > 30%,
+  correlacao > 0,95 e redundancia derivada) e congelar a lista no
+  pre-registro. Se a Fase B incluir multiplos ativos, preferir automatizar essa
+  verificacao como quality gate de dataset antes do pre-registro.
+- Apos M2/M3, executar smoke test multi-horizonte real com
+  `max_prediction_length >= 7`, `evaluation_horizons=[1,7]`, escopo
+  descartavel e `parent_sweep_id` proprio. Reportar `n_rows`,
+  `% p10==p90`, `% p10==p50==p90` e exemplos por horizonte antes de liberar a
+  Fase B.
+- Deixar `h=30` fora do smoke inicial por padrao; incluir apenas se o
+  pre-registro decidir que o horizonte suplementar possui `N_effective`
+  defensavel.
+- Tratar inferencia rolling multi-horizonte como dependencia de M4 e refresh do
+  Analytics Store sob escopo Fase B como dependencia de M5.
 
 ---
 
