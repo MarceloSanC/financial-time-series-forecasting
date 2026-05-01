@@ -13,17 +13,19 @@ canonical_for: [project_overview, deliverables_status, docs_structure_summary]
 
 Este e o ponto de entrada da documentacao. Leia este arquivo antes de qualquer outro.
 
-Ultima atualizacao: 2026-04-25.
+Ultima atualizacao: 2026-05-01.
 
 ---
 
 ## Objetivo
 
-Avaliar rigorosamente a calibracao probabilistica de um Temporal Fusion Transformer
-(TFT) aplicado a previsao multi-horizonte de retornos do ativo AAPL, e caracterizar
-a contribuicao relativa de familias de indicadores (preco, tecnico, fundamentalista,
-sentimento) para a previsao — sob protocolo estatistico explicito, com pre-registro
-versionado e artefatos reproduziveis sem retrain.
+Avaliar rigorosamente a calibracao probabilistica de modelos Temporal Fusion
+Transformer (TFT) especificos por ativo, aplicados a previsao multi-horizonte de
+retornos, e caracterizar a contribuicao relativa de familias de indicadores
+(preco, tecnico, fundamentalista, sentimento) para a previsao — sob protocolo
+estatistico explicito, com pre-registro versionado e artefatos reproduziveis sem
+retrain. AAPL e o ativo piloto inicial; a pipeline deve suportar repeticao do
+mesmo protocolo para outros ativos com dados suficientes.
 
 O projeto serve simultaneamente como:
 - Base para um TCC de graduacao/pos-graduacao em ciencia de dados / financas quantitativas.
@@ -38,7 +40,10 @@ Veja `docs/00_overview/STRATEGIC_DIRECTION.md` §4.4 para claims aceitos vs proi
 ## Escopo
 
 **Em escopo:**
-- Previsao supervisionada de retorno diario do ativo AAPL.
+- Previsao supervisionada de retorno diario com modelos single-asset por ativo.
+- Pipeline multi-asset capaz de processar dados e treinar modelos especificos
+  para diferentes ativos.
+- AAPL como ativo piloto inicial para validar pipeline, auditoria e protocolo.
 - Horizontes h+1 e h+7 como principais; h+30 como suplementar se N efetivo suficiente.
 - Previsao quantilica (p10, p50, p90) com guardrail monotonico e auditoria before/after.
 - Comparacao com baseline primario pre-declarado e baselines simples complementares
@@ -47,7 +52,7 @@ Veja `docs/00_overview/STRATEGIC_DIRECTION.md` §4.4 para claims aceitos vs proi
 - Analytics Store reproduzivel com rastreabilidade de experimentos sem retrain.
 
 **Fora de escopo (neste projeto):**
-- Generalizacao para outros ativos ou periodos (single-asset, single-period).
+- Generalizacao para ativos ou periodos nao avaliados sob protocolo pre-registrado.
 - Inferencia causal sobre impacto de indicadores no retorno.
 - Estrategia de trading, otimizacao de portfolio, inferencia intradiaria.
 - Classificacao de regimes de mercado (Wyckoff, HMM) — registrado como future work.
@@ -67,6 +72,7 @@ Veja `docs/00_overview/STRATEGIC_DIRECTION.md` §4.4 para claims aceitos vs proi
 | Auditoria de leakage | Verificacao de `time_varying_known_reals`, scalers, HPO vs OOS | A executar (Fase A) |
 | Analise probabilistica | Calibracao marginal por quantil, PICP intervalar, MPIW, reliability diagram, DM/MCS, Holm-Bonferroni | A executar (Fase B) |
 | Analise de contribuicao | VSN, permutation importance, ablation explicativa por familia | A executar (Fase C) |
+| Plano pos-auditoria | Mapa temporario das etapas apos A_code_audit ate fechamento do escopo experimental | Criado |
 | TCC / Artigo | Documento academico com resultados, limitacoes e conclusoes defensaveis | Em escrita |
 
 ---
@@ -141,7 +147,8 @@ O projeto esta na transicao de Round 0 (exploratoria de hiperparametros) para
 Fase A do roadmap (sanidade pre-experimento principal).
 
 Ver detalhes em: `docs/00_overview/STRATEGIC_DIRECTION.md` §5.
-Checklist do gate de entrada: `docs/07_reports/living-paper/00_outline.md` §10.
+Gate tecnico de entrada da Fase B: `docs/07_reports/phase-gates/A_code_audit.md`.
+Plano temporario pos-auditoria: `docs/08_governance/POST_AUDIT_EXECUTION_PLAN.md`.
 
 Ordem de leitura recomendada:
 1. `docs/00_overview/STRATEGIC_DIRECTION.md` — objetivo, pivo, roadmap

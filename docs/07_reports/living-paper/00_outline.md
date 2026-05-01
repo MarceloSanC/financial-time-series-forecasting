@@ -12,7 +12,7 @@ canonical_for: [living_paper_outline, tcc_thesis, research_question, hypotheses,
 # Living Paper - Outline
 
 Status: draft vivo para alimentar TCC (ABNT) e artigo estilo ML.
-Ultima revisao estrategica: 2026-04-25 (alinhado com `docs/00_overview/STRATEGIC_DIRECTION.md`).
+Ultima revisao estrategica: 2026-05-01 (alinhado com `docs/00_overview/STRATEGIC_DIRECTION.md`).
 Protocolo operacional de escrita: `docs/07_reports/living-paper/WRITING_PROTOCOL.md`.
 
 ## Objetivo do arquivo
@@ -38,8 +38,9 @@ Este trabalho sustenta que e possivel avaliar rigorosamente a qualidade probabil
 de previsoes de retorno de ativo com TFT, caracterizando a contribuicao relativa de
 familias de indicadores (preco, tecnico, fundamentalista, sentimento) por horizonte,
 sob um protocolo experimental reproduzivel e com claims explicitamente delimitados ao
-escopo do estudo (ativo AAPL, periodo analisado, sem generalizacao para outros ativos
-ou afirmacoes causais).
+escopo do estudo (ativos avaliados, periodos analisados, sem generalizacao para
+ativos/periodos nao avaliados ou afirmacoes causais). AAPL e o ativo piloto
+inicial; cada modelo e especifico para um ativo.
 
 O diferencial do trabalho nao e "prever o mercado com alta acuracia", mas:
 - produzir um protocolo experimental reproduzivel e auditavel para forecasting
@@ -61,8 +62,9 @@ Em previsao financeira, modelos podem aparentar bom desempenho sem garantir:
 ## 4) Pergunta de pesquisa
 
 Pergunta principal:
-- Em series temporais de retorno de ativo (AAPL, horizontes h+1 e h+7), um TFT
-  treinado com todas as familias de indicadores disponiveis produz previsoes
+- Em series temporais de retorno de ativos avaliados sob o protocolo (AAPL como
+  piloto inicial, horizontes h+1 e h+7), um TFT especifico por ativo treinado
+  com todas as familias de indicadores disponiveis produz previsoes
   probabilisticas calibradas e estatisticamente superiores a baselines simples?
 
 Pergunta secundaria:
@@ -73,7 +75,10 @@ Pergunta secundaria:
 ## 5) Recorte (delimitacao)
 - Tarefa: previsao supervisionada de series temporais financeiras.
 - Modelo principal: TFT (sem foco central em comparar arquiteturas distintas).
-- Ativo: AAPL (single-asset; resultados condicionais ao periodo e ativo analisados).
+- Escopo de ativos: cada modelo e single-asset; a pipeline e multi-asset. AAPL
+  e o ativo piloto inicial. Outros ativos reais podem entrar na analise final
+  apenas se forem definidos no pre-registro com criterios de disponibilidade,
+  qualidade e comparabilidade.
 - Horizonte principal: h+1 e h+7; h+30 como suplementar se N_effective suficiente.
 - Entradas: familias de indicadores — PRICE, TECHNICAL, SENTIMENT, FUNDAMENTAL.
   Candidato principal: "all-features com poda minima baseada em principio (nao em OOS)".
@@ -83,8 +88,8 @@ Pergunta secundaria:
 - Reprodutibilidade: rastreabilidade por `run_id`, configuracao, split e artefatos
   em Parquet/DuckDB; decisoes reproduziveis sem retrain.
 - Fora de escopo: estrategia de trading em producao, otimizacao de carteira,
-  inferencia intradiaria, generalizacao para outros ativos, inferencia causal,
-  classificacao de regimes de mercado (future work).
+  inferencia intradiaria, generalizacao para ativos/periodos nao avaliados,
+  inferencia causal, classificacao de regimes de mercado (future work).
 
 ## 6) Contribuicoes esperadas
 - Protocolo reproduzivel de avaliacao probabilistica para forecasting financeiro
@@ -128,7 +133,7 @@ hipotese foi refutada tem valor explicativo proprio.
 
 Objetivo geral:
 - Avaliar rigorosamente a calibracao probabilistica de um Temporal Fusion Transformer
-  aplicado a previsao multi-horizonte de retornos de AAPL, e caracterizar a
+  aplicado a previsao multi-horizonte de retornos por ativo, e caracterizar a
   contribuicao relativa de familias de indicadores sob um protocolo estatistico
   explicito, reproduzivel e com pre-registro versionado.
 
@@ -152,10 +157,13 @@ Objetivos especificos:
 Ver `docs/00_overview/STRATEGIC_DIRECTION.md` §5 (Fase A) para o roadmap completo.
 
 Antes de escrever qualquer capitulo de Resultados:
+- [ ] `A_code_audit.md` concluido com M1-M7 GREEN ou YELLOW com acao concluida
 - [ ] Auditoria de leakage concluida (`docs/07_reports/external-reviews/leakage_audit_<date>.md`)
 - [ ] Baselines persistidos na coorte (`fact_oos_predictions` com mesmos grao)
 - [ ] Pre-registro versionado commitado (`docs/08_governance/preregistration_round1_<date>.md`)
 - [ ] Seed de inferencia fixa documentada
+- [ ] Escopo de ativos definido no pre-registro (AAPL piloto; outros ativos apenas
+      se criterios de inclusao forem declarados)
 
 ## 11) Base da Introducao (v2 sincronizada com `text/2_Introducao`)
 - Contextualizacao: forecasting financeiro como problema desafiador sob HME/HMA
@@ -167,7 +175,8 @@ Antes de escrever qualquer capitulo de Resultados:
 - Justificativa: necessidade de protocolo reproduzivel com TFT, avaliacao OOS
   calibrada, analise de contribuicao de features metodologicamente defensavel.
 - Delimitacao: foco em TFT + covariaveis estruturadas + avaliacao pontual/probabilistica;
-  single-asset AAPL; sem claim causal, sem generalizacao de ativo, sem trading.
+  modelos single-asset por ativo; AAPL como piloto inicial; sem claim causal,
+  sem generalizacao para ativos/periodos nao avaliados, sem trading.
 - Estrutura do trabalho: cap. 3 (fundamentacao), cap. 4 (metodo), cap. 5 (resultados),
   cap. 6 (conclusoes).
 

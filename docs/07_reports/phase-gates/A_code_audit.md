@@ -35,6 +35,29 @@ Veredictos:
 - `YELLOW` — problema menor com acao documentada. Fase B pode prosseguir apos acao.
 - `RED` — problema bloqueante. Fase B nao pode comecar.
 
+## Ordem recomendada de execucao
+
+Executar os modulos na ordem abaixo para reduzir risco com menor custo. Esta
+ordem nao altera o gate de saida: todos os modulos M1-M7 continuam obrigatorios
+antes da Fase B.
+
+1. **M6 — Estado real do Analytics Store.**
+   Verifica primeiro se os dados persistidos sao isolaveis e auditaveis por
+   coorte. Se o estado silver/gold estiver inconsistente, os demais achados
+   precisam ser interpretados com esse contexto.
+2. **M7 — Capacidade operacional basica, sem treino caro.**
+   Checar se existem caminhos para candidato unico, baselines, escopo
+   descartavel e multi-horizonte antes de gastar tempo com execucao end-to-end.
+3. **M2 e M3 — quantis e dataset/leakage.**
+   Validar riscos que um smoke test pode nao detectar: fallback multi-horizonte,
+   degeneracao de quantis, split/scaler/features e disponibilidade temporal.
+4. **M7 — smoke test completo.**
+   Rodar o teste end-to-end reduzido apenas depois dos riscos centrais de
+   quantis e dataset terem sido avaliados.
+5. **M1, M4 e M5 — orquestracao, inferencia e refresh.**
+   Fechar os riscos de pipeline completo, consistencia treino/inferencia,
+   reproducibilidade, guardrails, metricas e escopo estatistico.
+
 ---
 
 ## Modulos P0

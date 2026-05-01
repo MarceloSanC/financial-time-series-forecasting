@@ -13,7 +13,7 @@ canonical_for: [strategic_direction, hypotheses, methodological_pivot, roadmap, 
 
 # Strategic Direction
 
-Status: vivo (living). Ultima revisao estrategica: 2026-04-25.
+Status: vivo (living). Ultima revisao estrategica: 2026-05-01.
 
 Este documento registra o direcionamento estrategico atual do projeto apos
 reavaliacao critica do escopo, dos objetivos e do caminho de execucao. Ele
@@ -65,12 +65,13 @@ no texto final.
 
 **Claim unico e defensavel do TCC/artigo:**
 
-> "Sob este protocolo experimental, para AAPL no periodo X, avaliamos em que
-> medida um Temporal Fusion Transformer (TFT) produz previsoes probabilisticas
+> "Sob este protocolo experimental, para cada ativo incluido no estudo (AAPL
+> como ativo piloto inicial), avaliamos em que medida um Temporal Fusion
+> Transformer (TFT) especifico por ativo produz previsoes probabilisticas
 > calibradas de retorno em multiplos horizontes e caracterizamos a contribuicao
-> relativa de familias de indicadores (preco, tecnico, fundamentalista, sentimento)
-> para a previsao. Nao fazemos claims causais nem de generalizacao para outros
-> ativos."
+> relativa de familias de indicadores (preco, tecnico, fundamentalista,
+> sentimento) para a previsao. Nao fazemos claims causais nem de generalizacao
+> para ativos ou periodos nao avaliados sob o protocolo."
 
 **Objetivo geral:**
 - Avaliar rigorosamente a **calibracao probabilistica** de um TFT aplicado a previsao
@@ -80,7 +81,7 @@ no texto final.
 **Objetivos especificos:**
 - Treinar um unico candidato "all-features" com hiperparametros otimizados e
   compara-lo com baselines simples (random walk, media historica, AR(1), EWMA-vol
-  para quantis) em multiplos horizontes.
+  para quantis) em multiplos horizontes, separadamente por ativo.
 - Reportar metricas pontuais e probabilisticas (RMSE, DA, pinball, PICP, MPIW)
   por horizonte, com intersecao temporal exata por `target_timestamp` e controle
   de multiplas comparacoes.
@@ -94,7 +95,7 @@ no texto final.
 - Selecao de modelo por comparacao de conjuntos de features como evidencia primaria.
 - Modelo de classificacao de regimes (acumulacao/distribuicao/reversao). Permanece
   como *future work*; nao entra neste TCC.
-- Generalizacao para multiplos ativos nesta entrega.
+- Generalizacao para ativos ou periodos nao avaliados sob protocolo pre-registrado.
 - Inferencia causal sobre o efeito de indicadores no retorno.
 - Afirmacoes operacionais de trading ou portfolio.
 
@@ -106,11 +107,15 @@ Antes de qualquer claim, fixar referencias empiricas honestas:
 
 - **R-squared OOS tipico para retornos diarios de acoes liquidas: 0,1%-1%** (Gu,
   Kelly & Xiu 2020; Rapach & Zhou 2013). Nao e 10%+.
-- **Directional accuracy > 54-55% em h+1 para AAPL single-asset e alerta vermelho.**
-  Sinaliza mais provavelmente leakage ou overfit do que descoberta real.
-- **AAPL e dos ativos mais eficientes do mundo.** Edge preditivo e marginal por
-  construcao. Isso limita o ceiling de qualquer modelo.
-- **Multi-horizonte em single-asset tem amostra efetiva pequena.** Em h+30 com
+- **Directional accuracy > 54-55% em h+1 para ativo liquido single-asset e
+  alerta vermelho.** Sinaliza mais provavelmente leakage ou overfit do que
+  descoberta real.
+- **Ativos liquidos e amplamente acompanhados tendem a ter edge preditivo
+  marginal.** AAPL e o ativo piloto inicial e esta nessa categoria. Isso limita
+  o ceiling esperado de qualquer modelo.
+- **Modelos sao single-asset por ativo.** A pipeline pode processar multiplos
+  ativos, mas cada modelo, coorte e conclusao deve ser rastreavel por ativo.
+- **Multi-horizonte por ativo tem amostra efetiva pequena.** Em h+30 com
   ~3 anos OOS, as janelas se sobrepoem e o N nao-sobreposto e ~25. DM/MCS sob
   N=25 tem poder baixo. Isso precisa aparecer como limitacao.
 - **TFT nao e dominante em retornos de acoes liquidas.** TFT costuma brilhar em
@@ -196,13 +201,13 @@ e nunca devem ser escritas como causalidade.
 - "Features fundamentalistas causam o retorno."
 - "TFT supera o mercado / funciona para prever mercado."
 - "O modelo tem acuracia de X% em prever retorno da AAPL" (sem baseline e sem IC).
-- "Este resultado vale para outros ativos."
+- "Este resultado vale para ativos ou periodos nao avaliados."
 - "Features selecionadas pelo nosso metodo sao as melhores features para
   previsao de retorno."
 
 **Resultados validos mesmo com hipoteses refutadas:**
 - Se o TFT nao superar o baseline primario, o trabalho ainda pode concluir sobre
-  limites empiricos do TFT em AAPL sob protocolo OOS auditavel.
+  limites empiricos do TFT nos ativos avaliados sob protocolo OOS auditavel.
 - Se o ponto medio nao melhorar RMSE/DA, mas os intervalos forem calibrados, o
   resultado sustenta contribuicao probabilistica, nao superioridade pontual.
 - Se a calibracao falhar, o resultado sustenta diagnostico metodologico sobre
@@ -270,6 +275,12 @@ estado do Analytics Store e capacidade operacional da Fase B.
 - Dropout desligado em OOS (ou, se mantido por design, documentado e justificado).
 - **Criterio de aceite:** reproducao bit-exact de `fact_oos_predictions` a partir
   de checkpoint + seed.
+
+**A.5 Planejamento pos-auditoria**
+- O plano temporario para as etapas apos o `A_code_audit` esta em
+  `docs/08_governance/POST_AUDIT_EXECUTION_PLAN.md`.
+- Esse plano nao substitui o pre-registro da Fase B; ele apenas mapeia a ordem
+  esperada ate o fechamento do escopo experimental.
 
 ### Fase B - Experimento principal confirmatorio (~3 semanas)
 
@@ -339,12 +350,13 @@ lado a lado. Convergencia entre eles vira claim; divergencia vira limitacao decl
 - Atualizar `docs/07_reports/living-paper/00_outline.md` com as hipoteses
   reformuladas (ver Secao 7 abaixo).
 - Atualizar `docs/07_reports/living-paper/40_limitations_and_conclusion.md`
-  com limitacoes **explicitas**: single-asset, single-period, nao-causal,
-  amostra efetiva em h+30 baixa, ativo altamente eficiente.
+  com limitacoes **explicitas**: modelos single-asset por ativo, periodos
+  avaliados, nao-causal, amostra efetiva em h+30 baixa, ativos liquidos com edge
+  esperado baixo.
 - Registrar todas as entradas relevantes em
   `docs/07_reports/living-paper/evidence_log.md`.
-- **Future work:** regime classification, multi-asset, inferencia causal,
-  portfolio, trading.
+- **Future work:** regime classification, analise cross-asset mais ampla,
+  inferencia causal, portfolio, trading.
 
 ---
 
@@ -367,8 +379,9 @@ Registradas aqui para rastreabilidade academica:
 4. **Modelo de classificacao de regimes sai do escopo do TCC.** Mantido como
    future work com referencia a Hamilton (1989) e literatura de regime shifts.
 
-5. **Claim geografico/ativo e restrito a AAPL no periodo analisado.** Nenhum
-   claim de generalizacao sera escrito sem evidencia multi-asset (fora do TCC).
+5. **Cada modelo e especifico por ativo.** AAPL e o ativo piloto inicial; a
+   pipeline e multi-asset, mas nenhum claim sera generalizado para ativos ou
+   periodos nao avaliados sob protocolo pre-registrado.
 
 6. **Pre-registro e bloqueante.** Nenhuma rodada confirmatoria comeca sem o
    arquivo em `docs/08_governance/preregistration_round1_<date>.md` commitado.
@@ -419,6 +432,8 @@ Refutar honestamente e academicamente preferivel a forcar um claim frageis.
   como evidencia exploratoria e reservar claims confirmatorios para Fase B.
 - `docs/07_reports/living-paper/40_limitations_and_conclusion.md` - deve
   consolidar limitacoes antes da escrita final das conclusoes.
+- `docs/08_governance/POST_AUDIT_EXECUTION_PLAN.md` - deve manter, de forma
+  temporaria e revisavel, a sequencia planejada apos a conclusao do A_code_audit.
 - `docs/05_checklists/CHECKLISTS.md` e `docs/INDEX.md` - referencias ao
   checklist removido foram atualizadas para apontar para este arquivo.
 
