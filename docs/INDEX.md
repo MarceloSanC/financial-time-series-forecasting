@@ -189,7 +189,7 @@ como rastro empirico, phase-gates como auditorias datadas.
 
 #### `07_reports/phase-gates/` — auditorias datadas de ciclo de vida
 - [`07_reports/phase-gates/A_code_audit.md`](07_reports/phase-gates/A_code_audit.md) : auditoria pre-Fase B com
-  veredictos por modulo (M1-M5).
+  veredictos por modulo (M1-M7).
 
 ### `08_governance/` — Processo, Versao e Pre-registro
 Controle de processo: branch/commit/PR, versionamento, reprodutibilidade,
@@ -200,6 +200,8 @@ pre-registros cientificos.
   `schema_version`, `model_version`, `sweep_id`) e politica de reprodutibilidade.
 - [`08_governance/EXPERIMENT_TRACKING_POLICY.md`](08_governance/EXPERIMENT_TRACKING_POLICY.md) : politica de IDs e
   rastreabilidade de experimentos (run_id, execution_id, fingerprints).
+- [`08_governance/POST_AUDIT_EXECUTION_PLAN.md`](08_governance/POST_AUDIT_EXECUTION_PLAN.md) : plano temporario
+  das etapas apos o A_code_audit ate o fechamento do escopo experimental.
 - [`08_governance/ROADMAP_AND_TODO.md`](08_governance/ROADMAP_AND_TODO.md) : padrao oficial para uso de TODOs e
   registro de melhorias tecnicas planejadas.
 

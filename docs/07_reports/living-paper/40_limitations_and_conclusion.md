@@ -1,6 +1,6 @@
 ---
 title: Living Paper - Limitations and Conclusion
-scope: Base textual para o Capitulo 6 do TCC (Conclusoes) e Discussion/Limitations/Conclusion do artigo. Consolida limitacoes (single-asset, single-period, nao-causal, N efetivo h+30 baixo), ameacas a validade e trabalhos futuros.
+scope: Base textual para o Capitulo 6 do TCC (Conclusoes) e Discussion/Limitations/Conclusion do artigo. Consolida limitacoes (modelos single-asset por ativo, periodos avaliados, nao-causal, N efetivo h+30 baixo), ameacas a validade e trabalhos futuros.
 update_when:
   - nova limitacao for identificada na Fase B/C
   - sintese de achados for gerada
@@ -34,8 +34,12 @@ Entrada e saida esperadas:
 Estas limitacoes devem aparecer no Capitulo 6, independentemente do resultado
 da Fase B/C:
 
-- Estudo single-asset: resultados restritos a AAPL no periodo analisado.
-- Sem claim de generalizacao para outros ativos, mercados ou periodos.
+- Modelos single-asset por ativo: cada modelo e treinado e avaliado para um
+  ativo especifico.
+- Plataforma multi-asset: a pipeline pode ser repetida para outros ativos, mas
+  resultados so valem para ativos e periodos efetivamente avaliados.
+- Sem claim de generalizacao para ativos, mercados ou periodos nao avaliados
+  sob protocolo pre-registrado.
 - Sem inferencia causal: VSN, permutation importance e ablation indicam
   contribuicao preditiva condicional ao modelo, nao causalidade.
 - Retornos diarios de ativo liquido tem edge esperado baixo; ausencia de
@@ -49,8 +53,8 @@ da Fase B/C:
 
 ## Resultados validos mesmo com hipoteses refutadas
 
-- Se H2a for refutada, o trabalho ainda pode concluir sobre limites do TFT em
-  AAPL sob protocolo OOS auditavel.
+- Se H2a for refutada, o trabalho ainda pode concluir sobre limites do TFT para
+  os ativos avaliados sob protocolo OOS auditavel.
 - Se o modelo nao melhorar RMSE/DA, mas produzir intervalos calibrados, a
   contribuicao e probabilistica, nao pontual.
 - Se a calibracao falhar, a contribuicao vira diagnostico de risco, cobertura e
@@ -60,7 +64,8 @@ da Fase B/C:
 
 ## Trabalhos futuros
 
-- Avaliacao multi-asset para testar generalizacao cross-sectional.
+- Ampliar a avaliacao para mais ativos reais, mantendo modelos especificos por
+  ativo e criterios de inclusao pre-registrados.
 - Classificacao ou deteccao de regimes como estudo separado, com rotulos ou
   metodologia propria.
 - Avaliacao de causalidade/econometria apenas com desenho especifico para esse
