@@ -187,18 +187,110 @@ escopos diferentes, as conclusoes ficam invalidas mesmo com codigo correto.
 
 | # | Questao | Fonte/consulta | Veredicto |
 |---|---|---|---|
-| Q1 | Todo `run_id` em `fact_oos_predictions`, `fact_config`, `fact_split_metrics` e tabelas relacionadas possui entrada correspondente em `dim_run`? | queries silver | |
-| Q2 | Cada `run_id` possui no maximo um `parent_sweep_id` efetivo? Ha runs orfaos ou ambiguos? | `dim_run`, `fact_config` | |
-| Q3 | As tabelas gold usadas para decisao preservam ou recebem filtro inequivoco de coorte antes do calculo? | gold + `refresh_analytics_store_use_case.py` | |
-| Q4 | Runs pre-ScopeSpec e runs `0_2_3` degenerados podem ser excluidos de claims probabilisticos por filtro reproduzivel? | silver/gold + `evidence_log.md` | |
-| Q5 | Existem particoes parciais, duplicatas por chave logica ou arquivos corrompidos em `fact_oos_predictions`? | parquet scan | |
-| Q6 | Ha algum calculo gold ou query de decisao que agregue por `target_timestamp`, `feature_set_name`, `split` ou `horizon` sem preservar/filtrar `parent_sweep_id`, misturando coortes distintas? | gold + refresh use case | |
+| Q1 | Todo `run_id` em `fact_oos_predictions`, `fact_config`, `fact_split_metrics` e tabelas relacionadas possui entrada correspondente em `dim_run`? | queries silver | GREEN |
+| Q2 | Cada `run_id` possui no maximo um `parent_sweep_id` efetivo? Ha runs orfaos ou ambiguos? | `dim_run`, `fact_config` | YELLOW |
+| Q3 | As tabelas gold usadas para decisao preservam ou recebem filtro inequivoco de coorte antes do calculo? | gold + `refresh_analytics_store_use_case.py` | YELLOW |
+| Q4 | Runs pre-ScopeSpec e runs `0_2_3` degenerados podem ser excluidos de claims probabilisticos por filtro reproduzivel? | silver/gold + `evidence_log.md` | YELLOW |
+| Q5 | Existem particoes parciais, duplicatas por chave logica ou arquivos corrompidos em `fact_oos_predictions`? | parquet scan | GREEN |
+| Q6 | Ha algum calculo gold ou query de decisao que agregue por `target_timestamp`, `feature_set_name`, `split` ou `horizon` sem preservar/filtrar `parent_sweep_id`, misturando coortes distintas? | gold + refresh use case | YELLOW |
 
-**Veredicto geral:** ___
+**Veredicto geral:** YELLOW
 
 **Achados:**
 
+- Inventario lido em modo read-only: 9.874 arquivos Parquet em
+  `data/analytics`, incluindo 7.709.077 linhas em `fact_oos_predictions`.
+- Q1: `fact_oos_predictions` (6.901 `run_id`), `fact_config` (6.899),
+  `fact_split_metrics` (6.901), `fact_epoch_metrics` (6.901),
+  `fact_model_artifacts` (6.913), `fact_run_snapshot` (6.901),
+  `fact_split_timestamps_ref` (1.358), `bridge_run_features` (6.899) e
+  `fact_failures` (10) nao possuem `run_id` ausente em `dim_run`.
+- Q2: nao ha `run_id` duplicado em `dim_run` e nao ha `run_id` com multiplos
+  valores efetivos de `parent_sweep_id` entre `dim_run`, `fact_config`,
+  `fact_split_metrics`, `fact_epoch_metrics` e `fact_run_snapshot`. Porem,
+  6.247/6.923 runs em `dim_run` possuem `parent_sweep_id=NULL` e devem ser
+  tratados como historico pre-ScopeSpec/orfao para decisoes por coorte.
+- Q3/Q6: tabelas estatisticas pareadas preservam `parent_sweep_id`
+  (`gold_dm_pairwise_results`, `gold_mcs_results`,
+  `gold_win_rate_pairwise_results`, `gold_paired_oos_intersection_by_horizon`,
+  `gold_quality_statistics_report`, `gold_model_decision_final`). Porem,
+  tabelas gold agregadas usadas em analise descritiva ou ranking nao preservam
+  `parent_sweep_id`, incluindo `gold_prediction_metrics_by_config`,
+  `gold_prediction_calibration`, `gold_prediction_metrics_by_horizon`,
+  `gold_prediction_robustness_by_horizon`,
+  `gold_prediction_generalization_gap`, `gold_ranking_by_config`,
+  `gold_ic95_by_config_metric`, `gold_feature_set_impact` e
+  `gold_feature_impact_by_horizon`.
+- Q3/Q6: no estado atual, nao ha mistura de `parent_sweep_id` quando o grao
+  inclui `asset + feature_set_name + config_signature + split + horizon` ou
+  `asset + feature_set_name + config_signature + horizon`. Ha mistura quando o
+  grao remove `config_signature`: 24 grupos em
+  `asset + feature_set_name + split + horizon` combinam mais de um grupo de
+  `parent_sweep_id`.
+- Q4: os runs pre-ScopeSpec sao filtraveis por `parent_sweep_id=NULL` e
+  concentram a degeneracao raw atual: 7.034.257/7.709.077 linhas
+  (`91,25%`) com `quantile_p10 == quantile_p90`, todas no grupo
+  `parent_sweep_id=NULL`. Os runs `0_2_3` sao filtraveis por prefixo de
+  `parent_sweep_id`; no estado atual nao apresentam `p10==p90` em massa, mas
+  continuam exploratorios e tiveram violacoes quantilicas registradas no
+  `evidence_log.md`.
+- Q5: nao foram encontrados arquivos Parquet ilegíveis em
+  `fact_oos_predictions`; nao ha duplicatas por
+  `run_id + split + horizon + target_timestamp_utc`, nem por
+  `run_id + split + horizon + timestamp_utc + target_timestamp_utc`, nem por
+  `asset + feature_set_name + config_signature + split + fold + seed + horizon
+  + target_timestamp_utc`.
+- Q5: `fact_oos_predictions` possui 421 linhas com ordenacao raw invalida de
+  quantis, mas as colunas pos-guardrail possuem 0 violacoes de ordem e 0 linhas
+  com `quantile_p10_post_guardrail == quantile_p90_post_guardrail`.
+- Follow-up de timestamp: o store atual possui apenas `horizon=1` em
+  `fact_oos_predictions`; nesse caso `timestamp_utc == target_timestamp_utc`
+  em 7.709.077/7.709.077 linhas. A inspecao de
+  `train_tft_model_use_case.py` indica que, no caminho de treino,
+  `timestamp_utc` e o timestamp do primeiro alvo do decoder, nao o timestamp de
+  decisao; `target_timestamp_utc` e calculado como `timestamp_utc + (horizon-1)`
+  dias. Portanto, a igualdade em `h=1` e esperada pela implementacao atual e
+  nao prova leakage sozinha. O contrato ainda precisa ser validado em M7 com
+  `h=7`, pois nao ha `h=7` historico persistido no store atual.
+- Follow-up de degeneracao `0_2_3`: todos os sub-sweeps com prefixo
+  `0_2_3_*` apresentaram `0%` de linhas com `quantile_p10 == quantile_p90` e
+  `0%` de linhas com `quantile_p10 == quantile_p50 == quantile_p90` no estado
+  atual do store. A degeneracao em massa esta concentrada em
+  `parent_sweep_id=NULL`.
+- Follow-up de runs sem OOS: existem 22 runs em `dim_run` sem linhas em
+  `fact_oos_predictions`; 10 possuem registro em `fact_failures` e 12 estao
+  com `status=ok`, todos com `parent_sweep_id=NULL`. Esse achado reforca que
+  historico pre-ScopeSpec deve ser tratado como diagnostico, nao evidencia
+  confirmatoria.
+- Follow-up de cobertura temporal: `fact_split_timestamps_ref` cobre 1.358 de
+  6.923 runs (`19,62%`). Essa cobertura parcial nao bloqueia M6, mas nao deve
+  ser assumida como fonte completa para auditorias historicas.
+- Follow-up de schema Parquet: leitura agregada via PyArrow dataset falha em
+  alguns caminhos por heterogeneidade de schema entre arquivos/particoes
+  (`string` vs `dictionary`, `int64` vs `int32`). Leitura por arquivo fisico
+  com `ParquetFile.read(columns=...)` funciona. Consumidores que dependem de
+  leitura dataset-level devem normalizar schema ou ler por arquivo.
+
 **Acao (se YELLOW/RED):**
+
+- Antes da Fase B, nao usar tabelas gold agregadas sem `parent_sweep_id` para
+  claims confirmatorios. Usar tabelas run-level/cohort-aware ou regenerar gold
+  com `ScopeSpec`/filtro de coorte explicito.
+- Tratar `parent_sweep_id=NULL` como historico global-health/pre-ScopeSpec:
+  pode apoiar diagnostico historico, mas nao claims probabilisticos ou decisao
+  estatistica confirmatoria.
+- Para qualquer analise de Fase B, declarar no pre-registro o filtro de coorte
+  reproduzivel (`parent_sweep_id`/escopo da rodada) e validar que os outputs
+  usados preservam esse escopo ate a tabela final.
+- Avaliar em M5 se as tabelas gold agregadas devem receber `parent_sweep_id`
+  no output ou se devem ser substituidas por artefatos scoped-only para a
+  rodada confirmatoria.
+- Validar em M7, com smoke test multi-horizonte real, que `h=7` produz
+  `target_timestamp_utc` coerente com o alvo previsto e que os quantis nao
+  degeneram. O store historico atual nao e suficiente para fechar esse ponto.
+- Antes da Fase C, auditar explicitamente `fact_inference_predictions`,
+  `fact_inference_runs` e `fact_feature_contrib_local`; M6 nao certifica essas
+  tabelas para analise de explicabilidade local.
 
 ---
 

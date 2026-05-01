@@ -487,3 +487,17 @@ Hipoteses levantadas para explicar a causa raiz:
 - Uso no texto (TCC/Artigo/Ambos):
   - Ambos.
 
+## 2026-05-01 — Phase A / M6: estado real do Analytics Store
+
+**Escopo:** auditoria read-only do Analytics Store antes da Fase B.
+
+**Evidência:**
+- `fact_oos_predictions` possui 7.709.077 linhas e 6.901 `run_id` rastreáveis em `dim_run`.
+- 6.247/6.923 runs em `dim_run` possuem `parent_sweep_id=NULL`.
+- A degeneração raw em massa (`quantile_p10 == quantile_p90`) está concentrada em `parent_sweep_id=NULL`: 7.034.257/7.709.077 linhas.
+- Sub-sweeps `0_2_3_*` apresentam 0% de `quantile_p10 == quantile_p90` no estado atual, mas permanecem exploratórios.
+- Tabelas gold agregadas como `gold_prediction_metrics_by_config`, `gold_prediction_calibration` e `gold_prediction_robustness_by_horizon` não preservam `parent_sweep_id`.
+
+**Interpretação:** o Analytics Store é legível e auditável, mas claims confirmatórios da Fase B exigem filtro de coorte explícito e não devem usar agregados gold globais sem `parent_sweep_id`.
+
+**Ação:** M6 marcado como `YELLOW` em `docs/07_reports/phase-gates/A_code_audit.md`; M5 deve decidir se as gold agregadas recebem `parent_sweep_id` ou se a Fase B usa artefatos scoped-only.
